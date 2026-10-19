@@ -1,0 +1,14 @@
+{
+  "name": "jarbas-cerebro-candidato",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-19",
+  "vars": {
+    "FIREBASE_PROJECT_ID": "jarbas-pessoal-felipe-2026",
+    "ALLOWED_EMAIL": "felipevieiraribeiro19@gmail.com",
+    "ALLOWED_ORIGINS": "https://jarbas-pessoal-felipe-2026--teste-gemini-uehtm001.web.app",
+    "FAST_MODEL": "gemini-3.1-flash-lite",
+    "ADVANCED_MODEL": "",
+    "FREE_MODELS": ""
+  },
+  "ratelimits": [{"name":"RATE_LIMITER","namespace_id":"1001","simple":{"limit":5,"period":60}}]
+}

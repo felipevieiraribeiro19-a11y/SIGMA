@@ -1,0 +1,16 @@
+S.I.G.M.A. — CANDIDATA, NÃO PUBLICADA
+Leia README.md e RELATORIO.md.
+
+1. Na raiz e em backend: npm ci --ignore-scripts e npm test.
+2. Autenticar Firebase CLI, se necessário.
+3. Auditar Worker existente antes de integrar o candidato; não substituí-lo cegamente.
+4. Resolver /capabilities e controles de privacidade no backend de testes.
+5. Somente Hosting preview:
+   npx firebase-tools hosting:channel:deploy sigma-preview --project jarbas-pessoal-felipe-2026 --expires 7d
+6. Autorizar origem exata em Auth e CORS sem remover as existentes.
+7. Testar login, memória, estudos, PDF, conversa e restauração na conta real.
+8. Produção só após testes e aprovação. Não executar deploy genérico.
+
+Workflows preparados, não ativados. Nenhum faturamento ativado.
+FREE_MODELS vazio bloqueia geração no candidato até comprovar cota gratuita.
+Frontend bloqueia IA se o backend não reconhecer controles de privacidade.

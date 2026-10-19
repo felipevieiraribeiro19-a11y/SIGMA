@@ -1,0 +1,9 @@
+{
+  "score": 4,
+  "summary": "As regras originais isolam por UID, mas permitem qualquer esquema e exclusão física pelo titular. A candidata adiciona tipos e limites, porém não foi compilada no emulador nem comparada com regras e dados remotos. Não publicá-la como validada.",
+  "findings": [
+    {"check":"Storage Abuse / Type Safety","severity":"minor","issue":"firestore.rules permite registros arbitrários no namespace do próprio usuário.","recommendation":"Validar schemas, tamanhos e tipos depois de testar compatibilidade legada."},
+    {"check":"Business Logic vs. Rules","severity":"major","issue":"firestore.next.rules exige campos que documentos legados podem não conter e restringe coleções; aplicar sem inventário pode impedir edições/restauração.","recommendation":"Testar no emulador com dois usuários e amostras anonimizadas dos registros antigos antes de migrar."},
+    {"check":"Update Bypass / Authority Source","severity":"minor","issue":"Original não restringe campos atualizáveis; o UID do caminho continua sendo a autoridade, sem papel admin concedido pelo cliente.","recommendation":"Manter owner(uid) em todas as regras; preservar createdAt e validar conteúdo resultante nas atualizações."}
+  ]
+}

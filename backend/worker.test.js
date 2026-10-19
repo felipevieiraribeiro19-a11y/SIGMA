@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {makeHandler,selectModel} from './worker.js';
+const origin='https://jarbas-pessoal-felipe-2026.web.app';
+const env={ALLOWED_ORIGINS:origin,FIREBASE_PROJECT_ID:'jarbas-pessoal-felipe-2026',GEMINI_API_KEY:'test',ALLOWED_EMAIL:'test@example.com',FREE_MODELS:'gemini-test',FAST_MODEL:'gemini-test',RATE_LIMITER:{limit:async()=>({success:true})}};
+const verify=async()=>({sub:'testuid',email:'test@example.com',email_verified:true});
+test('rejeita origem desconhecida',async()=>{const res=await makeHandler({verify})(new Request('https://worker.example/capabilities',{headers:{Origin:'https://evil.example'}}),env);assert.equal(res.status,403);});
+test('exige token Firebase',async()=>{const res=await makeHandler({verify})(new Request('https://worker.example/capabilities',{headers:{Origin:origin}}),env);assert.equal(res.status,401);});
+test('informa controles de privacidade autenticados',async()=>{const res=await makeHandler({verify})(new Request('https://worker.example/capabilities',{headers:{Origin:origin,Authorization:'Bearer fake'}}),env);assert.equal(res.status,200);assert.equal((await res.json()).privacyControls,true);});
+test('modelo não aprovado é recusado',()=>assert.throws(()=>selectModel('oi',['gemini-test'],['gemini-test'],'gemini-test',null,'modelo-pago'),/MODEL_NOT_APPROVED/));
+test('seleciona Gemini aprovado',()=>assert.equal(selectModel('oi',['gemini-test'],['gemini-test'],'gemini-test'),'gemini-test'));

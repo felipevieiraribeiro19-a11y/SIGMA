@@ -1,0 +1,11 @@
+{
+  "name": "sigma-worker-candidate",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "jose": "^6.1.0"
+  },
+  "scripts": {
+    "test": "node --test *.test.js"
+  }
+}

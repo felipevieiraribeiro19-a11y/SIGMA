@@ -1,0 +1,9 @@
+{
+  "name": "S.I.G.M.A. Assistente Pessoal",
+  "short_name": "SIGMA",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#071423",
+  "theme_color": "#071423",
+  "lang": "pt-BR"
+}

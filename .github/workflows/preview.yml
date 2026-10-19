@@ -1,0 +1,10 @@
+name: Preparar preview SIGMA
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo 'Publicação de preview desativada até validação e autorização.'

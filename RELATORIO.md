@@ -1,43 +1,73 @@
-# S.I.G.M.A. — revisão do ZIP em 19/10/2026
+# Jarbas — auditoria e versão candidata de 19/10/2026
 
-## Estado
-Candidata corrigida e testada localmente, **não publicada**. Nenhum dado remoto foi excluído/sobrescrito e nenhum serviço pago foi habilitado. O ZIP recebido foi preservado antes das alterações. Os dados reais do Firestore não foram exportados nesta sessão.
+## Estado da entrega
+Código implementado e testado localmente. **Não publicado**. Site principal e Worker existente não foram alterados. Nenhum dado de produção foi excluído ou sobrescrito. Nenhum faturamento foi ativado.
 
-Foram lidos os 22 arquivos do ZIP: interface, app, utilitários, Worker candidato, testes, regras, configurações, manifests, dependências e instruções. Conferidos os requisitos da conversa atual e os trechos recuperados do outro chat. A transcrição integral do outro chat não foi acessível; requisitos consolidados em docs/REQUISITOS.md.
+## Auditoria confirmada
+- Pasta Windows C:\Users\Felipe Ribeiro\Downloads\jarbas-v1 não está montada neste ambiente Linux.
+- Cópia local anterior disponível e preservada em backup.
+- Código público do canal teste-gemini recuperado: app.js de 5.804 bytes, configuração pública, HTML, CSS e manifesto.
+- Site principal: app.js 5.987 bytes e secureApiBaseUrl vazio (sem IA conectada no frontend principal). Preview: app.js 5.804 bytes; contém o parser antigo de valores. Ambos preservados.
+- Configuração do preview aponta para jarbas-cerebro.felipevieiraribeiro19.workers.dev.
+- Worker: origem não autorizada retorna 403; chamada sem token pela origem do preview retorna 401; token sintético inválido retorna 401. São testes de fronteira, não uma auditoria interna de validação JWT.
+- Firebase CLI não está mais autenticada. Wrangler também não está autenticado. Não foi possível ler regras remotas, inventariar dados, obter código do Worker, listar modelos com sua chave ou publicar.
+- Backup inclui arquivos, não um backup dos seus dados Firestore. A exportação autenticada de dados foi implementada na candidata e aguarda teste real.
 
-## Corrigido ou acrescentado nesta revisão
-- Identidade S.I.G.M.A., Σ e descrição completa na interface; IDs Firebase e endpoint Cloudflare preservados.
-- PDF escaneado sem texto agora é rejeitado; números de páginas não contam como conteúdo. Prévia limitada a 15 páginas/6.000 caracteres informa corte explicitamente; recurso liberado mesmo em falha. Sem OCR.
-- Valores monetários malformados não viram sugestões truncadas. Relatos com receita de Uber e despesa de combustível recebem categorias separadas.
-- Comparação financeira no chat agora inclui mês anterior e explica diferença entre mês completo e mês em andamento.
-- IDs determinísticos independem da ordem das propriedades; salvamento também consulta ID legado para preservar proteção contra duplicatas de versões anteriores. Não deduplica retroativamente IDs aleatórios.
-- Validação adicional de matérias, desempenho, datas de revisão e memórias vazias; resumo ponderado por matéria no relatório de estudos.
-- Histórico acessível, lixeira/restauração e seleção das últimas 12 mensagens carregadas para edição como memória. A seleção não é um resumo semântico por IA.
-- Opt-in separado para contexto pessoal e histórico. Desligados por padrão. Worker candidato respeita ambos; cliente consulta capabilities antes de chamar chat.
-- Resposta e pergunta são salvas juntas em transação Firestore. Checagens de sessão após operações assíncronas evitam salvar resposta na conta que entrou depois. Exportação/importação e leitura de documento cancelam após troca de conta.
-- Edição preserva categorias antigas que não estão na lista predefinida. Ações dos cartões retêm a seção original enquanto aguardam confirmação.
-- Backend possui adaptador de provedor, somente Gemini habilitado; não faz fallback para OpenAI ou Claude. Tratamento de JSON inválido/erros inesperados sem detalhes sensíveis.
-- firebase.json não inclui mais configuração antiga de Authentication; evita sobrescrever domínios autorizados. Header contra enquadramento adicionado.
-- Workflows de CI e preview preparados, mais README, gitignore e instruções atualizadas. Preview exige variável de habilitação e segredo externo. Sem publicação automática em produção.
-- Candidata de regras atualizada para aceitar preferências de privacidade. Auditoria em docs/AUDITORIA-REGRAS.json.
+## Implementado no frontend candidato
+- Dashboard e navegação adaptável a telas menores; chat, memória, finanças, estudos, diário, agenda e configurações.
+- Dados em users/{uid}, preservando transactions e messages existentes.
+- Propostas determinísticas de receita/despesa e estudo com revisão e edição antes de salvar. Relato completo pode ser salvo separadamente no diário.
+- IDs determinísticos e transação Firestore para bloquear duplicata exata de novo registro. Não deduplica retroativamente os IDs aleatórios da V1.
+- Busca nos dados carregados, paginação, indicação explícita de relatórios parciais, filtros por datas e categoria, gráficos de despesas, comparação entre mês atual e anterior, meta de receitas e CSV.
+- Resultado financeiro separado de saldo bancário; lucro só estimado quando todos os custos foram registrados.
+- Acertos/total/erros, minutos, assunto, dificuldade e data de revisão dos estudos.
+- Memórias editáveis, lixeira reversível, categorias de perfil, trabalho, academia, projetos e documentos.
+- Tarefas com data e status e exportação .ics; lembretes visíveis ao abrir. Não há notificação com site fechado.
+- Ditado com SpeechRecognition quando disponível, síntese de fala e botão parar. Requer navegador/dispositivo compatível e permissão; não testado em iPhone/iPad físicos. Não há palavra-chave permanente ou escuta com tela bloqueada.
+- Importação de TXT/Markdown até 6 mil caracteres; sem PDF/imagens/OCR.
+- Exportação JSON de todas as seções conhecidas com paginação; restauração na mesma conta, adicionando somente IDs ausentes, até 2 mil documentos por operação. Exportação não é snapshot transacional entre coleções.
+- Interface de catálogo/modelos compatível com o Worker candidato. O Worker atual não foi confirmado como compatível.
 
-## Validação
-29 testes locais: 19 frontend (lógica, PDF via objeto controlado e fluxo de interface com SDK Firebase simulado) e 10 backend (JWT assinado localmente, origem, conta, cota, memória opcional, UID, resposta inválida). O fluxo de interface testa revisão, gravação, duplicação, estudo, preferências e logout. APIs remotas são simuladas nesses testes.
+## Backend candidato (pasta backend)
+É uma implementação separada para comparação; **não substitui nem representa o código atual do jarbas-cerebro**.
+- JWT via jose com assinatura RS256, emissor, audiência, expiração, data de autenticação e UID.
+- Email verificado restrito ao proprietário configurado. Não verifica revogação de sessão imediatamente; tokens são aceitos até expirar.
+- CORS por lista exata de origens, limite de corpo, prazo de chamadas, erro sem conteúdo pessoal em logs e limite nativo de requisições.
+- Somente leitura: recupera até 30 registros de cada uma de cinco coleções do usuário autenticado, escolhe até seis trechos e não escreve no Firestore. Recuperação lexical limitada, não busca vetorial nem acesso a todo o histórico.
+- Consulta real a models.list quando implantado e configurado. Disponibilidade NÃO é evidência de gratuidade. FREE_MODELS inicia vazio e bloqueia geração até verificar plano/cota administrativamente. Não ativamos um modelo avançado nem presumimos Gemini 3.8 Flash disponível.
+- Seleção simples por complexidade entre modelos aprovados; escolha explícita limitada à mesma lista. Erros de cota não iniciam novas tentativas nem trocam para modelo pago.
+- O rate limiter é por localização de execução, não um contador financeiro/dia global. Ainda falta limite diário durável e aferição de consumo real.
+- Segredo GEMINI_API_KEY não incluído. Não tentamos extraí-lo da Cloudflare.
+- Configuração exemplo tem outro nome para evitar sobrescrever o Worker atual acidentalmente. Não executar deploy antes da comparação e da configuração do segredo.
 
-Não foram testados: login Google real, persistência no Firestore real, resposta Gemini real, PDF real no Safari, voz em iPhone/iPad, regras no emulador, aparência em dispositivos físicos e execução dos workflows no GitHub. Portanto não há aprovação técnica para produção.
+## Testes executados
+- 12 testes frontend: 11 de lógica e 1 fluxo DOM com SDK Firestore isolado, incluindo revisão, gravação, duplicação e logout. Não são testes contra seu Firestore.
+- 7 testes backend: assinatura real de JWT de teste, emissor/audiência/expiração, bloqueio de modelos não aprovados, contas/origens/tokens inválidos, rate limit e ausência de fallback após 429. Google/Gemini e Firestore são substitutos controlados nesses testes.
+- Sintaxe JavaScript verificada.
+- Três testes HTTP reais no Worker público: 403 de origem, 401 sem token, 401 com token inválido.
+- Sem teste visual em navegador da nova interface, sem teste móvel físico, sem teste fim a fim autenticado nem consumo real de Gemini nesta rodada.
+- firestore.next.rules é uma candidata com validação de esquema e exclusão física bloqueada. NÃO compilada nem publicada; precisa emulador, testes de acesso entre dois usuários e teste dos documentos antigos. firebase.json mantém as regras originais, deliberadamente.
 
-## Bloqueios confirmados
-- GitHub felipevieiraribeiro19-a11y/SIGMA ainda retorna 404. Não foi possível conferir se o upload ao repositório está completo ou enviar commits.
-- Firebase CLI retornou “No authorized accounts”. Nenhuma publicação foi tentada.
-- Worker existente não foi obtido. backend/ é candidato separado; não substituí-lo sem auditoria e integração.
-- /capabilities pode não existir no Worker online. Nesse caso, IA fica bloqueada com aviso até ajuste; formulários de registros continuam disponíveis. Não publicar frontend sozinho em produção.
-- FREE_MODELS segue vazio no exemplo: o candidato não gera até verificar administrativamente plano/cota. Disponibilidade de modelo não prova gratuidade.
+## Integrações
+Exportação CSV/JSON/.ics e abertura do chat por Atalhos estão implementadas no código. Calendar, Gmail, Drive e Notion NÃO estão conectados ao app. As conexões do ChatGPT não concedem tokens automaticamente ao Jarbas. Futuros adaptadores devem usar OAuth próprio, menor escopo e confirmação antes de ações externas. Nenhum envio de mensagem, alteração de calendário ou arquivo remoto foi implementado ou simulado.
 
-## Pendências do projeto completo
-Acesso GitHub/Firebase/Cloudflare; backup autenticado dos dados; comparação do Worker e regras remotos; testes reais fim a fim; catálogo/cota real dos modelos; compatibilidade e teste das regras; limite diário durável de consumo; OCR, anexos multimodais, extração de questões, simulados, resumo semântico, memória contextual mais profunda; OAuth Drive/Gmail/Calendar/Notion; evolução supervisionada de código; testes móveis e publicação.
+## Como testar e publicar após reconectar
+1. Na raiz: npm ci; npm test. Em backend: npm ci; npm test.
+2. Comparar o Worker exportado com backend/worker.js e preservar os recursos existentes. Confirmar plano Free/Spark e limites da chave no painel administrativo.
+3. Autenticar Firebase CLI. Verificar as regras e fazer backup autenticado dos dados antes de alterações remotas.
+4. Ajustar backend do ambiente candidato, origem exata e catálogo de modelos aprovados. Não copiar segredo para o frontend.
+5. Publicar SOMENTE preview: npx -y firebase-tools@latest hosting:channel:deploy jarbas-evolucao --project jarbas-pessoal-felipe-2026 --expires 7d
+6. Autorizar o domínio exato retornado no Firebase Authentication e no CORS do backend, preservando os existentes. Esses ajustes ainda não foram feitos.
+7. Testar login real, gravação/leitura/recarregamento, isolamento entre usuários, lixeira/restauração, exportação/importação, voz em Safari iOS e seleção de modelos/cota.
+8. Mostrar resultado do preview a Felipe. **Produção só após autorização explícita.** Nunca fazer deploy genérico de auth a partir da configuração antiga: isso pode remover domínios adicionados posteriormente.
 
-O rate limiter do candidato é por localização de execução, não um teto diário global. Contexto busca no máximo 30 documentos por coleção em cinco coleções e escolhe seis trechos, sem garantir busca completa. Histórico e relatórios sinalizam paginação parcial. Tokens revogados não são consultados em tempo real. Exportação JSON não é snapshot transacional entre coleções; restauração aceita até 2.000 documentos por operação.
+## Pendências principais
+Acessos administrativos; backup dos dados reais; auditoria do Worker existente; regras remotas e migração compatível; catálogo real e cota Gemini; resumo persistente de conversas; limite diário durável; anexos multimodais; notificações push; OAuth dos serviços externos; teste visual/mobile e publicação.
 
-Site existente, sem esta atualização: https://jarbas-pessoal-felipe-2026.web.app
-
-Referências para workflows: https://firebase.google.com/docs/hosting/github-integration e https://github.com/FirebaseExtended/action-hosting-deploy
+## Referências técnicas consultadas
+https://firebase.google.com/docs/auth/admin/verify-id-tokens
+https://ai.google.dev/api/models
+https://ai.google.dev/gemini-api/docs/pricing
+https://ai.google.dev/gemini-api/docs/rate-limits
+https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition

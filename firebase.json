@@ -17,10 +17,6 @@
           {
             "key": "Referrer-Policy",
             "value": "strict-origin-when-cross-origin"
-          },
-          {
-            "key": "X-Frame-Options",
-            "value": "DENY"
           }
         ]
       },
@@ -40,5 +36,17 @@
     "location": "southamerica-east1",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
+  },
+  "auth": {
+    "authorizedDomains": [
+      "jarbas-pessoal-felipe-2026.web.app",
+      "jarbas-pessoal-felipe-2026.firebaseapp.com"
+    ],
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Jarbas Pessoal",
+        "supportEmail": "felipevieiraribeiro19@gmail.com"
+      }
+    }
   }
 }

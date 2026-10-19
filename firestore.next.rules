@@ -28,7 +28,7 @@ service cloud.firestore {
    allow delete: if false;
   }
   match /users/{uid}/settings/profile {
-   function validSettings(d) { return d.keys().hasOnly(['nickname','goal','model','useMemory','useHistory','updatedAt']) && str(d.nickname,80) && d.goal is number && d.goal >= 0 && d.goal <= 100000000 && (!('model' in d) || str(d.model,120)) && (!('useMemory' in d) || d.useMemory is bool) && (!('useHistory' in d) || d.useHistory is bool) && d.updatedAt is timestamp; }
+   function validSettings(d) { return d.keys().hasOnly(['nickname','goal','model','updatedAt']) && str(d.nickname,80) && d.goal is number && d.goal >= 0 && d.goal <= 100000000 && (!('model' in d) || str(d.model,120)) && d.updatedAt is timestamp; }
    allow create, update: if owner(uid) && validSettings(request.resource.data);
   }
   match /{document=**} { allow read, write: if false; }

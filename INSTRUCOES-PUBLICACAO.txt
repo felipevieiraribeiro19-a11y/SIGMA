@@ -1,16 +1,12 @@
-S.I.G.M.A. — CANDIDATA, NÃO PUBLICADA
-Leia README.md e RELATORIO.md.
+JARBAS - VERSAO DE TESTES COM PDF
 
-1. Na raiz e em backend: npm ci --ignore-scripts e npm test.
-2. Autenticar Firebase CLI, se necessário.
-3. Auditar Worker existente antes de integrar o candidato; não substituí-lo cegamente.
-4. Resolver /capabilities e controles de privacidade no backend de testes.
-5. Somente Hosting preview:
-   npx firebase-tools hosting:channel:deploy sigma-preview --project jarbas-pessoal-felipe-2026 --expires 7d
-6. Autorizar origem exata em Auth e CORS sem remover as existentes.
-7. Testar login, memória, estudos, PDF, conversa e restauração na conta real.
-8. Produção só após testes e aprovação. Não executar deploy genérico.
+1. No computador, descompacte o ZIP em uma pasta.
+2. Abra o terminal nessa pasta (a que contem firebase.json).
+3. Execute: npm ci
+4. Execute: npm test
+5. Execute: npx firebase-tools login (somente se necessario).
+6. Execute: npx firebase-tools hosting:channel:deploy jarbas-pdf --project jarbas-pessoal-felipe-2026 --expires 7d
+7. Abra a URL de testes retornada. Se o login Google falhar, autorize o dominio de preview em Firebase Authentication > Settings > Authorized domains.
+8. Teste: login, memoria, estudos, importacao de PDF, salvar e recarregar.
 
-Workflows preparados, não ativados. Nenhum faturamento ativado.
-FREE_MODELS vazio bloqueia geração no candidato até comprovar cota gratuita.
-Frontend bloqueia IA se o backend não reconhecer controles de privacidade.
+IMPORTANTE: NAO execute firebase deploy sem hosting:channel:deploy. Nao substitua o Worker Cloudflare. O PDF original nao e salvo: somente texto extraido (ate 6000 caracteres). Nao ha OCR, extracao de questoes ou simulados nesta versao. O chat com IA pode depender de ajustes posteriores no backend.

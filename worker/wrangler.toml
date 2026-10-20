@@ -1,4 +1,4 @@
-name = "sigma-cerebro-test"
+name = "sigma-cerebro"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 # Set actual project values before deployment. Missing values fail closed.
@@ -6,7 +6,7 @@ compatibility_date = "2026-10-01"
 FIREBASE_PROJECT_ID = "sigma-61328"
 ALLOWED_UID = ""
 ALLOWED_ORIGINS = "https://sigma-61328--integracao-xxmgteco.web.app"
-GEMINI_MODEL = ""
+GEMINI_MODEL = "gemini-2.5-flash-lite"
 [[durable_objects.bindings]]
 name = "QUOTA"
 class_name = "Quota"
@@ -14,4 +14,4 @@ class_name = "Quota"
 tag = "v1"
 new_sqlite_classes = ["Quota"]
 # GEMINI_API_KEY must be set through `wrangler secret put`, never here.
-# Copy this configuration into a separate production environment only after tests.
+# Deploy to existing SIGMA worker after secret and UID are configured.

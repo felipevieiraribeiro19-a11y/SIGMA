@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: sigma-firebase-preview
@@ -12,14 +13,9 @@ concurrency:
 
 jobs:
   test-and-preview:
+    if: github.ref == 'refs/heads/sigma-work-integracao'
     runs-on: ubuntu-latest
     steps:
-      - name: Verificar branch de testes
-        run: |
-          if [ "$GITHUB_REF_NAME" != "sigma-work-integracao" ]; then
-            echo "::error::Selecione a branch sigma-work-integracao para não publicar código antigo."
-            exit 1
-          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -32,20 +28,13 @@ jobs:
           npm run build
           npm test
           npm run check:worker
-      - name: Exigir autorização de publicação
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SIGMA }}
-        run: |
-          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "::error::Configure primeiro o segredo FIREBASE_SERVICE_ACCOUNT_SIGMA no GitHub. Não envie a credencial por chat."
-            exit 1
-          fi
-      - name: Publicar preview sem alterar produção
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Autenticar com Google Cloud sem chave privada
+        id: auth
+        uses: google-github-actions/auth@v2
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SIGMA }}
-          projectId: sigma-61328
-          channelId: integracao
-          expires: 7d
-          entryPoint: .
+          workload_identity_provider: projects/428047765465/locations/global/workloadIdentityPools/sigma-github/providers/github
+          service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Publicar somente no canal de testes integracao
+        run: npx --yes firebase-tools@latest hosting:channel:deploy integracao --project sigma-61328 --expires 7d --non-interactive

@@ -2,6 +2,16 @@ name: SIGMA - publicar canal de testes
 
 on:
   workflow_dispatch:
+  push:
+    branches: [sigma-work-integracao]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package*.json'
+      - 'tsconfig.json'
+      - 'firebase.json'
+      - '.github/workflows/sigma-preview.yml'
 
 permissions:
   contents: read

@@ -1,9 +1,1 @@
-{
-  "name": "S.I.G.M.A. Assistente Pessoal",
-  "short_name": "SIGMA",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#071423",
-  "theme_color": "#071423",
-  "lang": "pt-BR"
-}
+{"name":"SIGMA — Central pessoal","short_name":"SIGMA","lang":"pt-BR","start_url":"/","display":"standalone","background_color":"#080e18","theme_color":"#080e18","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}

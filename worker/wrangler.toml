@@ -1,0 +1,17 @@
+name = "sigma-api-test"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+# Set actual project values before deployment. Missing values fail closed.
+[vars]
+FIREBASE_PROJECT_ID = ""
+ALLOWED_UID = ""
+ALLOWED_ORIGINS = ""
+GEMINI_MODEL = ""
+[[durable_objects.bindings]]
+name = "QUOTA"
+class_name = "Quota"
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Quota"]
+# GEMINI_API_KEY must be set through `wrangler secret put`, never here.
+# Copy this configuration into a separate production environment only after tests.

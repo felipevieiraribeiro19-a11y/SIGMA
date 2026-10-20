@@ -1,32 +1,58 @@
-# Σ S.I.G.M.A.
-Sistema Inteligente de Gestão, Monitoramento e Aprimoramento.
+# SIGMA — Fundação 0.1
 
-Versão candidata corrigida a partir de jarbas-pdf-teste(2).zip. **Não publicada.**
+Projeto novo. Nenhum código ou configuração do Jarbas foi reutilizado.
 
-## Testar
-Node 22 ou superior. Na raiz, executar `npm ci --ignore-scripts` e `npm test`. Repetir na pasta `backend`.
+## Estado real
 
-`public/` é o frontend. `backend/` é um Worker candidato, não uma cópia confirmada do Worker online. Consulte `RELATORIO.md` e `docs/REQUISITOS.md`.
+Interface implementada. Integrações Firebase e Worker implementadas em código, mas **não provisionadas nem verificadas com contas reais**. A publicação de avaliação serve apenas o frontend. O backend em `worker/` precisa ser implantado separadamente na conta Cloudflare. Nenhuma resposta é simulada no aplicativo.
 
-## Dados e privacidade
-Firestore permanece em `jarbas-pessoal-felipe-2026`, caminhos `users/{uid}`, mesmas coleções existentes. A prévia Hosting usa o mesmo banco; identifique os registros de teste. Exportação JSON e restauração de IDs ausentes continuam disponíveis. A lixeira é reversível.
+O repositório vinculado à avaliação é próprio do serviço de hospedagem. Um novo repositório GitHub privado ainda precisa ser criado; não confundir os dois.
 
-Memória e histórico para IA iniciam desativados. O frontend verifica `/capabilities` antes de enviar a conversa. Se o Worker atual não suportar os controles, o chat IA fica bloqueado com aviso até atualização compatível; os formulários continuam disponíveis. Resolver no ambiente de testes antes de publicar produção.
+## Desenvolvimento
 
-A configuração pública Firebase identifica o aplicativo. Não é uma credencial administrativa. GEMINI_API_KEY e futuras chaves devem permanecer nos segredos do Worker. Não comitar tokens, contas de serviço ou .dev.vars.
+Node 22+; executar `npm ci`, `npm run dev`, `npm run build`, `npm test` e `npm run check:worker`.
 
-## Atualizações pelo GitHub
-1. Enviar os arquivos extraídos, incluindo `.github/`, `.gitignore` e `.firebaserc`, ao repositório privado SIGMA. Não enviar node_modules.
-2. CI testa frontend e backend em push/PR. Os workflows ainda não foram executados no GitHub.
-3. Verificar cota gratuita do GitHub Actions; não habilitar cobrança adicional.
-4. Configurar o segredo `FIREBASE_SERVICE_ACCOUNT` com conta de serviço limitada ao deploy Hosting, conforme documentação oficial. Nunca salvar a chave no código.
-5. Após conferir planos e compatibilidade do Worker, definir variável `ENABLE_FIREBASE_PREVIEW=true`. Push na main gera somente o canal sigma-preview, válido por 7 dias, após testes.
-6. Autorizar o domínio exato da prévia no Firebase Auth e CORS, preservando os existentes.
-7. Testar login Google, gravação/recarregamento, contexto da IA, exportação e restauração.
-8. Produção somente após testes e aprovação de Felipe. Não há gatilho automático para produção.
+- `src/`: React/TypeScript, login Google, Firestore e cliente do chat.
+- `public/config.json`: somente configuração pública Firebase e URL do Worker.
+- `worker/src/`: endpoint `/api/chat`, autenticação criptográfica, Gemini e quota transacional.
+- `worker/wrangler.toml`: configuração de TESTES; valores vazios falham de forma fechada.
+- `firestore.rules`: regras protótipo, acesso por UID + custom claim administrativa.
+- `tests/`: testes automatizados, incluindo falhas e recusas.
+- `docs/STATUS.md`: resultados e pendências.
 
-Auth antigo foi removido de firebase.json para evitar sobrescrever domínios. firestore.rules mantém a versão original; firestore.next.rules é candidata e exige emulador, comparação remota e testes legados antes de deploy. Não executar deploy genérico.
+## Ativação, a conduzir uma ação por vez
 
-Referências: https://firebase.google.com/docs/hosting/github-integration e https://github.com/FirebaseExtended/action-hosting-deploy
+1. Criar projeto Firebase NOVO para testes, plano Spark, Firestore STANDARD. Escolher região antes de criar o banco. Não vincular faturamento.
+2. Cadastrar app web, habilitar Google Authentication e autorizar exatamente o domínio da avaliação. Configuração pública vai em `public/config.json`; jamais colocar chave Gemini ali.
+3. Fazer primeiro login e obter UID. Por ambiente administrativo confiável, atribuir custom claim `sigmaAccess: true` exclusivamente ao proprietário. Fazer logout/login para renovar token. Regras não permitem ao cliente conceder essa claim.
+4. Validar regras nos emuladores e implantar regras apenas no projeto de testes. Confirmar leitura/gravação de `users/{uid}/settings/app`, acesso negado a outro usuário e ausência de acesso sem login.
+5. Na Cloudflare Free, configurar `FIREBASE_PROJECT_ID`, `ALLOWED_UID`, `ALLOWED_ORIGINS` (origens exatas separadas por vírgula) e `GEMINI_MODEL` após verificar modelo/cota reais. Criar o segredo `GEMINI_API_KEY` via mecanismo de secrets do Wrangler/console. Nunca enviar segredo por chat, arquivos públicos ou Git.
+6. Implantar Worker e Durable Object SQLite de quota com configuração de testes. A cota de app é de 5 chamadas/minuto e 60/dia por usuário, reset diário UTC. Cada tentativa autorizada consome cota, mesmo em falha do provedor. Custos de plataforma dependem do plano; não habilitar upgrades automaticamente. A quota NÃO substitui a cota real Gemini.
+7. Colocar URL HTTPS do Worker em `public/config.json`, rebuild e republicar avaliação. Fazer conversa real de múltiplos turnos, validar erro de API, usuário estranho e token vencido.
+8. Somente depois: criar ambientes de produção separados, preencher configurações próprias e implantar Firebase Hosting clássico. `npx -y firebase-tools@latest deploy --only hosting,firestore:rules --project ID_EXPLICITO` após testes e seleção explícita do destino.
 
-Site existente: https://jarbas-pessoal-felipe-2026.web.app — ainda não contém esta candidata.
+## Privacidade
+
+A Fase 1 mantém mensagens somente na RAM da página. Não usa localStorage para conversas nem Firestore para histórico. Logout/reload encerra a conversa. A exportação JSON é local e pode conter texto pessoal; guarde com cuidado. O login usa persistência de sessão Firebase. O service worker guarda apenas o ícone. Não há funcionamento de IA offline nem notificações.
+
+Configuração Firebase web é pública por natureza; a proteção é feita por regras e autenticação. A chave Gemini é secreta e existe exclusivamente no backend. O Worker não envia e-mail, nome ou UID ao Gemini; envia texto e contexto autorizado da sessão. Nenhum conteúdo de conversa é logado. O backend registra apenas código HTTP e identificador da requisição.
+
+Gemini gratuito: não enviar conteúdo pessoal, confidencial ou sensível. Termos: https://ai.google.dev/gemini-api/terms . Resolver privacidade antes de implementar memória pessoal persistente. O servidor verifica assinatura, emissor, audiência e expiração do ID token, conta permitida, provedor Google e e-mail verificado. Revogação instantânea de sessões Firebase não foi implementada: remover `ALLOWED_UID` bloqueia acesso à IA; remover claim exige renovação/expiração do token para refletir nas regras.
+
+## Testes e retorno de versão
+
+Testes de integração usam provedor substituto apenas dentro do runner, nunca na aplicação. Não constituem teste real Gemini. Um release só deve ser marcado funcional após teste real documentado. No GitHub: PR com build, tipos e testes; tags de releases. Não fazer deploy automático em push. Para rollback: voltar a release anterior, recompilar e publicar; mudanças futuras de esquema exigem plano próprio, não basta reverter frontend.
+
+## PWA
+
+Manifesto, ícone e service worker mínimos. Instalação e login em modo standalone precisam ser validados num iPhone real; não afirmar equivalência a app nativo. Sem cache de chat, banco ou endpoints privados.
+
+## Security Rules review notice
+
+I've set up prototype Security Rules to keep the data in Firestore safe. They are designed to be secure for owner-only settings access with an administrative access claim, strict field validation and default denial. However, you should review and verify them before broadly sharing your app. If you'd like, I can help you harden these rules.
+
+## Atualização: estudos por conversa (20/10/2026)
+
+O estado atualizado está em `docs/STATUS.md`, que substitui descrições anteriores sobre memória somente local. A configuração pública permanece vazia; não há conexão ativa presumida. O backend agora exige Firestore Standard com as regras de `firestore.rules`, usuário autorizado via claim `sigmaAccess`, e usa o token Firebase verificado para acessar somente `users/{uid}/turns`. Nunca usa chave administrativa no navegador.
+
+As regras são um protótipo que restringe os registros ao dono autenticado com claim administrativa e valida campos/tamanho/data. Precisam de revisão e verificação antes da ativação ou compartilhamento amplo. A consulta retorna 100 interações recentes; a exportação da interface é parcial. O catálogo Gran e estatísticas estruturadas não estão implementados.

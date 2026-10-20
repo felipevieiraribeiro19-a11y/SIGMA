@@ -1,9 +1,31 @@
+// Prototype. Standard edition. No application data is available before activation.
+// settings/app: timezone (required, fixed string), updatedAt (required server timestamp).
+// Access requires an admin-issued sigmaAccess claim. Client cannot grant it.
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /{document=**} { allow read, write: if false; }
+ match /databases/{database}/documents {
+  function isOwner(uid) { return request.auth != null && request.auth.uid == uid && request.auth.token.sigmaAccess == true; }
+  function isValidSettings(data) {
+   return data.keys().hasAll(['timezone', 'updatedAt']) && data.keys().hasOnly(['timezone', 'updatedAt'])
+     && data.timezone == 'America/Sao_Paulo' && data.updatedAt is timestamp && data.updatedAt == request.time;
   }
+  match /users/{uid}/settings/app {
+   allow read: if isOwner(uid);
+   allow create, update: if isOwner(uid) && isValidSettings(request.resource.data);
+   allow delete: if false;
+  }
+  // turns: exact original report and assistant answer, immutable, server timestamp.
+  function isValidTurn(d) {
+   return d.keys().hasAll(['userText','assistantText','createdAt']) && d.keys().hasOnly(['userText','assistantText','createdAt'])
+    && d.userText is string && d.userText.size() > 0 && d.userText.size() <= 4000
+    && d.assistantText is string && d.assistantText.size() > 0 && d.assistantText.size() <= 16000
+    && d.createdAt is timestamp && d.createdAt == request.time;
+  }
+  match /users/{uid}/turns/{turnId} {
+   allow read: if isOwner(uid);
+   allow create: if isOwner(uid) && isValidTurn(request.resource.data);
+   allow update, delete: if false;
+  }
+  match /{document=**} { allow read, write: if false; }
+ }
 }

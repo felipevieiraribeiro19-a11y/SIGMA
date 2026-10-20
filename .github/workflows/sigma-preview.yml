@@ -1,0 +1,51 @@
+name: SIGMA - publicar canal de testes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sigma-firebase-preview
+  cancel-in-progress: false
+
+jobs:
+  test-and-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar branch de testes
+        run: |
+          if [ "$GITHUB_REF_NAME" != "sigma-work-integracao" ]; then
+            echo "::error::Selecione a branch sigma-work-integracao para não publicar código antigo."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Validar interface e testes
+        run: |
+          npm run build
+          npm test
+          npm run check:worker
+      - name: Exigir autorização de publicação
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SIGMA }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Configure primeiro o segredo FIREBASE_SERVICE_ACCOUNT_SIGMA no GitHub. Não envie a credencial por chat."
+            exit 1
+          fi
+      - name: Publicar preview sem alterar produção
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SIGMA }}
+          projectId: sigma-61328
+          channelId: integracao
+          expires: 7d
+          entryPoint: .

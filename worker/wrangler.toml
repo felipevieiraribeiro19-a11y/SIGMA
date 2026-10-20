@@ -4,7 +4,6 @@ compatibility_date = "2026-10-01"
 # Set actual project values before deployment. Missing values fail closed.
 [vars]
 FIREBASE_PROJECT_ID = "sigma-61328"
-ALLOWED_UID = ""
 ALLOWED_ORIGINS = "https://sigma-61328--integracao-xxmgteco.web.app"
 GEMINI_MODEL = "gemini-2.5-flash-lite"
 [[durable_objects.bindings]]

@@ -1,11 +1,11 @@
-name = "sigma-api-test"
+name = "sigma-cerebro-test"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 # Set actual project values before deployment. Missing values fail closed.
 [vars]
-FIREBASE_PROJECT_ID = ""
+FIREBASE_PROJECT_ID = "sigma-61328"
 ALLOWED_UID = ""
-ALLOWED_ORIGINS = ""
+ALLOWED_ORIGINS = "https://sigma-61328--integracao-xxmgteco.web.app"
 GEMINI_MODEL = ""
 [[durable_objects.bindings]]
 name = "QUOTA"

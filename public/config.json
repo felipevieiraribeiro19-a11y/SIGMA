@@ -1,1 +1,10 @@
-{"firebase":{"apiKey":"","authDomain":"","projectId":"","appId":""},"apiBaseUrl":"","environment":"evaluation"}
+{
+  "firebase": {
+    "apiKey": "",
+    "authDomain": "sigma-61328.firebaseapp.com",
+    "projectId": "sigma-61328",
+    "appId": ""
+  },
+  "apiBaseUrl": "",
+  "environment": "evaluation"
+}

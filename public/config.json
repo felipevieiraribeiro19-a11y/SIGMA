@@ -1,9 +1,9 @@
 {
   "firebase": {
-    "apiKey": "",
+    "apiKey": "AIzaSyATKvVBCZ18LzCGo_n4_JfakKALQiF-DIE",
     "authDomain": "sigma-61328.firebaseapp.com",
     "projectId": "sigma-61328",
-    "appId": ""
+    "appId": "1:428047765465:web:115213b786cf0a151b13c8"
   },
   "apiBaseUrl": "",
   "environment": "evaluation"

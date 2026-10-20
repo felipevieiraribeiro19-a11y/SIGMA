@@ -5,6 +5,6 @@
     "projectId": "sigma-61328",
     "appId": "1:428047765465:web:115213b786cf0a151b13c8"
   },
-  "apiBaseUrl": "",
+  "apiBaseUrl": "https://sigma-cerebro.felipevieiraribeiro19.workers.dev",
   "environment": "evaluation"
 }

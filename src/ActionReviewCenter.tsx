@@ -67,7 +67,7 @@ export function ActionReviewCenter({onPreview,mode='remote'}:{onPreview?:(reques
   </div>
   {error&&<p role="alert" className="action-review-warning">{error}</p>}
   {result&&<div role="status" className="action-review-result">
-   <strong>{result.preview.status==='ready-for-review'?'Detalhes validados pelo backend':result.preview.summary}</strong>
+   <strong>{result.preview.status==='ready-for-review'?(mode==='offline'?'Detalhes validados localmente':'Detalhes validados pelo backend'):result.preview.summary}</strong>
    <p>Persistido: não · Execução autorizada: não · Tarefa executada: não.</p>
    {result.preview.missing.length>0&&<p>Faltam: {result.preview.missing.join(', ')}.</p>}
   </div>}

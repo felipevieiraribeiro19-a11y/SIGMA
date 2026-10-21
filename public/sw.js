@@ -11,7 +11,7 @@ self.addEventListener('install', event => {
       if (response.ok && (response.headers.get('content-type') || '').includes('text/html')) {
         await cache.put('/', response.clone());
         const html = await response.text();
-        const assets = [...html.matchAll(/(?:src|href)="(\\/assets\\/[^"]+)"/g)].map(match => match[1]);
+        const assets = [...html.matchAll(new RegExp('(?:src|href)="(/assets/[^"]+)"', 'g'))].map(match => match[1]);
         await Promise.allSettled([...new Set([...shell.slice(1), ...assets])].map(url => cache.add(url)));
       }
     } catch {

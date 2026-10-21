@@ -21,6 +21,15 @@ test('conversa simples não vira ação ou registra autorização',()=>{
  assert.equal(plan.params,null);
  assert.equal(plan.executionEnabled,false);
 });
+test('pedido misto entre agenda e Drive não vira autorização parcial',()=>{
+ const preview=previewAction({
+  utterance:'Agende um evento no calendário e renomeie arquivo no Google Drive',
+  config,now,params:calendarDetails
+ });
+ assert.equal(preview.status,'unsupported');
+ assert.deepEqual(preview.missing,['separe as ações em pedidos individuais']);
+ assert.equal(preview.executionEnabled,false);
+});
 test('pedido sem detalhes nunca se torna uma ação pronta',async()=>{
  const plan=previewAction({utterance:'Agende uma reunião amanhã no calendário',config,now});
  assert.equal(plan.status,'needs-details');

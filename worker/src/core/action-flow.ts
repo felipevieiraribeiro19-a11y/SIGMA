@@ -113,9 +113,17 @@ export function previewAction(input:{
 export async function stageActionReview(store:ApprovalStore,input:{
  preview:ActionPreview;authenticatedUid:string;proposalId:string;now:number
 }):Promise<ApprovalItem>{
+ const validated=validateParams(input.preview.params,input.now);
+ const expectedTarget=validated?.kind==='calendar.create'?'calendar:'+validated.calendarId:
+  validated?.kind==='drive.rename'?'drive-file:'+validated.fileId:null;
+ const expectedCapability=validated?.kind==='calendar.create'?'integration.calendar.write':
+  validated?.kind==='drive.rename'?'integration.drive.write':null;
  if(input.preview.status!=='ready-for-review'||input.preview.executionEnabled||
-  !input.preview.capabilityId||!input.preview.target||!input.preview.change||
-  !input.preview.params)throw new Error('Proposta incompleta ou não revisada.');
+  !validated||!expectedTarget||!expectedCapability||
+  input.preview.capabilityId!==expectedCapability||
+  input.preview.target!==expectedTarget||
+  input.preview.change!==JSON.stringify(validated))
+  throw new Error('Proposta incompleta, alterada ou não revisada.');
  return issueApproval(store,{
   id:input.proposalId,actorUid:input.authenticatedUid,
   capabilityId:input.preview.capabilityId,target:input.preview.target,

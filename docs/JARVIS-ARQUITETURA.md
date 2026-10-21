@@ -172,6 +172,15 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 - **Nenhuma API externa, memória pessoal ou Worker da conta do usuário foi acessado ou alterado.** O laboratório não é implantado na nuvem.
 - Guia e limitações: `docs/CLOUDFLARE-LAB-LOCAL.md`.
 
+## Décima primeira etapa: estados de execução verificáveis em mock
+
+- Motor `worker/src/core/mock-executor.ts` transforma o recibo de autorização consumida em uma tentativa de **execução exclusivamente fictícia**.
+- Os estados possíveis deixam claro que a tarefa foi confirmada pelo mock, rejeitada pelo mock ou ficou incerta; não há alegação de execução remota real.
+- Se o mock executa a tarefa mas perde a resposta, a reconciliação busca o estado pelo identificador idempotente e não envia de novo automaticamente.
+- Testes incluem concorrência, indisponibilidade, resposta perdida, rejeição definitiva e tentativas de reutilizar um identificador com conteúdo diferente.
+- Nada está conectado ao Worker publicado ou à interface; para produção falta validar provedores reais, consentimento confiável e tratamento de falhas distribuídas.
+- Guia: `docs/EXECUCAO-SIMULADA.md`.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

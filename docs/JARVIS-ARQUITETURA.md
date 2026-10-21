@@ -101,7 +101,8 @@ A fundação agora contém `worker/src/core/memory-engine.ts` com regras determi
 - Correções exigem autorização do proprietário e uma revisão esperada; conflito concorrente bloqueia a operação.
 - Exclusão aprovada elimina o conteúdo da memória e bloqueia restauração por retries antigos mediante marcador opaco. Isso **não apaga** um texto que já esteja em conversas, Drive ou outras fontes — o usuário precisará de controles adicionais para exclusão completa.
 - Busca local simples, sem API paga, considera apenas itens confirmados do proprietário, aponta a origem e impõe limites; não é busca semântica/vetorial.
-- Existe repositório **apenas em memória de testes**. **Nenhum endpoint de memória, tela de aprovação ou banco persistente foi conectado.** O SIGMA publicado não ganha gravações pessoais novas.
+- O motor tem um repositório volátil de testes e um adaptador Firestore **desconectado**, testado com HTTP simulado. A coleção futura será `users/{uid}/personalMemories`, isolada por dono e revisão do servidor. A exclusão substitui o documento por marcador opaco sem texto, bloqueando reaplicação de comandos antigos.
+- As regras Firestore atuais NEGAM essa coleção; **nenhum endpoint de memória, tela de aprovação ou recurso persistente foi conectado ou liberado**. O SIGMA publicado não ganha gravações pessoais novas.
 
 O código é testado com textos artificiais e não usa dados reais do proprietário. **A fase seguinte** será persistência autenticada no Firebase, revisão e testes de Security Rules, controles de aprovação/correção/exclusão na interface e só depois habilitação voluntária.
 

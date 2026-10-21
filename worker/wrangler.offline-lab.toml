@@ -1,0 +1,16 @@
+# ONLY for Wrangler local emulator; NEVER deploy this fixture to Cloudflare.
+# No production name, route, KV, Firebase, Google, Gemini, real secrets or accounts.
+name = "sigma-jarvis-offline-lab"
+main = "src/offline-approval-lab.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+LAB_MARKER = "fictional-test-runner"
+
+[[durable_objects.bindings]]
+name = "APPROVAL_LAB"
+class_name = "OfflineApprovalLab"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["OfflineApprovalLab"]

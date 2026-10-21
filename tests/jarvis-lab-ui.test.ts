@@ -11,6 +11,8 @@ test('laboratório usa somente Auth e exemplos fictícios; sem gravação pessoa
  assert.match(lab,/MemoryCenter/);
  assert.match(lab,/ActionReviewCenter/);
  assert.match(lab,/localFictionalPreview/);
+ assert.match(lab,/location\.protocol==='file:'/);
+ assert.match(lab,/disabled=\{openedAsFile\|\|!authReady\|\|loggingIn\}/);
  assert.match(lab,/executa tarefas reais|execução sempre bloqueada/);
  assert.match(auth,/browserSessionPersistence/);
  assert.match(auth,/signInWithPopup/);

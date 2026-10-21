@@ -17,6 +17,15 @@ async function call(action,{method='POST',body,actor='fictional_owner',headersOv
 async function check(name,fn){
  await fn();checks++;console.log('PASS '+name);
 }
+
+async function issueApprove(id){
+ const issued=await call('issue',{body:{id}});
+ assert.equal(issued.status,200,'issue '+id);
+ const approved=await call('approve',{body:{id,digest:issued.json.digest}});
+ assert.equal(approved.status,200,'approve '+id);
+ assert.equal(approved.json.state,'approved');
+}
+
 if(phase==='before'){
  await check('health of real local workerd isolate',async()=>{
   const r=await call('health',{method:'GET'});
@@ -63,6 +72,44 @@ if(phase==='before'){
   assert.equal(r.json.cancelled,true);
   const attempts=await call('consume',{body:{id:'test_cancel001'}});
   assert.equal(attempts.status,409);
+ });
+ await check('mock provider confirms a fictional action only after reviewed consent',async()=>{
+  await issueApprove('test_mock_ok01');
+  const r=await call('mock-execute',{body:{id:'test_mock_ok01'}});
+  assert.equal(r.status,200);
+  assert.equal(r.json.state,'confirmed-in-mock');
+  assert.equal(r.json.executed,false);
+  const status=await call('mock-status&id=test_mock_ok01',{method:'GET'});
+  assert.equal(status.json.mockProviderCalls,1);
+ });
+ await check('mock provider rejects without inventing a successful result',async()=>{
+  await issueApprove('test_mock_reject01');
+  const r=await call('mock-execute',{body:{id:'test_mock_reject01'}});
+  assert.equal(r.status,200);
+  assert.equal(r.json.state,'rejected-in-mock');
+  assert.equal(r.json.executed,false);
+ });
+ await check('lost mock acknowledgement leaves a durable uncertain result',async()=>{
+  await issueApprove('test_mock_acklost01');
+  const r=await call('mock-execute',{body:{id:'test_mock_acklost01'}});
+  assert.equal(r.status,200);
+  assert.equal(r.json.state,'uncertain-in-mock');
+  assert.equal(r.json.executed,false);
+ });
+ await check('unreachable mock provider is uncertain, not success',async()=>{
+  await issueApprove('test_mock_outage01');
+  const r=await call('mock-execute',{body:{id:'test_mock_outage01'}});
+  assert.equal(r.status,200);
+  assert.equal(r.json.state,'uncertain-in-mock');
+ });
+ await check('unapproved mock operation is denied before touching provider',async()=>{
+  const issued=await call('issue',{body:{id:'test_mock_okunapproved'}});
+  assert.equal(issued.status,200);
+  const denied=await call('mock-execute',{body:{id:'test_mock_okunapproved'}});
+  assert.equal(denied.status,409);
+  const state=await call('mock-status&id=test_mock_okunapproved',{method:'GET'});
+  assert.equal(state.json.state,null);
+  assert.equal(state.json.mockProviderCalls,0);
  });
  console.log('OFFLINE_LAB_PHASE_ONE_OK checks='+checks);
 }else if(phase==='after'){
@@ -115,6 +162,58 @@ if(phase==='before'){
  await check('unapproved proposal cannot be consumed',async()=>{
   const r=await call('consume',{body:{id:'test_restart01'}});
   assert.equal(r.status,409);
+ });
+ await check('mock execution outcomes persist after restarting real workerd',async()=>{
+  for(const [id,status] of [
+   ['test_mock_ok01','confirmed-in-mock'],
+   ['test_mock_reject01','rejected-in-mock'],
+   ['test_mock_acklost01','uncertain-in-mock'],
+   ['test_mock_outage01','uncertain-in-mock']
+  ]){
+   const r=await call('mock-status&id='+id,{method:'GET'});
+   assert.equal(r.status,200);
+   assert.equal(r.json.state,status);
+   assert.equal(r.json.mockProviderCalls,1);
+  }
+ });
+ await check('lost acknowledgement reconciles from persisted mock-provider result without reapplying',async()=>{
+  const r=await call('mock-reconcile',{body:{id:'test_mock_acklost01'}});
+  assert.equal(r.status,200);
+  assert.equal(r.json.state,'confirmed-in-mock');
+  assert.equal(r.json.executed,false);
+  const stat=await call('mock-status&id=test_mock_acklost01',{method:'GET'});
+  assert.equal(stat.json.mockProviderCalls,1);
+ });
+ await check('outage stays uncertain, never blindly repeats operation',async()=>{
+  const r=await call('mock-reconcile',{body:{id:'test_mock_outage01'}});
+  assert.equal(r.status,200);
+  assert.equal(r.json.state,'uncertain-in-mock');
+  const stat=await call('mock-status&id=test_mock_outage01',{method:'GET'});
+  assert.equal(stat.json.mockProviderCalls,1);
+ });
+ await check('repeated mock execution is read-only for already consumed approval',async()=>{
+  const r=await call('mock-execute',{body:{id:'test_mock_ok01'}});
+  assert.equal(r.status,200);
+  assert.equal(r.json.state,'confirmed-in-mock');
+  const stat=await call('mock-status&id=test_mock_ok01',{method:'GET'});
+  assert.equal(stat.json.mockProviderCalls,1);
+ });
+ await check('five concurrent mock executions use exactly one provider attempt',async()=>{
+  const id='test_mock_okconcurrent';
+  await issueApprove(id);
+  const results=await Promise.all(Array.from({length:5},()=>call('mock-execute',{body:{id}})));
+  assert.ok(results.every(x=>x.status===200));
+  const status=await call('mock-status&id='+id,{method:'GET'});
+  assert.equal(status.json.state,'confirmed-in-mock');
+  assert.equal(status.json.mockProviderCalls,1);
+ });
+ await check('different fictional accounts cannot see another execution result',async()=>{
+  const result=await call('mock-status&id=test_mock_ok01',{
+   method:'GET',actor:'fictional_other'
+  });
+  assert.equal(result.status,200);
+  assert.equal(result.json.state,null);
+  assert.equal(result.json.mockProviderCalls,0);
  });
  console.log('OFFLINE_LAB_PHASE_TWO_OK checks='+checks);
 }else{

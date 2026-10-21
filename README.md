@@ -37,6 +37,7 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/core/memory-firestore.ts\`: adaptador de armazenamento futuro no Firebase, testado com requisições simuladas; **não conectado**, com Security Rules atuais bloqueando acesso.
 - \`src/MemoryCenter.tsx\`: demonstração interativa local de aprovação, correção e exclusão; não consulta nem grava dados reais.
 - \`worker/src/core/memory-engine.ts\`: memória controlada por confirmação, revisão, origem, busca e exclusão; ainda só usa armazenamento temporário de testes, sem gravar no Firebase.
+- \`worker/src/core/approval-durable.ts\`: adaptador transacional de propostas em Durable Objects, isolado por conta e testado com armazenamento simulado; **não está ligado ao Worker nem ativa ações**.
 - \`worker/src/core/approval-ledger.ts\`: protocolo de aprovação por ação exata, dono, expiração e uso único; isolado, sem executar tarefas.
 - \`worker/src/core/action-contracts.ts\`: propostas explícitas de ações, bloqueadas até existirem executores auditáveis.
 - \`worker/src/google.ts\`: consultas experimentais de leitura.

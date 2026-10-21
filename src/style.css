@@ -6,3 +6,21 @@ body{background:radial-gradient(ellipse at 50% 36%,#10314b45 0,transparent 49%),
 body{background:radial-gradient(ellipse at 50% 36%,#10253455,transparent 65%),#070c13}.app::before{display:none}.neural-background{position:fixed;inset:0;z-index:-1;pointer-events:none;mask-image:linear-gradient(90deg,#000c, #0005 32%,#0003 50%,#0005 68%,#000c)}.conversation{background:radial-gradient(ellipse at center,#080e1777,transparent 75%)}article.assistant p{text-shadow:0 1px 4px #070c13}.orb{background:radial-gradient(circle,#0c1a28dd 0,transparent 70%)}@media(max-width:600px){.neural-background{opacity:.8;mask-image:linear-gradient(90deg,#000a,#0005 50%,#000a)}}
 /* A single moving arc around the stationary mark, inspired by the reference. */
 .orbit-one{border:1px solid #5abfea25;border-top:2px solid #8bdfff;border-right:2px solid #6bcfff55;border-bottom:1px solid #5abfea25;animation:orbit-spin 12s linear infinite}.orbit-two{animation:none;border-style:solid;border-color:#7ad3ff18}.orbit-three,.orbit-point{display:none}.welcome-label{display:none}@media(prefers-reduced-motion:reduce){.orbit-one{animation:none}}
+
+/* Controles multimodais discretos: anexos, microfone e retorno por voz. */
+.file-picker{display:none}
+form .media-action{flex:none;display:grid;place-items:center;padding:8px 5px;min-width:30px;height:38px;border:0;background:transparent;color:#8cbdd4;box-shadow:none;border-radius:10px}
+form .media-action:active,form .media-action.voice-on{color:#bcf0ff;background:#1a4356}
+form .media-action.recording{color:#ffd3d8;background:#6a2731;animation:record-pulse 1s infinite alternate}
+@keyframes record-pulse{to{box-shadow:0 0 14px #f6878888}}
+form .selected-file,form .record-hint{position:absolute;bottom:calc(100% + 6px);left:0;max-width:min(85vw,540px);padding:5px 10px;border:1px solid #31617a;background:#10283b;color:#a8d9ed;border-radius:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+form .record-hint{color:#ffc5cb;border-color:#8f3f4b;background:#2b1824}
+.listen-answer{display:inline-flex;gap:6px;align-items:center;border:1px solid #37617a;background:#122738;color:#a6d5e9;font-size:12px;padding:5px 9px;border-radius:9px}
+.listen-answer:active{background:#1b4056}
+@media(max-width:600px){
+ .composer-wrap{padding-top:28px}
+ form{gap:2px;padding:9px 8px}
+ form .media-action{padding:6px 3px;min-width:28px;height:36px}
+ form textarea{padding:5px 3px;min-height:42px}
+ form .send{padding:9px}
+}

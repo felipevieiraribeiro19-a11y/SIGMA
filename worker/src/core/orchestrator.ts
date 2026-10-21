@@ -14,7 +14,7 @@ export type AssistantPlan={
 };
 
 // Planejamento conservador e barato. Não executa nem registra operações.
-const calendar=/\b(agenda|calend[aá]rio|compromissos?|reuni[oõ]es?|eventos?|meus hor[aá]rios)\b/i;
+const calendar=/\b(agenda|calend[aá]rio|compromissos?|reuni(?:ão|ões)|eventos?|meus hor[aá]rios)\b/i;
 const drive=/\b(google drive|meu drive|no drive|arquivos? (?:do|no|meus?|que tenho)|documentos? (?:do|no|meus?|que tenho)|pastas? (?:do|no|minhas?)|pdfs? (?:do|no|meus?|que tenho))\b/i;
 const readRequest=/\b(me mostr[ea]|mostr[ea]|liste|listar|list[ea]|procure|procurar|encontre|encontrar|consult[ea]|consulte|verifique|confira|quais|qual|o que|quando|onde|tenho|veja|ver|pesquise|buscar|busque|meus|minhas|hoje|amanh[aã]|pr[oó]xim[oa]s?)\b/i;
 const writeRequest=/\b(crie|criar|agend[ea]|agendar|marque|marcar|adicione|adicionar|inclua|incluir|altere|alterar|mude|mudar|renomeie|renomear|mova|mover|remova|remover|cancele|cancelar|apague|apagar|exclua|excluir)\b/i;

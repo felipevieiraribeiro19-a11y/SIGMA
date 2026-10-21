@@ -42,6 +42,20 @@ O futuro adaptador propõe um tombstone mínimo (`deleted: true` e revisão), se
 9. Somente após aprovação expressa, publicar separadamente com rollback.
 10. Validar no iPhone e em navegador real antes de permitir registros pessoais.
 
+## Sexta etapa — autorizações persistentes, ainda isoladas
+
+Foi acrescentado `worker/src/core/approval-durable.ts`, um adaptador que utiliza armazenamento transacional de Cloudflare Durable Objects. Ele pode aproveitar o Durable Object `QUOTA` que o projeto já tem, sem criar outra conta, provedor ou chave. **Isso ainda é uma classe de infraestrutura, não uma rota ativa do SIGMA.**
+
+Propriedades verificadas por testes automatizados com armazenamento simulado:
+- As propostas são vinculadas ao UID do proprietário, identificador e alteração exata.
+- A decisão usa estados pendente → aprovada → consumida, ou pendente → cancelada.
+- Confirmar duas vezes ou consumir duas vezes não dá dois resultados positivos, inclusive em chamadas simultâneas.
+- Uma instância que reinicia pode recuperar a proposta, e uma conta diferente não acessa outra proposta.
+- O próprio adaptador valida expiração e impede transições reversas.
+- Ações não são executadas: não há chamada de Calendar, Drive ou memória a partir dessas aprovações.
+
+Limites importantes: as chaves persistidas possuem metadados da proposta e precisam de política de expurgo e orçamento antes de ativar. O teste usa uma imitação em memória do armazenamento transacional; **a integração completa com um Durable Object real ainda precisa ser validada**. Uma confirmação via hash não comprova sozinha que um humano viu a tela. Para uso real, ainda faltam rotas autenticadas, UI revisável, verificação de permissões e vínculo a executores auditáveis.
+
 ## Verificação atual
 
 - Execute: npm ci && npm run build && npm run check:worker && npm test.

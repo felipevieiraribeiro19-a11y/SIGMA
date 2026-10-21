@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, browserSessionPersistence, setPersistence, type User, type Auth } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, browserLocalPersistence, setPersistence, type User, type Auth } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 export type Config={firebase:{apiKey:string;authDomain:string;projectId:string;appId:string};apiBaseUrl:string;environment:string};
 export type Message={role:'user'|'assistant';text:string};
@@ -8,7 +8,7 @@ export async function bootstrap(onUser:(user:User|null)=>void){
  const response=await fetch('/config.json',{cache:'no-store'});if(!response.ok)throw Error('Não foi possível carregar a configuração.');
  const config:Config=await response.json();
  if(config.firebase && Object.values(config.firebase).every(v=>typeof v==='string'&&v.length>0)){
-  const app=initializeApp(config.firebase);auth=getAuth(app);db=getFirestore(app);await setPersistence(auth,browserSessionPersistence);onAuthStateChanged(auth,onUser);
+  const app=initializeApp(config.firebase);auth=getAuth(app);db=getFirestore(app);await setPersistence(auth,browserLocalPersistence);onAuthStateChanged(auth,onUser);
  }
  return config;
 }

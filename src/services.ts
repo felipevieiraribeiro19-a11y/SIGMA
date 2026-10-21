@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import {encodeMedia} from './media';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, browserLocalPersistence, setPersistence, type User, type Auth } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 export type Config={firebase:{apiKey:string;authDomain:string;projectId:string;appId:string};apiBaseUrl:string;environment:string};
@@ -15,11 +16,11 @@ export async function bootstrap(onUser:(user:User|null)=>void){
 export function login(){if(!auth)throw Error('O login Google ainda precisa ser conectado ao novo projeto Firebase.');return signInWithPopup(auth,new GoogleAuthProvider());}
 export async function logout(){if(auth)await signOut(auth);}
 export async function verifyDatabase(user:User){if(!db)throw Error('Banco não configurado.');const ref=doc(db,'users',user.uid,'settings','app');const snap=await getDoc(ref);if(!snap.exists())await setDoc(ref,{timezone:'America/Sao_Paulo',updatedAt:serverTimestamp()});return true;}
-export async function sendChat(config:Config,user:User,messages:Message[],signal:AbortSignal,turnId:string){
+export async function sendChat(config:Config,user:User,messages:Message[],signal:AbortSignal,turnId:string,attachment?:File){
  if(!config.apiBaseUrl)throw Error('O backend ainda não está conectado. Nenhuma mensagem foi enviada à IA.');
  const url=new URL(config.apiBaseUrl);if(url.protocol!=='https:'&&url.hostname!=='localhost')throw Error('A conexão do backend precisa usar HTTPS.');
- const token=await user.getIdToken();
- const response=await fetch(`${config.apiBaseUrl.replace(/\/$/,'')}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`,'X-Turn-Id':turnId},body:JSON.stringify({messages}),signal});
+ const [token,media]=await Promise.all([user.getIdToken(),attachment?encodeMedia(attachment):Promise.resolve(undefined)]);
+ const response=await fetch(`${config.apiBaseUrl.replace(/\/$/,'')}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`,'X-Turn-Id':turnId},body:JSON.stringify({messages,...(media?{attachment:media}:{})}),signal});
  const data=await response.json().catch(()=>({error:'Resposta inválida do servidor.'}));
  if(!response.ok)throw Error(data.error||'Não foi possível conversar com o SIGMA.');
  if(typeof data.text!=='string'||!data.text.trim())throw Error('A IA não retornou uma resposta de texto.');

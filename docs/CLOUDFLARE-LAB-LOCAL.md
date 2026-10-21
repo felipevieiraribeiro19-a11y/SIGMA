@@ -19,6 +19,10 @@
 
 Log final confirmado: `OFFLINE_LAB_PHASE_ONE_OK checks=8`, `OFFLINE_LAB_PHASE_TWO_OK checks=8` e `OFFLINE_CLOUDFLARE_DURABLE_RUNTIME_OK`.
 
+## Evolução posterior (etapa 12)
+
+A versão inicial acima verificou 16 chamadas HTTP. Em seguida, o laboratório foi ampliado para executar um provedor fictício com estado durável e teste de reinício. **A execução ampliada passou com 135 testes automatizados e 27 checagens HTTP.** Ver `docs/EXECUTOR-CLOUDFLARE-VALIDADO.md` para resultados e limites. Os números antigos permanecem aqui como histórico da etapa inicial.
+
 ## O que ainda NÃO foi validado
 
 - Não houve chamada de operação real ao Google, nem persistência de memória pessoal; **nenhuma ação foi executada**.

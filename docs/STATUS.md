@@ -1,5 +1,9 @@
 # SIGMA — estudos por conversa
 
+## Agenda e Drive integrados (21/10/2026)
+
+Somente leitura: o menu permite conectar o acesso Google e o SIGMA lê os compromissos dos próximos 7 dias e os nomes dos PDFs recentes do Drive. O token do Google fica apenas na memória da aba, nunca é gravado no Firestore nem enviado ao log, e expira em cerca de 1 hora. Nada de escrita: o SIGMA não cria, altera nem apaga eventos ou arquivos. Ativação manual das duas APIs e dos escopos, passo a passo em `docs/GOOGLE-AGENDA-DRIVE.md`.
+
 ## Verificação ponta a ponta concluída em 21/10/2026
 
 Tudo abaixo foi confirmado com uso real no site `https://sigma-61328.web.app`, não por inspeção de código:

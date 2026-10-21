@@ -10,6 +10,7 @@ Regra do projeto: nada pode gerar cobrança. Este documento registra, por servi�
 | Firebase Hosting | site definitivo + canal `integracao` | franquia de armazenamento e tráfego mensal do Spark | nenhum, mas o canal de preview consome a mesma franquia |
 | Cloudflare Workers | `/api/chat`, `/api/history` | 100 mil requisições/dia; Durable Object SQLite incluído no plano gratuito | nenhum; não há upgrade automático |
 | Gemini API (nível gratuito) | respostas | limites de requisições por minuto e por dia do modelo | nenhum dentro do limite; erro 429 quando estoura |
+| Google Calendar API + Drive API | agenda (7 dias) e nomes de PDFs recentes | cota gratuita do projeto; leitura somente | nenhum |
 | Tavily (Researcher Free) | pesquisa web | 1.000 créditos/mês; `basic` = 1 crédito | nenhum; o SIGMA se limita a 400/mês, 15/dia e 2/min |
 
 O SIGMA já aplica tetos próprios **abaixo** dos limites gratuitos: 5 chamadas/minuto e 60/dia por usuário para a IA, e os limites de pesquisa acima. Ou seja, quem estoura primeiro é a cota do app, não a do provedor — e a do app devolve erro claro, nunca cobrança.

@@ -28,3 +28,6 @@ form .record-hint{color:#ffc5cb;border-color:#8f3f4b;background:#2b1824}
 form .selected-file{display:flex;align-items:center;gap:8px;max-width:min(90vw,540px)}
 form .selected-file span{max-width:min(72vw,480px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 form .selected-file button{display:grid;place-items:center;min-width:20px;width:20px;height:20px;padding:0;border:0;color:#c4e8f5;background:#28506a}
+
+/* Agenda e Drive: lista compacta dentro do menu. */
+.google-list{margin:6px 0 10px;padding-left:16px;display:grid;gap:4px;font-size:13px;line-height:1.35;color:var(--muted,#9fb3c8);overflow-wrap:anywhere}

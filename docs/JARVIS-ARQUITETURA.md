@@ -73,6 +73,23 @@ Na etapa de **fundação**, todas as ferramentas de escrita são BLOQUEADAS. Exp
 | Automação e escrita | Somente políticas e interfaces futuras | Nenhuma ação real disponibilizada |
 | Painel de módulos | Futuro | Nenhum lançamento financeiro/educacional criado |
 
+
+## Segunda etapa: orquestrador inicial de ferramentas (em desenvolvimento)
+
+O núcleo agora separa a intenção de uma mensagem em conversa simples, consulta autorizada e solicitação de ação externa. O planejamento atual é **determinístico e conservador**, com pistas linguísticas em português; ainda não é raciocínio autônomo com chamadas dinâmicas de ferramentas do modelo.
+
+- Conversa geral: não consulta Google só porque a conta está conectada; isso evita chamadas desnecessárias, reduz exposição de dados pessoais ao provedor de IA e economiza franquias.
+- Consulta da Agenda: usa OAuth de leitura e busca eventos somente quando a mensagem pede compromissos/agenda.
+- Consulta do Drive: usa OAuth de metadados e lista PDFs somente quando a mensagem pede documentos do Drive. **Ainda não lê seu conteúdo nem organiza pastas.**
+- Tavily: mantém a busca sob demanda existente, com fontes e limites próprios.
+- Pedido para criar, alterar ou apagar evento/documento: classifica como intenção de ação ainda **não implementada**, não aciona escrita nem considera a simples aprovação como executor.
+- Fontes de serviço desconectadas são informadas como ausentes; jamais pressupõe permissão concedida a partir de um texto.
+- \`worker/src/core/orchestrator.ts\`: roteador de leitura e intenções, testável sem chamar Gemini ou Google.
+- \`worker/src/google.ts\`: consulta seletiva por provedor e não afirma que agenda vazia significa ausência de eventos se ela sequer foi consultada.
+- Testes simulam separação das consultas e verificam que um “Oi” não envia dados de calendário ao Gemini.
+
+**Limitações:** perguntas ambíguas podem não ser reconhecidas; isso não substitui o futuro orquestrador model-driven com catálogo, orçamento, auditoria, ações confirmadas e respostas estruturadas. Nada desta etapa modifica os registros armazenados fora das conversas já existentes. Não foi implantada em produção.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

@@ -21,7 +21,7 @@ test('rejeita nomes com caracteres de controle',()=>{
 });
 
 test('aceita anexos codificados maiores que o antigo limite de 3 MB',()=>{
- const base64='A'.repeat(4*1024*1024);
+ const base64='A'.repeat(5*1024*1024);
  const file=validateAttachment({name:'material.pdf',mimeType:'application/pdf',data:base64});
- assert.equal(file?.data.length,4*1024*1024);
+ assert.equal(file?.data.length,5*1024*1024);
 });

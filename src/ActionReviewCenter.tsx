@@ -15,7 +15,7 @@ export const REVIEW_DEMOS=[
   params:{kind:'drive.rename',fileId:'fictional_file_001',newName:'Exemplo SIGMA.pdf'}}
 ] as const;
 
-export function ActionReviewCenter({onPreview}:{onPreview?:(request:ActionPreviewRequest)=>Promise<ActionPreviewResult>}){
+export function ActionReviewCenter({onPreview,mode='remote'}:{onPreview?:(request:ActionPreviewRequest)=>Promise<ActionPreviewResult>;mode?:'remote'|'offline'}){
  const [chosen,setChosen]=useState<'calendar'|'drive'>('calendar');
  const [pending,setPending]=useState(false);
  const [result,setResult]=useState<ActionPreviewResult|null>(null);
@@ -59,7 +59,7 @@ export function ActionReviewCenter({onPreview}:{onPreview?:(request:ActionPrevie
   </div>
   <div className="action-review-buttons">
    <button type="button" disabled={!onPreview||pending} onClick={()=>{void preview();}}>
-    {pending?'Validando exemplo…':'Testar prévia autenticada'}
+    {pending?'Validando exemplo…':mode==='offline'?'Validar exemplo sem conexão':'Testar prévia autenticada'}
    </button>
    <button type="button" disabled title="Execução bloqueada até as próximas fases">
     Confirmar execução (indisponível)
@@ -71,6 +71,6 @@ export function ActionReviewCenter({onPreview}:{onPreview?:(request:ActionPrevie
    <p>Persistido: não · Execução autorizada: não · Tarefa executada: não.</p>
    {result.preview.missing.length>0&&<p>Faltam: {result.preview.missing.join(', ')}.</p>}
   </div>}
-  <small>O teste de prévia exige sessão Firebase e um recurso ainda desligado por padrão no backend. Se estiver desativado, a API recusa a solicitação. Essa recusa é esperada e não indica erro no chat.</small>
+  <small>{mode==='offline'?'Modo laboratório: validação local com informações inventadas, sem autenticar o backend e sem enviar dados para nenhum serviço externo.': 'O teste de prévia exige sessão Firebase e um recurso ainda desligado por padrão no backend. Se estiver desativado, a API recusa a solicitação. Essa recusa é esperada e não indica erro no chat.'}</small>
  </section>;
 }

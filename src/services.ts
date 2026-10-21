@@ -77,3 +77,43 @@ export async function loadCapabilities(config:Config,user:User,googleToken?:stri
  const data=await response.json() as {capabilities?:CapabilityInfo[]};
  return Array.isArray(data.capabilities)?data.capabilities:[];
 }
+
+
+/**
+ * Authenticated read-only action review. The Worker rejects requests unless
+ * its ACTION_PREVIEW_ENABLED flag is explicitly set. This never confirms,
+ * persists, schedules, renames, or otherwise executes anything.
+ */
+export type ActionPreviewRequest={
+ utterance:string;
+ params:unknown;
+};
+export type ActionPreviewResult={
+ preview:{
+  status:'needs-details'|'ready-for-review'|'unsupported';
+  summary:string;target:string|null;change:string|null;actionKind:string|null;
+  missing:string[];executionEnabled:false;
+ };
+ persisted:false;
+ authorizedForExecution:false;
+};
+export async function requestActionPreview(
+ config:Config,user:User,request:ActionPreviewRequest,
+ signal?:AbortSignal
+):Promise<ActionPreviewResult>{
+ if(!config.apiBaseUrl)throw Error('Backend não configurado.');
+ const url=new URL(config.apiBaseUrl);
+ if(url.protocol!=='https:'&&url.hostname!=='localhost')throw Error('O backend exige HTTPS.');
+ const response=await fetch(config.apiBaseUrl.replace(/\/$/,'')+'/api/actions/preview',{
+  method:'POST',headers:{Authorization:'Bearer '+await user.getIdToken(),
+   'Content-Type':'application/json'},
+  body:JSON.stringify(request),cache:'no-store',signal
+ });
+ if(response.status===404)throw Error('Prévia autenticada ainda desativada no backend, como previsto.');
+ const data=await response.json().catch(()=>({error:'Resposta inválida do SIGMA.'}));
+ if(!response.ok)throw Error(typeof data.error==='string'?data.error:'Não foi possível validar esta prévia.');
+ if(data.persisted!==false||data.authorizedForExecution!==false||
+  !data.preview||data.preview.executionEnabled!==false)
+  throw Error('O backend devolveu uma prévia inválida ou insegura.');
+ return data as ActionPreviewResult;
+}

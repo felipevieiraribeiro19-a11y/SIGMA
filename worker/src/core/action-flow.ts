@@ -27,7 +27,7 @@ export type ActionPreview={
  params:ActionParameters|null;executionEnabled:false;
 };
 
-const text=(value:unknown,max:number)=>typeof value==='string'&&
+const text=(value:unknown,max:number):value is string=>typeof value==='string'&&
  value.trim().length>0&&value.length<=max&&!/[\x00-\x1f]/.test(value);
 const isoOffset=/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d)?(?:Z|[+-]\d\d:\d\d)$/;
 const fileId=/^[A-Za-z0-9_-]{10,200}$/;
@@ -38,7 +38,7 @@ function checkPayloadShape(obj:unknown,keys:string[]):boolean{
 }
 function validateParams(input:unknown,now:number):ActionParameters|null{
  if(!input||typeof input!=='object'||Array.isArray(input))return null;
- const p=input as Partial<CalendarCreate&DriveRename> &{kind?:string};
+ const p=input as {kind?:string;calendarId?:string;title?:string;startsAt?:string;endsAt?:string;fileId?:string;newName?:string};
  if(p.kind==='calendar.create'){
   if(!checkPayloadShape(p,['kind','calendarId','title','startsAt','endsAt'])||
    !text(p.calendarId,100)||!text(p.title,180)||

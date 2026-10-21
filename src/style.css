@@ -31,3 +31,20 @@ form .selected-file button{display:grid;place-items:center;min-width:20px;width:
 
 /* Agenda e Drive: lista compacta dentro do menu. */
 .google-list{margin:6px 0 10px;padding-left:16px;display:grid;gap:4px;font-size:13px;line-height:1.35;color:var(--muted,#9fb3c8);overflow-wrap:anywhere}
+
+
+/* Isolated fictional memory preview; NEVER a real records dashboard. */
+.memory-center{margin:16px 0 22px;padding:14px;border:1px solid #36536d;border-radius:14px;background:#0c1925}
+.memory-center h3{margin:0 0 8px}
+.memory-center p{margin:8px 0}
+.memory-center .memory-note{font-size:12px;line-height:1.65;color:#b5c8d8}
+.memory-stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:12px 0}
+.memory-stage span{border:1px solid #284558;background:#142535;border-radius:8px;font-size:11px;padding:6px 8px;color:#bad5e5}
+.memory-demo-card{padding:12px;background:#132639;border:1px solid #34536b;border-radius:10px}
+.memory-demo-card strong{font-size:12px}
+.memory-demo-card p{line-height:1.5}
+.memory-demo-card .memory-example{color:#dbeaf7}
+.memory-demo-card small{display:block;font-size:11px;color:#99b9cb;margin:5px 0;overflow-wrap:anywhere}
+.memory-demo-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.memory-demo-actions button{font-size:12px;width:auto!important;padding:7px 10px}
+.memory-demo-actions .memory-delete{border-color:#7e4f5b;color:#ffd9e1}

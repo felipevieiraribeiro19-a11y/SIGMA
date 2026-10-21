@@ -76,6 +76,14 @@ if(phase==='before'){
   const r=await call('issue',{body:{id:'test_restart01'}});
   assert.equal(r.status,409);
  });
+ await check('cancellation survives restart and cannot be consumed',async()=>{
+  const audit=await call('audit&id=test_cancel001',{method:'GET'});
+  assert.equal(audit.status,200);
+  assert.equal(audit.json.audit.state,'cancelled');
+  assert.deepEqual(audit.json.audit.events.map(e=>e.kind),['proposed','cancelled']);
+  const attempted=await call('consume',{body:{id:'test_cancel001'}});
+  assert.equal(attempted.status,409);
+ });
  await check('wrong actor receives no proposal after restart',async()=>{
   const r=await call('audit&id=test_restart01',{method:'GET',actor:'fictional_other'});
   assert.equal(r.status,200);

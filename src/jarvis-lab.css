@@ -1,0 +1,41 @@
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e7f2fb;background:#07111d;color-scheme:dark}
+*{box-sizing:border-box}html{font-size:16px}body{margin:0;min-width:320px;background:radial-gradient(ellipse at 50% 0%,#12354b,#07111d 65%)}
+button,select{font:inherit}button{cursor:pointer;border:1px solid #3b617b;border-radius:11px;padding:12px 15px;background:#173246;color:#e3f3ff;font-weight:600}
+button:disabled{cursor:not-allowed;opacity:.48}button:focus-visible,select:focus-visible{outline:2px solid #77d5fb;outline-offset:2px}
+.jarvis-lab{max-width:740px;margin:0 auto;padding-bottom:clamp(25px,5vh,70px)}
+.jarvis-lab header{display:flex;align-items:center;gap:12px;min-height:88px;padding:15px 22px;border-bottom:1px solid #28475b}
+.jarvis-lab header strong{display:block;font-size:19px;letter-spacing:.27em}
+.jarvis-lab header small{display:block;color:#95bdd0;font-size:10px;letter-spacing:.12em;margin-top:5px}
+.lab-symbol{width:50px;height:50px;display:grid;place-items:center;color:#94e4ff;border:1px solid #548cb3;border-radius:50%;font-size:29px}
+.jarvis-lab main{display:block;margin:0 auto;padding:24px 18px}
+.jarvis-lab h1{font-size:clamp(25px,5vw,36px);font-weight:600;letter-spacing:-.03em;margin:22px 0 10px}
+.jarvis-lab p{color:#b2c8d7;line-height:1.6;font-size:14px}
+.lab-lead{font-size:15px!important;margin-bottom:25px}
+.lab-warning{padding:13px 16px;border:1px solid #8a7851;border-radius:13px;background:#28261c}
+.lab-warning strong{font-size:12px;color:#f4ddb1;letter-spacing:.06em}
+.lab-warning p{margin:7px 0 0;color:#dfcfae}
+.lab-panel{background:#0e1d2b;border:1px solid #274861;border-radius:17px;padding:18px;margin:17px 0}
+.lab-panel h2{font-size:17px;line-height:1.4;font-weight:600;margin:0 0 6px}
+.lab-panel p{margin:7px 0 13px}
+.lab-panel>button{margin-top:4px}
+.lab-error{color:#ffbec7!important}
+.lab-footer{font-size:12px!important;color:#7797a9!important;padding:4px 4px 0}
+.memory-center,.action-review-center{margin-top:15px;border:1px solid #346079;background:#0a1c2b;padding:13px;border-radius:12px}
+.memory-center h3,.action-review-center h3{font-size:15px;margin:0 0 9px}
+.memory-center .memory-note,.action-review-center small{display:block;color:#9eb8c9;font-size:12px;line-height:1.6;margin-top:10px}
+.memory-stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0}
+.memory-stage span{border:1px solid #32506a;border-radius:7px;padding:7px;font-size:11px}
+.memory-demo-card,.action-review-card{background:#132a3b;border:1px solid #355970;border-radius:10px;padding:12px}
+.memory-demo-card p{margin:7px 0}.memory-demo-card small{display:block;color:#9fbed1;font-size:11px;margin:5px 0}
+.memory-demo-actions,.action-review-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0}
+.memory-demo-actions button,.action-review-buttons button{font-size:12px;padding:9px 10px}
+.memory-demo-actions .memory-delete{border-color:#96576a;color:#ffd9e5}
+.action-review-center label{display:block;font-size:12px;margin:12px 0 6px;color:#b1d1e6}
+.action-review-center select{width:100%;max-width:100%;background:#152f41;border:1px solid #43647d;color:#e5f4ff;padding:10px;border-radius:9px}
+.action-review-card{margin-top:13px}
+.action-review-card strong{font-size:12px}
+.action-review-card dl{display:grid;grid-template-columns:85px minmax(0,1fr);gap:7px 8px;font-size:12px}
+.action-review-card dt{color:#aac7d6}.action-review-card dd{margin:0;overflow-wrap:anywhere}
+.action-review-warning{color:#efc8ce!important}.action-review-result{padding:10px;border:1px solid #365a76;border-radius:9px;background:#142c3e}
+.action-review-result p{font-size:12px;margin:5px 0}
+@media(min-width:600px){.lab-panel{padding:24px}.jarvis-lab main{padding:28px}.lab-panel>button{min-width:210px}}

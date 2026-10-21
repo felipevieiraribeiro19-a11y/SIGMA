@@ -112,6 +112,6 @@ test('chat recebe a agenda no prompt e nunca o token',async()=>{
  assert.equal(r.status,200);
  const system=JSON.stringify(sent);
  assert.match(system,/Psiquiatra/);
- assert.match(system,/AFO - LRF\.pdf/);
+ assert.doesNotMatch(system,/AFO - LRF\.pdf/);
  assert.ok(!system.includes('segredo-do-google'),'token não pode aparecer no prompt');
 });

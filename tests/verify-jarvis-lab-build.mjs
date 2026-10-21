@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {existsSync,readFileSync,readdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+
+const root=resolve('dist-jarvis-lab');
+const index=resolve(root,'index.html');
+assert.equal(existsSync(index),true,'Lab must compile to index.html');
+assert.equal(existsSync(resolve(root,'config.json')),false,'Never ship SIGMA live backend config');
+assert.equal(existsSync(resolve(root,'sw.js')),false,'Never ship SIGMA live service worker');
+assert.equal(existsSync(resolve(root,'manifest.webmanifest')),false);
+assert.equal(existsSync(resolve(root,'jarvis-lab.html')),false);
+const html=readFileSync(index,'utf8');
+assert.match(html,/SIGMA · Laboratório Jarvis/);
+assert.match(html,/assets\/.*\.js/);
+assert.doesNotMatch(html,/src\/main\.tsx|"\/config\.json"/);
+const entries=readdirSync(root).sort();
+assert.ok(entries.includes('assets'));
+assert.deepEqual(entries,['assets','index.html']);
+const jsFiles=readdirSync(resolve(root,'assets')).filter(f=>f.endsWith('.js'));
+assert.ok(jsFiles.length>0,'Bundled lab JavaScript must exist');
+const scripts=jsFiles.map(f=>readFileSync(resolve(root,'assets',f),'utf8')).join('\n');
+assert.doesNotMatch(scripts,/sigma-cerebro\.felipevieiraribeiro19\.workers\.dev/);
+assert.doesNotMatch(scripts,/\/api\/chat|\/api\/actions\/execute/);
+assert.doesNotMatch(scripts,/AIzaSy.*PRIVATE_KEY|-----BEGIN PRIVATE KEY-----/);
+console.log('LAB_ONLY_BUILD_OK files='+entries.join(',')+' javascript='+jsFiles.length);

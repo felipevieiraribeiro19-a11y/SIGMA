@@ -48,6 +48,6 @@ export async function readLimitedPreviewJson(request:Request,maxBytes=4500):Prom
  }finally{reader.releaseLock();}
  const data=new Uint8Array(bytes);let offset=0;
  for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.byteLength;}
- try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(data));}
+ try{return JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(data));}
  catch{throw Error('JSON de prévia inválido.');}
 }

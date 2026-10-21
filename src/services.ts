@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import {encodeMedia} from './media';
-import { getAuth, GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, signOut, onAuthStateChanged, browserLocalPersistence, setPersistence, type User, type Auth, type OAuthCredential } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, signOut, onAuthStateChanged, browserLocalPersistence, setPersistence, type User, type Auth } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp, type Firestore } from 'firebase/firestore';
 export type Config={firebase:{apiKey:string;authDomain:string;projectId:string;appId:string};apiBaseUrl:string;environment:string};
 export type Message={role:'user'|'assistant';text:string};
@@ -40,7 +40,7 @@ export async function loadHistory(config:Config,user:User):Promise<Turn[]>{
 // O token do Google fica só na memória desta aba: não vai para o Firestore,
 // não é registrado em log e expira sozinho em cerca de 1 hora. O SIGMA não
 // tem permissão de escrita na agenda nem nos arquivos.
-export const GOOGLE_SCOPES=['https://www.googleapis.com/auth/calendar.readonly','https://www.googleapis.com/auth/drive.readonly'];
+export const GOOGLE_SCOPES=['https://www.googleapis.com/auth/calendar.events.readonly','https://www.googleapis.com/auth/drive.metadata.readonly'];
 
 export type GoogleData={agenda:{summary:string;start:string}[];materiais:{name:string;modifiedTime:string}[];expired:boolean;errors:string[]};
 
@@ -49,7 +49,7 @@ export async function connectGoogle():Promise<string>{
  const provider=new GoogleAuthProvider();
  for(const scope of GOOGLE_SCOPES)provider.addScope(scope);
  const result=await reauthenticateWithPopup(auth.currentUser,provider);
- const token=(result as unknown as {credential?:OAuthCredential|null}).credential?.accessToken;
+ const token=GoogleAuthProvider.credentialFromResult(result)?.accessToken;
  if(!token)throw Error('O Google não devolveu o acesso. Tente novamente e autorize Agenda e Drive na janela exibida.');
  return token;
 }

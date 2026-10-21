@@ -16,6 +16,16 @@ O laboratório é uma página **inteiramente separada** da aplicação SIGMA pub
 
 O workflow `SIGMA - validar laboratorio Jarvis isolado` executou `npm run build:lab`, `npm test`, `npm run check:worker` e `node tests/verify-jarvis-lab-build.mjs`. A build separada foi confirmada com somente `index.html` e pasta `assets`, sem `config.json`, `sw.js`, aplicativo de produção ou URL do Worker principal. O workflow mantém o pacote `sigma-jarvis-lab-estatico` como artefato privado do GitHub por 5 dias.
 
+## Demonstração portátil (já pode ser compartilhada como arquivo)
+
+Também geramos um **HTML único offline**, diretamente da mesma compilação validada pelo GitHub. O script reproduzível é `scripts/build-jarvis-offline.mjs`; a ação de validação salva o resultado no artefato `sigma-jarvis-lab-html-unico` por 5 dias. Essa demonstração tem interface responsiva e controles fictícios, mas **não é uma URL hospedada na internet**.
+
+- Se o navegador permitir abrir arquivos HTML baixados, basta abrir `SIGMA_Jarvis_Demonstracao_Offline.html`; não há instalação, servidor ou API própria exigida.
+- Ao abrir em protocolo `file:`, o login Google fica desabilitado de propósito. Testar autenticação real exige um domínio autorizado.
+- Alguns aplicativos de arquivos do iPhone mostram HTML como texto ou impedem execução de JavaScript. Isso é uma limitação do visualizador, não prova de falha na compilação. Nesses casos será necessário publicar a versão temporária sob um endereço HTTPS.
+- O arquivo contém bibliotecas JavaScript e a chave **pública** de configuração web do Firebase usada na compilação; não contém conta de serviço, segredo privado, acesso ao backend do SIGMA ou dados pessoais.
+- O HTML único oferece somente memória e tarefas de **demonstração**. Não grava, não envia pedidos à IA e não executa operações.
+
 ## Publicação temporária, somente após autorização
 
 O workflow `.github/workflows/sigma-jarvis-lab-preview-manual.yml` foi preparado **sem gatilhos automáticos**. Ele só poderá publicar um canal separado `jarvis-lab` se houver execução manual na branch `sigma-jarvis-arquitetura` e confirmação exata `PUBLICAR-APENAS-LAB`. Reutiliza a autenticação Google Cloud por Workload Identity Federation já existente, **sem chave privada**. O canal expira em 2 dias e não substitui o Hosting principal ou o canal `integracao`.

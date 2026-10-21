@@ -11,7 +11,7 @@ import type {ApprovalReceipt} from './approval-ledger';
 export type MockExecutionState='claimed'|'confirmed-in-mock'|'rejected-in-mock'|'uncertain-in-mock';
 export type MockExecutionRecord={
  actionId:string;actorUid:string;capabilityId:string;
- digest:string;providerKey:string;state:MockExecutionState;
+ digest:string;payloadHash:string;providerKey:string;state:MockExecutionState;
  providerReference?:string;reason?:string;
 };
 export type ProviderResult=
@@ -42,9 +42,14 @@ function validateReceipt(receipt:ApprovalReceipt){
 function keyFor(receipt:ApprovalReceipt){
  return 'sigma-mock:v1:'+receipt.actorUid+':'+receipt.id;
 }
-function sameReceipt(record:MockExecutionRecord,receipt:ApprovalReceipt){
+async function payloadHash(receipt:ApprovalReceipt):Promise<string>{
+ const bytes=new TextEncoder().encode(JSON.stringify([receipt.target,receipt.change]));
+ const result=await crypto.subtle.digest('SHA-256',bytes);
+ return [...new Uint8Array(result)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function sameReceipt(record:MockExecutionRecord,receipt:ApprovalReceipt,computedPayloadHash:string){
  if(record.actorUid!==receipt.actorUid||record.actionId!==receipt.id||
-  record.digest!==receipt.digest||record.capabilityId!==receipt.capabilityId||
+  record.digest!==receipt.digest||record.payloadHash!==computedPayloadHash||record.capabilityId!==receipt.capabilityId||
   record.providerKey!==keyFor(receipt))throw Error('Recibo conflitante com tarefa existente.');
 }
 function makeResult(previous:MockExecutionRecord,outcome:ProviderResult):MockExecutionRecord{
@@ -57,12 +62,12 @@ export async function simulateProviderExecution(
 ):Promise<MockExecutionRecord>{
  validateReceipt(receipt);
  const initial:MockExecutionRecord={actionId:receipt.id,actorUid:receipt.actorUid,
-  capabilityId:receipt.capabilityId,digest:receipt.digest,providerKey:keyFor(receipt),state:'claimed'};
+  capabilityId:receipt.capabilityId,digest:receipt.digest,payloadHash:await payloadHash(receipt),providerKey:keyFor(receipt),state:'claimed'};
  const newlyClaimed=await journal.insertIfAbsent(initial);
  if(!newlyClaimed){
   const old=await journal.get(receipt.actorUid,receipt.id);
   if(!old)throw Error('Registro desapareceu durante a consulta.');
-  sameReceipt(old,receipt);
+  sameReceipt(old,receipt,initial.payloadHash);
   // Do not resubmit a potentially executed external operation.
   return old;
  }
@@ -89,8 +94,8 @@ export async function reconcileMockExecution(
  validateReceipt(receipt);
  const old=await journal.get(receipt.actorUid,receipt.id);
  if(!old)throw Error('Não existe execução para reconciliar.');
- sameReceipt(old,receipt);
- if(old.state==='confirmed-in-mock'||old.state==='rejected-in-mock')return old;
+ sameReceipt(old,receipt,await payloadHash(receipt));
+ if(old.state='confirmed-in-mock'||old.state==='rejected-in-mock')return old;
  let status:ProviderResult|null;
  try{status=await provider.lookup(old.providerKey);}
  catch{return old;}
@@ -117,7 +122,7 @@ export class TestExecutionJournal implements ExecutionJournal{
  async changeIfState(uid:string,id:string,from:MockExecutionState,to:MockExecutionRecord){
   const key=this.key(uid,id),old=this.rows.get(key);
   if(!old||old.state!==from||to.actionId!==id||to.actorUid!==uid||
-   to.digest!==old.digest||to.providerKey!==old.providerKey)return false;
+   to.digest!==old.digest||to.payloadHash!==old.payloadHash||to.providerKey!==old.providerKey)return false;
   this.rows.set(key,structuredClone(to));return true;
  }
 }

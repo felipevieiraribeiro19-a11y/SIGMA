@@ -25,6 +25,7 @@ export interface ApprovalStore{
 }
 const idPattern=/^[A-Za-z0-9_-]{4,100}$/;
 function requireId(value:string){if(typeof value!=='string'||!idPattern.test(value))throw new Error('Identificador de autorização inválido.');}
+function requireCapability(value:string){if(typeof value!=='string'||!/^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*){1,4}$/.test(value))throw new Error('Ferramenta inválida.');}
 function requireShortText(value:string,max:number){
  if(typeof value!=='string'||!value.trim()||value.length>max||/[\x00-\x1f]/.test(value))
   throw new Error('Detalhes da proposta inválidos.');
@@ -43,7 +44,7 @@ export async function fingerprint(input:{
 export async function issueApproval(store:ApprovalStore,input:{
  id:string;actorUid:string;capabilityId:string;target:string;change:string;now:number;ttlMs?:number
 }):Promise<ApprovalItem>{
- requireId(input.id);requireId(input.actorUid);requireId(input.capabilityId);requireTime(input.now);
+ requireId(input.id);requireId(input.actorUid);requireCapability(input.capabilityId);requireTime(input.now);
  const target=requireShortText(input.target,250),change=requireShortText(input.change,2000);
  const ttl=input.ttlMs??300000;
  if(!Number.isSafeInteger(ttl)||ttl<1000||ttl>600000)throw new Error('Validade da autorização inválida.');
@@ -80,7 +81,7 @@ export async function cancelApproval(store:ApprovalStore,input:{id:string;authen
 export async function consumeApproval(store:ApprovalStore,input:{
  id:string;authenticatedUid:string;capabilityId:string;now:number
 }):Promise<ApprovalReceipt>{
- requireId(input.id);requireId(input.authenticatedUid);requireId(input.capabilityId);requireTime(input.now);
+ requireId(input.id);requireId(input.authenticatedUid);requireCapability(input.capabilityId);requireTime(input.now);
  const item=await store.read(input.authenticatedUid,input.id);
  if(!item||item.actorUid!==input.authenticatedUid)throw new Error('Autorização não encontrada.');
  if(item.capabilityId!==input.capabilityId)throw new Error('Ferramenta diferente da autorizada.');

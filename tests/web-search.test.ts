@@ -42,3 +42,14 @@ test('Tavily falha fechada para dados malformados',async()=>{
  const fake=(async()=>new Response(JSON.stringify({results:123}),{status:200})) as typeof fetch;
  await assert.rejects(()=>searchTavily('qualquer busca','tvly-test',fake),/inválidos/);
 });
+test('pergunta natural sobre novidades e fontes aciona pesquisa explícita',()=>{
+ assert.deepEqual(searchIntent('quais as novidades do concurso da Prefeitura de Curitiba esta semana? mostre as fontes'),{needed:true,explicit:true});
+ assert.equal(searchIntent('Quais as novidades do concurso?').needed,true);
+ assert.equal(searchIntent('Tem novidades sobre o edital nesta semana?').needed,true);
+ assert.deepEqual(searchIntent('Me mostre as fontes do edital da prefeitura'),{needed:true,explicit:true});
+ assert.deepEqual(searchIntent('Pesquise o edital e cite as fontes'),{needed:true,explicit:true});
+});
+test('pedido de fontes em conteúdo teórico não consome pesquisa',()=>{
+ assert.deepEqual(searchIntent('Quais são as fontes do direito administrativo?'),{needed:false,explicit:false});
+ assert.deepEqual(searchIntent('Explique as fontes do direito tributário'),{needed:false,explicit:false});
+});

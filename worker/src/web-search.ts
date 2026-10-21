@@ -4,10 +4,10 @@ export type SearchIntent={needed:boolean;explicit:boolean};
 
 export function searchIntent(message:string):SearchIntent{
  const text=message.toLocaleLowerCase('pt-BR').trim();
- const explicit=/(?:\bpesquis(?:e|a|ar|ando|ou)\b|\bprocure\b|\bbusque\b|\bbuscar\b|\bconsulte\b|\bpesquisa na (?:web|internet)\b|\bna internet\b|\bno google\b|\bsite oficial\b|\bfontes? (?:oficiais|atuais)\b)/u.test(text);
+ const explicit=/(?:\bpesquis(?:e|a|ar|ando|ou)\b|\bprocure\b|\bbusque\b|\bbuscar\b|\bconsulte\b|\bpesquisa na (?:web|internet)\b|\bna internet\b|\bno google\b|\bsite oficial\b|\bfontes? (?:oficiais|atuais)\b|\bmostr(?:e|ar|ando)\s+(?:as\s+)?fontes?\b|\bcite\s+(?:as\s+)?fontes?\b|\bcom\s+(?:as\s+)?fontes?\b|\be\s+as\s+fontes?\b)/u.test(text);
  // "Estudei hoje" e outros registros pessoais não devem acionar consultas na web.
- const current=/(?:\bnot[ií]cias?\b|\b[uú]ltimas? (?:novidades|not[ií]cias|mudan[cç]as|atualiza[cç][oõ]es)\b|\bmais recentes?\b|\bagora\b|\batualmente\b|\batualizado\b|\bem vigor\b|\bquando (?:sai|abre|ser[aá])\b)/u.test(text);
- const subject=/(?:\bconcursos?\b|\beditais?\b|\bleis?\b|\blegisla[cç][aã]o\b|\bprovas?\b|\bpre[cç]os?\b|\bgoverno\b|\bprefeitura\b|\bdesemprego\b|\bmercado\b|\bnot[ií]cias?\b|\binternet\b)/u.test(text);
+ const current=/(?:\bnot[ií]cias?\b|\bnovidades?\b|\b[uú]ltimas? (?:novidades|not[ií]cias|mudan[cç]as|atualiza[cç][oõ]es)\b|\bmais recentes?\b|\b(?:n?esta semana)\b|\bagora\b|\batualmente\b|\batualizado\b|\bem vigor\b|\bquando (?:sai|abre|ser[aá])\b)/u.test(text);
+ const subject=/(?:\bconcursos?\b|\bedita(?:l|is)\b|\bleis?\b|\blegisla[cç][aã]o\b|\bprovas?\b|\bpre[cç]os?\b|\bgoverno\b|\bprefeitura\b|\bdesemprego\b|\bmercado\b|\bnot[ií]cias?\b|\binternet\b)/u.test(text);
  const personal=/(?:\bestudei\b|\btrabalhei\b|\bgastei\b|\banote\b|\bregistre\b|\bmeu dia\b)/u.test(text);
  return {explicit,needed:explicit||(current&&subject&&!personal)};
 }

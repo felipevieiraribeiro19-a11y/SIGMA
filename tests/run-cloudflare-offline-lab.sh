@@ -48,6 +48,16 @@ start_worker() {
     tail -n 100 "$LOG"
     exit 1
   fi
+  # Wrangler may perform one final local workerd reload immediately after its
+  # first successful health response. Avoid a POST during that reload window.
+  sleep 5
+  if ! curl --silent --fail --max-time 3 -H 'X-SIGMA-LAB: offline-fixture' \
+    "http://127.0.0.1:$PORT/offline-lab/health" \
+    | grep -q '"actionsEnabled":false'; then
+    echo "Offline Worker did not stabilize after readiness:"
+    tail -n 100 "$LOG"
+    exit 1
+  fi
 }
 
 echo "Starting isolated Wrangler local runtime; no remote deployment"

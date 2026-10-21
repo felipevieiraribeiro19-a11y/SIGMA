@@ -20,8 +20,8 @@ export function makeWorker(dependencies?:{verify?:typeof authenticate;fetch?:typ
   const memory=dependencies?.memory||memoryStore(env.FIREBASE_PROJECT_ID,uid,request.headers.get('Authorization')||'');
   if(path==='/api/history')return json({turns:await memory.recent(),limit:100});
   if(!request.headers.get('Content-Type')?.startsWith('application/json'))throw new HttpError(415,'Envie uma mensagem em JSON.');
-  if(Number(request.headers.get('Content-Length'))>4500000)throw new HttpError(413,'Mensagem ou anexo muito grande (até 3 MB).');
-  const reader=request.body?.getReader();if(!reader)throw new HttpError(400,'Mensagem ausente.');let size=0;const chunks:Uint8Array[]=[];while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>4500000){await reader.cancel();throw new HttpError(413,'Mensagem ou anexo muito grande (até 3 MB).')}chunks.push(value)}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}
+  if(Number(request.headers.get('Content-Length'))>15000000)throw new HttpError(413,'Mensagem ou anexo muito grande (até 10 MB).');
+  const reader=request.body?.getReader();if(!reader)throw new HttpError(400,'Mensagem ausente.');let size=0;const chunks:Uint8Array[]=[];while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>15000000){await reader.cancel();throw new HttpError(413,'Mensagem ou anexo muito grande (até 10 MB).')}chunks.push(value)}const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}
   let body;try{body=JSON.parse(new TextDecoder().decode(bytes))}catch{throw new HttpError(400,'JSON inválido.')}
   if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['messages','attachment'].includes(k)))throw new HttpError(400,'Formato de mensagem inválido.');
   const attachment=validateAttachment(body.attachment);

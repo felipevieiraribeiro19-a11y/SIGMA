@@ -1,0 +1,42 @@
+name: SIGMA - laboratorio Cloudflare offline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [sigma-jarvis-arquitetura]
+    paths:
+      - 'worker/src/offline-approval-lab.ts'
+      - 'worker/src/core/audited-approval.ts'
+      - 'worker/src/core/action-flow.ts'
+      - 'worker/src/core/approval-ledger.ts'
+      - 'worker/wrangler.offline-lab.toml'
+      - 'tests/cloudflare-offline-lab.mjs'
+      - 'tests/run-cloudflare-offline-lab.sh'
+      - '.github/workflows/sigma-cloudflare-lab.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  real-local-cloudflare-runtime:
+    if: github.ref == 'refs/heads/sigma-jarvis-arquitetura'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install project packages
+        run: npm ci
+      - name: Verify TypeScript and unit tests
+        run: |
+          npm run check:worker
+          npm test
+      - name: Verify offline Cloudflare Workers runtime and restart persistence
+        env:
+          CI: "true"
+          CLOUDFLARE_ACCOUNT_ID: ""
+          CLOUDFLARE_API_TOKEN: ""
+        run: bash tests/run-cloudflare-offline-lab.sh

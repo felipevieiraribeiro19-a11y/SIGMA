@@ -77,6 +77,7 @@ Não crie credenciais do Firebase no GitHub; os deploys existentes usam federaç
 - Laboratório integrado de auditoria e autorizações simuladas: `docs/AUDITORIA-ACOES.md`.
 - Runtime local do Cloudflare com 16 verificações reais de Durable Object e reinício: `docs/CLOUDFLARE-LAB-LOCAL.md`. Nenhuma publicação remota.
 - Simulação de execução com estados confirmada/falha/incerta e consulta segura para reconciliar: `docs/EXECUCAO-SIMULADA.md`.
+- Executor fictício validado no Cloudflare local com 135 testes automatizados e 27 checagens HTTP: `docs/EXECUTOR-CLOUDFLARE-VALIDADO.md`.
 - Para recursos atuais e orçamento de serviços: \`docs/CUSTOS.md\`.
 - Histórico antigo de desenvolvimento: \`docs/STATUS.md\` (algumas seções descrevem protótipos desatualizados).
 

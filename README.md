@@ -37,6 +37,8 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/core/memory-firestore.ts\`: adaptador de armazenamento futuro no Firebase, testado com requisições simuladas; **não conectado**, com Security Rules atuais bloqueando acesso.
 - \`src/MemoryCenter.tsx\`: demonstração interativa local de aprovação, correção e exclusão; não consulta nem grava dados reais.
 - \`worker/src/core/memory-engine.ts\`: memória controlada por confirmação, revisão, origem, busca e exclusão; ainda só usa armazenamento temporário de testes, sem gravar no Firebase.
+- \`src/ActionReviewCenter.tsx\`: painel demonstrativo com tarefas fictícias, validação no Worker condicionada a flag desligada e execução desabilitada.
+- \`worker/src/core/review-api.ts\`: prévia autenticada, limitada e sem persistência, disponível apenas se a flag de testes for ligada.
 - \`worker/src/core/action-flow.ts\`: circuitos de proposta, revisão e aprovação simulada (sempre `executed: false`); não ligado ao Worker.
 - \`worker/src/core/approval-durable.ts\`: adaptador transacional de propostas em Durable Objects, isolado por conta e testado com armazenamento simulado; **não está ligado ao Worker nem ativa ações**.
 - \`worker/src/core/approval-ledger.ts\`: protocolo de aprovação por ação exata, dono, expiração e uso único; isolado, sem executar tarefas.
@@ -69,6 +71,7 @@ Não crie credenciais do Firebase no GitHub; os deploys existentes usam federaç
 - Critérios de liberação e limites da exclusão: \`docs/MEMORIA-CONTROLES.md\`.
 - Para informações sobre recursos de leitura Google: \`docs/GOOGLE-AGENDA-DRIVE.md\`.
 - Critérios de segurança e simulação do fluxo de ações: \`docs/FLUXO-ACOES-JARVIS.md\`.
+- Consulta autenticada e painel de revisão, desativados por padrão: \`docs/REVISAO-ACOES-SEGURA.md\`.
 - Para recursos atuais e orçamento de serviços: \`docs/CUSTOS.md\`.
 - Histórico antigo de desenvolvimento: \`docs/STATUS.md\` (algumas seções descrevem protótipos desatualizados).
 

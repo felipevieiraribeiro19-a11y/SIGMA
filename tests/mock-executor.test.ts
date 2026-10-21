@@ -88,6 +88,8 @@ test('cannot change a previous operation by supplying same ID with different con
  const journal=new TestExecutionJournal(),provider=new FictionalIdempotentProvider();
  await simulateProviderExecution(receipt,journal,provider);
  await assert.rejects(()=>simulateProviderExecution({...receipt,digest:'f'.repeat(64)},journal,provider),/conflitante/);
+ await assert.rejects(()=>simulateProviderExecution({...receipt,target:'calendar:other-calendar'},journal,provider),/conflitante/);
+ await assert.rejects(()=>simulateProviderExecution({...receipt,change:'{\"unexpected\":true}'},journal,provider),/conflitante/);
  await assert.rejects(()=>simulateProviderExecution({...receipt,capabilityId:'integrations.unknown'},journal,provider),/fora do laboratório/);
  assert.equal(provider.calls.length,1);
 });

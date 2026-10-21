@@ -34,7 +34,7 @@ export function makeAssistantPlan(message:string,config:CapabilityConfig):Assist
   status:'not-implemented' as const,requiresConfirmation:true as const
  }:undefined;
  if(proposedAction)return {mode:'action-proposal',steps:[],proposedAction,search:{needed:false,explicit:false},google:{calendar:false,drive:false}};
- const calendarRequested=hasCalendar&&(reading||hasDirectCalendarQuestion);
+ const calendarRequested=(hasCalendar&&reading)||hasDirectCalendarQuestion;
  const driveRequested=hasDrive&&reading;
  const steps:ToolStep[]=[];
  const add=(id:ReadToolId,desired:boolean)=>{

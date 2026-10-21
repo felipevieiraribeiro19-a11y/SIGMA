@@ -127,6 +127,14 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 - O adaptador futuro de escrita exige explicitamente credencial OAuth de identidade de servidor; token Firebase do navegador não é aceito como credencial do adaptador.
 - Mesmo com testes positivos, **não publicar regras nem ativar memória** antes de implementar e auditar executor de serviço, controles reais de consentimento e testes ponta a ponta.
 
+## Sexta etapa: armazenamento transacional de autorizações (isolado)
+
+- Adaptador `worker/src/core/approval-durable.ts` preparado para usar o Durable Object já existente no projeto, sem criar provedor novo.
+- Transições da aprovação são feitas com transações e versão de estado, com isolamento por UID, expiração e prevenção de uso duplo.
+- Testes simulam reinicialização do objeto, simultaneidade, cancelamento, tentativa de acesso de outra conta e consumo único.
+- **Não existe endpoint HTTP de aprovação, escritura externa nem armazenamento pessoal real ativado.** O código continua desconectado do Worker em produção.
+- Antes da ativação: teste com Durable Object real, política de retenção/limpeza, ligação a identidade verificada, interface de revisão, auditoria de resultados, confirmação expressa e orçamento de uso.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

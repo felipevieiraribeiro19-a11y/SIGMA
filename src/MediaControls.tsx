@@ -24,7 +24,7 @@ export function MediaControls({busy,attachment,onAttachment,voiceMode,onVoiceMod
  function pick(file?:File){
   if(!file)return;
   if(!mediaMime(file)){onError('Arquivo não aceito. Use PDF, imagem, TXT, MP3, M4A ou WAV.');return}
-  if(!file.size||file.size>MAX_MEDIA_BYTES){onError('Envie um arquivo de até 3 MB nesta versão.');return}
+  if(!file.size||file.size>MAX_MEDIA_BYTES){onError(`Arquivo de ${(file.size/(1024*1024)).toFixed(1).replace('.',',')} MB. O limite atual é de 10 MB.`);return}
   onAttachment(file);
  }
 
@@ -61,7 +61,7 @@ export function MediaControls({busy,attachment,onAttachment,voiceMode,onVoiceMod
     const normalized=rawMime==='audio/mp4'?'audio/m4a':rawMime;
     const file=new File(chunks,'mensagem-de-voz.'+ext,{type:normalized});
     if(!file.size){onError('O áudio ficou vazio. Grave novamente.');return}
-    if(file.size>MAX_MEDIA_BYTES){onError('Áudio muito grande. Grave uma mensagem mais curta.');return}
+    if(file.size>MAX_MEDIA_BYTES){onError('Áudio acima de 10 MB. Grave uma mensagem mais curta.');return}
     if(automatic)onVoiceReady(file);else onAttachment(file);
    };
    mediaRecorder.start();

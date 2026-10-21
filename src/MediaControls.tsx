@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Paperclip,Mic,Square,Volume2,VolumeX} from 'lucide-react';
+import {Paperclip,Mic,Square,Volume2,VolumeX,X} from 'lucide-react';
 import {MAX_MEDIA_BYTES,mediaMime} from './media';
 
 type Props={
@@ -80,6 +80,6 @@ export function MediaControls({busy,attachment,onAttachment,voiceMode,onVoiceMod
   <button type="button" className={'media-action '+(recording?'recording':'')} title={recording?'Parar gravação': 'Gravar mensagem de voz'} aria-label={recording?'Parar gravação':'Gravar mensagem de voz'} disabled={busy&&!recording} onClick={()=>void toggleRecord()}>{recording?<Square size={19}/>:<Mic size={20}/>}</button>
   <button type="button" className={'media-action '+(voiceMode?'voice-on':'')} title={voiceMode?'Desativar conversa por voz':'Ativar conversa por voz'} aria-label={voiceMode?'Desativar conversa por voz':'Ativar conversa por voz'} aria-pressed={voiceMode} onClick={()=>onVoiceMode(!voiceMode)}>{voiceMode?<Volume2 size={20}/>:<VolumeX size={20}/>}</button>
   {recording&&<span className="record-hint" role="status">Gravando… toque no quadrado para enviar ou anexar</span>}
-  {attachment&&<span className="selected-file" title={attachment.name}>Anexo: {attachment.name}</span>}
+  {attachment&&<div className="selected-file" title={attachment.name}><span>Anexo: {attachment.name}</span><button type="button" aria-label="Remover anexo" title="Remover anexo" disabled={busy||recording} onClick={()=>onAttachment(null)}><X size={14}/></button></div>}
  </>;
 }

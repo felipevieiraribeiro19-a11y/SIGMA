@@ -5,6 +5,9 @@
  * It never calls Google, Firestore, Gemini or external APIs.
  */
 import {AuditedDurableApprovalStore} from './core/audited-approval';
+import {OfflineDurableExecutionJournal,OfflineDurableMockProvider} from './core/offline-mock-store';
+import {simulateProviderExecution,reconcileMockExecution} from './core/mock-executor';
+import type {ApprovalReceipt} from './core/approval-ledger';
 import {
  stageActionReview,acceptActionReview,rejectActionReview,simulateActionReview,previewAction
 } from './core/action-flow';
@@ -43,6 +46,24 @@ async function parseBody(request:Request):Promise<{id:string;digest?:string}>{
  return {id,digest:data.digest as string|undefined};
 }
 
+
+type MockScenario='success'|'reject'|'ack-lost'|'outage';
+function scenarioFor(id:string):MockScenario{
+ if(id.startsWith('test_mock_ok'))return 'success';
+ if(id.startsWith('test_mock_reject'))return 'reject';
+ if(id.startsWith('test_mock_acklost'))return 'ack-lost';
+ if(id.startsWith('test_mock_outage'))return 'outage';
+ throw Error('ID fora dos exemplos fictícios de execução.');
+}
+async function consumedReceipt(store:AuditedDurableApprovalStore,actor:Actor,id:string):Promise<ApprovalReceipt>{
+ const [item,audit]=await Promise.all([store.read(actor,id),store.audit(actor,id)]);
+ if(!item||item.state!=='consumed'||!audit)throw Error('Autorização ainda não consumida.');
+ const event=audit.events.findLast(e=>e.kind==='simulation-consumed');
+ if(!event)throw Error('Recibo de consumo indisponível.');
+ return {id:item.id,actorUid:actor,capabilityId:item.capabilityId,
+  target:item.target,change:item.change,digest:item.digest,consumedAt:event.at};
+}
+
 export class OfflineApprovalLab{
  constructor(private readonly state:DurableObjectState){}
  async fetch(request:Request):Promise<Response>{
@@ -57,9 +78,42 @@ export class OfflineApprovalLab{
     const audit=await store.audit(actor,id);
     return response({audit,executed:false});
    }
-   if(request.method!=='POST'||!['issue','approve','cancel','consume'].includes(action))
+   if(action==='mock-status'&&request.method==='GET'){
+    const id=requestId(url.searchParams.get('id'));
+    scenarioFor(id);
+    const journal=new OfflineDurableExecutionJournal(this.state.storage,actor);
+    const provider=new OfflineDurableMockProvider(this.state.storage,scenarioFor(id),actor);
+    const recorded=await journal.get(actor,id);
+    return response({state:recorded?.state||null,executed:false,
+     mockProviderCalls:await provider.callCount('sigma-mock:v1:'+actor+':'+id)});
+   }
+   if(request.method!=='POST'||!['issue','approve','cancel','consume','mock-execute','mock-reconcile'].includes(action))
     return response({error:'Operação indisponível.'},404);
    const data=await parseBody(request),now=Date.now();
+   if(action==='mock-execute'||action==='mock-reconcile'){
+    const scenario=scenarioFor(data.id);
+    const journal=new OfflineDurableExecutionJournal(this.state.storage,actor);
+    const provider=new OfflineDurableMockProvider(this.state.storage,scenario,actor);
+    const item=await store.read(actor,data.id);
+    if(!item)throw Error('Proposta fictícia não encontrada.');
+    if(action==='mock-execute'&&item.state==='approved'){
+     const consumed=await simulateActionReview(store,{
+      authenticatedUid:actor,proposalId:data.id,
+      capabilityId:item.capabilityId,now
+     });
+     const outcome=await simulateProviderExecution(consumed.receipt,journal,provider);
+     return response({state:outcome.state,executed:false,provider:'fictional'});
+    }
+    // A consumed approval cannot be replayed: only status or reconciliation.
+    const receipt=await consumedReceipt(store,actor,data.id);
+    if(action==='mock-execute'){
+     const outcome=await journal.get(actor,data.id);
+     return response({state:outcome?.state||'untracked-consumed',
+      executed:false,provider:'fictional'});
+    }
+    const outcome=await reconcileMockExecution(receipt,journal,provider);
+    return response({state:outcome.state,executed:false,provider:'fictional'});
+   }
    if(action==='issue'){
     const preview=previewAction({
      utterance:'Agende um evento no calendário',

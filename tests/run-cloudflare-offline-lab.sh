@@ -58,6 +58,32 @@ start_worker() {
     tail -n 100 "$LOG"
     exit 1
   fi
+  # A local workerd instance can reload while its first Durable Object is
+  # created. Warm up with a fixed, fictional idempotent request. Never retry
+  # a real user action or any unknown outcome in this script.
+  local warm_ok=0 warm_response=""
+  for attempt in $(seq 1 12); do
+    warm_response="$(curl --silent --max-time 5 \
+      -H 'X-SIGMA-LAB: offline-fixture' \
+      -H 'Content-Type: application/json' \
+      --data '{"id":"test_warmup0001"}' \
+      "http://127.0.0.1:$PORT/offline-lab/issue" || true)"
+    if echo "$warm_response" | grep -q '"state":"pending"'; then
+      warm_ok=1;break
+    fi
+    if curl --silent --fail --max-time 3 -H 'X-SIGMA-LAB: offline-fixture' \
+      "http://127.0.0.1:$PORT/offline-lab/audit?id=test_warmup0001" \
+      | grep -q '"state":"pending"'; then
+      warm_ok=1;break
+    fi
+    sleep 2
+  done
+  if [ "$warm_ok" -ne 1 ]; then
+    echo "Offline Durable Object could not be warmed up safely:"
+    tail -n 100 "$LOG"
+    exit 1
+  fi
+  sleep 2
 }
 
 echo "Starting isolated Wrangler local runtime; no remote deployment"

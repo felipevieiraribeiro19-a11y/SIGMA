@@ -49,6 +49,10 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/web-search.ts\`: Tavily quando configurada, com limite.
 - \`worker/src/memory.ts\`: histórico conversacional atual no Firebase.
 
+## Laboratório Jarvis para iPhone (ainda NÃO publicado)
+
+A build isolada `npm run build:lab` prepara uma interface demonstrativa com memória fictícia, revisão de tarefas e teste opcional de login Google. O pacote sai em `dist-jarvis-lab`, sem copiar a configuração de produção. GitHub Actions valida e anexa o pacote, sem publicá-lo. Um fluxo **manual** separado prepara o canal temporário `jarvis-lab`, mas não roda sem confirmação expressa. Instruções e restrições: [docs/JARVIS-LAB-IPHONE.md](docs/JARVIS-LAB-IPHONE.md).
+
 ## Construção e execução de testes
 
 Requer Node.js 22+:

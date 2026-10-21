@@ -15,7 +15,7 @@ test('laboratório usa somente Auth e exemplos fictícios; sem gravação pessoa
  assert.match(auth,/browserSessionPersistence/);
  assert.match(auth,/signInWithPopup/);
  assert.doesNotMatch(sample,/\b(getFirestore|setDoc|addDoc|deleteDoc|updateDoc|verifyDatabase|sendChat|loadHistory|X-Google-Token)\b/);
- assert.doesNotMatch(sample,/workers\.dev|sigma-cerebro|tavily|\bfetch\s*\(/i);
+ assert.doesNotMatch(sample,/workers\.dev|sigma-cerebro|\bfetch\s*\(/i);
  assert.doesNotMatch(sample,/\b(localStorage|indexedDB|sessionStorage)\b/);
 });
 

@@ -135,6 +135,16 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 - **Não existe endpoint HTTP de aprovação, escritura externa nem armazenamento pessoal real ativado.** O código continua desconectado do Worker em produção.
 - Antes da ativação: teste com Durable Object real, política de retenção/limpeza, ligação a identidade verificada, interface de revisão, auditoria de resultados, confirmação expressa e orçamento de uso.
 
+## Sétima etapa: integração do planejamento com autorizações simuladas
+
+- `worker/src/core/action-flow.ts` une o orquestrador conversacional à prévia estruturada de ação e ao `approval-ledger`, sem chamar serviços externos.
+- O sistema rejeita autorizações para ações incompletas: criar evento exige título, calendário, início e fim com fuso; renomear arquivo exige ID e nome novo.
+- A etapa de revisão recalcula destino e detalhes antes de emitir autorização, evitando adulteração entre prévia e aprovação.
+- O teste integrado com `DurableApprovalStore` demonstra proposta, confirmação, reinício e consumo único com dados fictícios.
+- Mesmo após confirmar, a resposta da simulação é `executed: false`; sem executor real, nenhum evento ou documento é modificado.
+- Não há endpoint de ação habilitado no Worker, nem persistência de autorizações no ambiente ativo.
+- Referência de controles e próximas etapas: `docs/FLUXO-ACOES-JARVIS.md`.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

@@ -13,4 +13,6 @@ class_name = "Quota"
 tag = "v1"
 new_sqlite_classes = ["Quota"]
 # GEMINI_API_KEY must be set through `wrangler secret put`, never here.
+# Tavily free search is optional: set TAVILY_API_KEY as a Secret in Cloudflare Worker Settings.
+# No key in this file, frontend, or GitHub Actions. Search uses basic depth and a separate quota.
 # Deploy to existing SIGMA worker after secret and UID are configured.

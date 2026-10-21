@@ -7,7 +7,8 @@ const phase=process.argv[2]||'before';
 let checks=0;
 const headers={'X-SIGMA-LAB':'offline-fixture','Content-Type':'application/json'};
 async function call(action,{method='POST',body,actor='fictional_owner',headersOverride}={}){
- const url=base+action+'?actor='+actor;
+ const [route,extra]=action.split('&');
+ const url=base+route+'?actor='+actor+(extra?'&'+extra:'');
  const response=await fetch(url,{method,headers:headersOverride||headers,
   ...(body?{body:JSON.stringify(body)}:{})});
  const json=await response.json();
@@ -38,12 +39,9 @@ if(phase==='before'){
   assert.equal(r.json.executed,false);
  });
  await check('other fictional user cannot read test proposal',async()=>{
-  const r=await call('audit',{method:'GET',actor:'fictional_other',
-   headersOverride:headers});
-  // No id -> rejected, and never returns foreign audit data
-  assert.equal(r.status,409);
-  const other=await call('audit?ignored=1',{method:'GET',actor:'fictional_other'});
-  assert.equal(other.status,409);
+  const r=await call('audit&id=test_restart01',{method:'GET',actor:'fictional_other'});
+  assert.equal(r.status,200);
+  assert.equal(r.json.audit,null);
  });
  await check('audit begins with only proposed and no external execution',async()=>{
   const r=await call('audit&id=test_restart01',{method:'GET'});

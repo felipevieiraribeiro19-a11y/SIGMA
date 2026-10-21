@@ -1,0 +1,106 @@
+// DO NOT DEPLOY: security candidate for emulator review; not referenced by firebase.json
+// No user-memory functionality is enabled by this file alone.
+// Prototype. Standard edition. No application data is available before activation.
+// settings/app: timezone (required, fixed string), updatedAt (required server timestamp).
+// Access limited to the owner's verified Google identity and own UID path.
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function isOwner(uid) {
+    return request.auth != null
+      && request.auth.uid == uid
+      && request.auth.token.email == 'felipevieiraribeiro19@gmail.com'
+      && request.auth.token.email_verified == true
+      && request.auth.token.firebase.sign_in_provider == 'google.com';
+  }
+  function isValidSettings(data) {
+   return data.keys().hasAll(['timezone', 'updatedAt']) && data.keys().hasOnly(['timezone', 'updatedAt'])
+     && data.timezone == 'America/Sao_Paulo' && data.updatedAt is timestamp && data.updatedAt == request.time;
+  }
+  match /users/{uid}/settings/app {
+   allow read: if isOwner(uid);
+   allow create, update: if isOwner(uid) && isValidSettings(request.resource.data);
+   allow delete: if false;
+  }
+  // turns: exact original report and assistant answer, immutable, server timestamp.
+  function isValidTurn(d) {
+   return d.keys().hasAll(['userText','assistantText','createdAt']) && d.keys().hasOnly(['userText','assistantText','createdAt'])
+    && d.userText is string && d.userText.size() > 0 && d.userText.size() <= 4000
+    && d.assistantText is string && d.assistantText.size() > 0 && d.assistantText.size() <= 16000
+    && d.createdAt is timestamp && d.createdAt == request.time;
+  }
+  match /users/{uid}/turns/{turnId} {
+   allow read: if isOwner(uid);
+   allow create: if isOwner(uid) && isValidTurn(request.resource.data);
+   allow update, delete: if false;
+  }
+
+  // CANDIDATE ONLY. This match is NOT present in active firestore.rules.
+  // Client rule validation cannot prove that the user clicked a consent button.
+  function validMemorySource(s) {
+    return s is map
+      && s.keys().hasAll(['sourceId','sourceKind','observedAt'])
+      && s.keys().hasOnly(['sourceId','sourceKind','observedAt'])
+      && s.sourceId is string && s.sourceId.size() >= 4 && s.sourceId.size() <= 100
+      && s.sourceKind in ['conversation','user-confirmation','connector','system-action']
+      && s.observedAt is timestamp;
+  }
+  function validConfirmedMemory(data, uid) {
+    return data.keys().hasAll(['ownerUid','kind','content','revision','schemaVersion',
+      'verification','retention','createdAt','updatedAt','provenance'])
+      && data.keys().hasOnly(['ownerUid','kind','content','revision','schemaVersion',
+      'verification','retention','createdAt','updatedAt','provenance'])
+      && data.ownerUid == uid
+      && data.kind in ['fact','preference']
+      && data.content is string && data.content.size() >= 1 && data.content.size() <= 1000
+      && data.revision is int && data.revision >= 1
+      && data.schemaVersion == 1 && data.verification == 'confirmed'
+      && data.retention == 'until-deleted'
+      && data.createdAt is timestamp && data.updatedAt is timestamp
+      && data.provenance is list && data.provenance.size() >= 1 && data.provenance.size() <= 100
+      && validMemorySource(data.provenance[0])
+      && validMemorySource(data.provenance[data.provenance.size() - 1]);
+  }
+  function validNewMemory(data, uid) {
+    return validConfirmedMemory(data, uid)
+      && data.revision == 1
+      && data.createdAt == data.updatedAt
+      && data.updatedAt <= request.time
+      && data.updatedAt >= request.time - duration.value(5, 'm')
+      && data.provenance.size() == 1;
+  }
+  function validUpdatedMemory(data, before, uid) {
+    return validConfirmedMemory(data, uid)
+      && before.keys().hasAll(['ownerUid','kind','revision','createdAt','provenance'])
+      && data.ownerUid == before.ownerUid
+      && data.kind == before.kind
+      && data.createdAt == before.createdAt
+      && data.revision == before.revision + 1
+      && data.updatedAt >= before.updatedAt && data.updatedAt <= request.time
+      && data.updatedAt >= request.time - duration.value(5, 'm')
+      && data.provenance.size() == before.provenance.size() + 1
+      && data.provenance[0] == before.provenance[0]
+      && data.provenance[data.provenance.size() - 1].sourceKind == 'user-confirmation';
+  }
+  function validMemoryTombstone(data, before) {
+    return before.keys().hasAll(['ownerUid','revision','verification'])
+      && before.verification == 'confirmed'
+      && data.keys().hasAll(['deleted','revision'])
+      && data.keys().hasOnly(['deleted','revision'])
+      && data.deleted == true
+      && data.revision is int
+      && data.revision == before.revision + 1;
+  }
+  match /users/{uid}/personalMemories/{memoryId} {
+    allow get, list: if isOwner(uid);
+    allow create: if isOwner(uid)
+      && validNewMemory(request.resource.data, uid);
+    allow update: if isOwner(uid)
+      && (validUpdatedMemory(request.resource.data, resource.data, uid)
+        || validMemoryTombstone(request.resource.data, resource.data));
+    allow delete: if false;
+  }
+
+  match /{document=**} { allow read, write: if false; }
+ }
+}

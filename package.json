@@ -7,7 +7,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "test": "node --import tsx --test tests/*.test.ts",
-    "check:worker": "tsc --noEmit -p worker/tsconfig.json"
+    "check:worker": "tsc --noEmit -p worker/tsconfig.json",
+    "build:lab": "tsc --noEmit && vite build --config vite.lab.config.ts"
   },
   "dependencies": {
     "react": "^19.0.0",

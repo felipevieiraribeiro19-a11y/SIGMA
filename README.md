@@ -19,7 +19,7 @@ A arquitetura e os critérios de conclusão estão em **[docs/JARVIS-ARQUITETURA
 | Calendar e Drive | Prova de conceito de leitura criada pela Arena; requer OAuth e testes reais; Drive lista metadados |
 | Catálogo de capacidades | Implementado na branch Jarvis, autenticado, indica recursos experimentais/futuros |
 | Identidade e contrato de ferramentas | Núcleo Jarvis geral; todas as ações de escrita bloqueadas |
-| Memória pessoal | Núcleo de aprovação/correção/exclusão implementado em código; **sem persistência nem interface ativa** |
+| Memória pessoal | Motor e adaptador de banco em código, ainda desligados; painel de **demonstração fictícia**, sem dados reais |
 | Biblioteca RAG, agentes proativos, outros modelos | **Planejado, não implementado** |
 | Controles de finanças/estudo como banco de dados | **Não implementados** nesta etapa; não confundir relatos com lançamentos |
 
@@ -35,6 +35,7 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/core/models.ts\`: interface do fornecedor e adaptador Gemini atual; outros modelos são apenas possibilidades futuras.
 - \`worker/src/core/memory-contracts.ts\`: tipos de memória com proveniência e consentimento; sem gravações automáticas.
 - \`worker/src/core/memory-firestore.ts\`: adaptador de armazenamento futuro no Firebase, testado com requisições simuladas; **não conectado**, com Security Rules atuais bloqueando acesso.
+- \`src/MemoryCenter.tsx\`: demonstração interativa local de aprovação, correção e exclusão; não consulta nem grava dados reais.
 - \`worker/src/core/memory-engine.ts\`: memória controlada por confirmação, revisão, origem, busca e exclusão; ainda só usa armazenamento temporário de testes, sem gravar no Firebase.
 - \`worker/src/core/action-contracts.ts\`: propostas explícitas de ações, bloqueadas até existirem executores auditáveis.
 - \`worker/src/google.ts\`: consultas experimentais de leitura.
@@ -61,6 +62,8 @@ Não crie credenciais do Firebase no GitHub; os deploys existentes usam federaç
 - Projeto procura operar em camadas gratuitas; antes de conectar um novo provedor, documente cotas, riscos e controle de custos.
 - Histórico existente é armazenado em Firestore e continua seguindo as regras de privacidade. Não utilizar conversas como registros estruturados confiáveis.
 - Mudanças em regras Firestore precisam de testes e confirmação deliberada, nunca publicação incidental.
+- \`firestore.memory.rules.candidate\` é apenas uma proposta, **não referenciada por firebase.json**. Não implantar até passar pelos testes do emulador e revisão da autorização de escrita.
+- Critérios de liberação e limites da exclusão: \`docs/MEMORIA-CONTROLES.md\`.
 - Para informações sobre recursos de leitura Google: \`docs/GOOGLE-AGENDA-DRIVE.md\`.
 - Para recursos atuais e orçamento de serviços: \`docs/CUSTOS.md\`.
 - Histórico antigo de desenvolvimento: \`docs/STATUS.md\` (algumas seções descrevem protótipos desatualizados).

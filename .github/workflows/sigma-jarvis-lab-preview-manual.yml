@@ -1,0 +1,73 @@
+name: SIGMA - publicar APENAS laboratorio Jarvis (manual)
+
+# Registered on the default branch so workflow_dispatch is available.
+# Never deploys on push, pull_request or any automatic event.
+# Compiles the previously verified Jarvis commit, not the production branch.
+on:
+  workflow_dispatch:
+    inputs:
+      publish_ack:
+        description: "Digite PUBLICAR-APENAS-LAB para confirmar a publicacao temporaria"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: sigma-jarvis-lab-manual-preview
+  cancel-in-progress: false
+
+jobs:
+  publish-only-lab:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.actor == 'felipevieiraribeiro19-a11y' && inputs.publish_ack == 'PUBLICAR-APENAS-LAB' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar somente o commit validado do laboratorio
+        uses: actions/checkout@v4
+        with:
+          ref: f9fa1d718598535301cac38653d6df1f10b719fb
+          persist-credentials: false
+
+      - name: Conferir commit do laboratorio
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "f9fa1d718598535301cac38653d6df1f10b719fb"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validar build isolada antes de autenticar
+        run: |
+          npm ci
+          npm run build:lab
+          npm test
+          npm run check:worker
+          node tests/verify-jarvis-lab-build.mjs
+          test -f firebase.lab.json
+          test -f dist-jarvis-lab/index.html
+          test ! -e dist-jarvis-lab/config.json
+          test ! -e dist-jarvis-lab/sw.js
+
+      # Existing keyless WIF provider and service account; no new credentials.
+      # If the provider rejects workflows on main, this fails closed.
+      - name: Autenticar pelo WIF ja existente, sem chave privada
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/428047765465/locations/global/workloadIdentityPools/sigma-github/providers/github
+          service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Publicar APENAS no canal temporario jarvis-lab (2 dias)
+        shell: bash
+        run: |
+          npx --yes firebase-tools@latest hosting:channel:deploy jarvis-lab \
+            --config firebase.lab.json \
+            --project sigma-61328 \
+            --expires 2d \
+            --non-interactive

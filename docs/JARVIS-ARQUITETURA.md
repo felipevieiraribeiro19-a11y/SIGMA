@@ -190,6 +190,15 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 - Há lacunas reais a resolver antes da produção: consentimento ponta a ponta no iPhone, autenticação do executor, persistência do workflow completo e garantias/limites das APIs dos provedores.
 - Documentação e resultados: `docs/EXECUTOR-CLOUDFLARE-VALIDADO.md`.
 
+## Décima terceira etapa: laboratório de interface separado para iPhone
+
+- Criada uma entrada React independente para um laboratório no Safari, com memória fictícia e revisão local de ações.
+- Login Google opcional usa **somente Firebase Authentication**, sem banco pessoal e sem conexão ao Worker; ainda precisa ser testado no domínio temporário autorizado.
+- `firebase.lab.json` publica apenas os ativos de `dist-jarvis-lab`. O build não contém o aplicativo principal nem seu `config.json`.
+- CI gera artefato temporário e verifica isolamento; nenhum deploy foi realizado.
+- Fluxo manual de Hosting em canal distinto foi preparado, reutilizando o WIF existente, mas demanda autorização explícita e pode exigir registro do workflow na branch padrão.
+- Testes e próximos passos: `docs/JARVIS-LAB-IPHONE.md`.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

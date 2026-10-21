@@ -34,6 +34,7 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/core/authorization.ts\`: nega por padrão ações não disponíveis/não autorizadas.
 - \`worker/src/core/models.ts\`: interface do fornecedor e adaptador Gemini atual; outros modelos são apenas possibilidades futuras.
 - \`worker/src/core/memory-contracts.ts\`: tipos de memória com proveniência e consentimento; sem gravações automáticas.
+- \`worker/src/core/memory-firestore.ts\`: adaptador de armazenamento futuro no Firebase, testado com requisições simuladas; **não conectado**, com Security Rules atuais bloqueando acesso.
 - \`worker/src/core/memory-engine.ts\`: memória controlada por confirmação, revisão, origem, busca e exclusão; ainda só usa armazenamento temporário de testes, sem gravar no Firebase.
 - \`worker/src/core/action-contracts.ts\`: propostas explícitas de ações, bloqueadas até existirem executores auditáveis.
 - \`worker/src/google.ts\`: consultas experimentais de leitura.

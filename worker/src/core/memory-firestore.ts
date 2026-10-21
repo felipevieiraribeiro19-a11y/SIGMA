@@ -3,8 +3,10 @@ import type {MemoryProvenance} from './memory-contracts';
 
 /**
  * NOT WIRED to the Worker: Firebase adapter for future opt-in personal memory.
- * Firestore Security Rules currently DENY /users/{uid}/personalMemories.
- * Do not enable until rules and user-facing review/erase UI have passed tests.
+ * Future writes require short-lived server-side Google OAuth credentials for an
+ * authorized service identity. Firebase ID tokens from browsers are NOT accepted.
+ * Rules deny all direct client writes to personalMemories.
+ * No server identity / consent endpoint exists yet: never instantiate in production.
  */
 type FValue={
  stringValue?:string;integerValue?:string;timestampValue?:string;booleanValue?:boolean;
@@ -61,14 +63,18 @@ function parseDoc(doc:Document,uid:string):ApprovedMemory|null{
 }
 
 export function firebasePersonalMemoryRepository(
- projectId:string,uid:string,idToken:string,transport:typeof fetch=fetch
+ projectId:string,uid:string,
+ credential:{kind:'trusted-server-oauth';accessToken:string},transport:typeof fetch=fetch
 ):ControlledMemoryRepository{
- if(!validProject.test(projectId)||!validId.test(uid)||typeof idToken!=='string'||!idToken||idToken.length>10000||/[\s\x00-\x1f]/.test(idToken))
-  throw new Error('Autenticação ou configuração da memória inválida.');
+ if(!validProject.test(projectId)||!validId.test(uid)||
+  !credential||credential.kind!=='trusted-server-oauth'||
+  typeof credential.accessToken!=='string'||!credential.accessToken||
+  credential.accessToken.length>10000||/[\s\x00-\x1f]/.test(credential.accessToken))
+  throw new Error('Credencial de servidor confiável não configurada.');
  const root='projects/'+projectId+'/databases/(default)/documents';
  const collection=root+'/users/'+encodeURIComponent(uid)+'/personalMemories';
  const base='https://firestore.googleapis.com/v1/';
- const headers={'Authorization':'Bearer '+idToken,'Content-Type':'application/json'};
+ const headers={'Authorization':'Bearer '+credential.accessToken,'Content-Type':'application/json'};
  const options=(method:'GET'|'POST',body?:unknown):RequestInit=>({
   method,headers,signal:AbortSignal.timeout(10000),...(body===undefined?{}:{body:JSON.stringify(body)})
  });

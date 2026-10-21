@@ -1,6 +1,13 @@
 name: SIGMA - validar regras de memoria isoladas
 on:
   workflow_dispatch:
+  push:
+    branches: [sigma-jarvis-arquitetura]
+    paths:
+      - 'firestore.memory.rules.candidate'
+      - 'firebase.memory.test.json'
+      - 'tests/firebase-memory.rules.test.mjs'
+      - '.github/workflows/sigma-memory-emulator.yml'
 
 permissions:
   contents: read

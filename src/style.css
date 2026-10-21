@@ -24,3 +24,7 @@ form .record-hint{color:#ffc5cb;border-color:#8f3f4b;background:#2b1824}
  form textarea{padding:5px 3px;min-height:42px}
  form .send{padding:9px}
 }
+
+form .selected-file{display:flex;align-items:center;gap:8px;max-width:min(90vw,540px)}
+form .selected-file span{max-width:min(72vw,480px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+form .selected-file button{display:grid;place-items:center;min-width:20px;width:20px;height:20px;padding:0;border:0;color:#c4e8f5;background:#28506a}

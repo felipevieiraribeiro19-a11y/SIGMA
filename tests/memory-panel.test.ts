@@ -57,6 +57,6 @@ test('regras candidatas NÃO estão incluídas em firebase.json nem no arquivo d
  assert.match(candidate,/DO NOT DEPLOY/);
  assert.match(candidate,/match\s+\/users\/\{uid\}\/personalMemories/);
  assert.match(candidate,/allow delete: if false/);
- assert.match(candidate,/validMemoryTombstone/);
+ assert.match(candidate,/allow create, update, delete: if false/);
  assert.match(candidate,/isOwner\(uid\)/);
 });

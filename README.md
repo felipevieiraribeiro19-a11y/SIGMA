@@ -4,9 +4,12 @@ Projeto novo. Nenhum código ou configuração do Jarbas foi reutilizado.
 
 ## Estado real
 
-Interface implementada. Integrações Firebase e Worker implementadas em código, mas **não provisionadas nem verificadas com contas reais**. A publicação de avaliação serve apenas o frontend. O backend em `worker/` precisa ser implantado separadamente na conta Cloudflare. Nenhuma resposta é simulada no aplicativo.
+Interface implementada. Firebase, Worker Cloudflare e Hosting **publicados** (verificado em 21/10/2026 pelos runs do GitHub Actions e pelo site no ar), mas o comportamento em tempo de execução ainda não foi validado: segredo Tavily, claim administrativa, regras publicadas no console e identificador do modelo Gemini. Nenhuma resposta é simulada no aplicativo.
 
-O repositório vinculado à avaliação é próprio do serviço de hospedagem. Um novo repositório GitHub privado ainda precisa ser criado; não confundir os dois.
+O repositório GitHub privado é este (`felipevieiraribeiro19-a11y/SIGMA`). Todo deploy parte da branch `sigma-work-integracao`; `main` está atrás dela e não publica nada.
+
+Divisão de canais: `sigma-production` publica apenas Hosting; `sigma-cloudflare` publica apenas o Worker; `sigma-preview` publica o canal temporário `integracao`; `sigma-firestore-rules` publica apenas `firestore.rules`, de forma manual e com confirmação, porque as regras são um protótipo e publicá-las erradas bloqueia o aplicativo.
+
 
 ## Desenvolvimento
 

@@ -48,3 +48,21 @@ form .selected-file button{display:grid;place-items:center;min-width:20px;width:
 .memory-demo-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 .memory-demo-actions button{font-size:12px;width:auto!important;padding:7px 10px}
 .memory-demo-actions .memory-delete{border-color:#7e4f5b;color:#ffd9e1}
+
+
+/* Action-review rehearsal. Only fictional content; confirmations are disabled. */
+.action-review-center{padding:14px;margin:16px 0 22px;border:1px solid #36536d;border-radius:14px;background:#0c1925}
+.action-review-center h3{margin:0 0 10px}
+.action-review-center p,.action-review-center small{font-size:12px;line-height:1.6;color:#abc3d6}
+.action-review-center label{display:block;color:#cde5f3;font-size:12px;margin:12px 0 5px}
+.action-review-center select{display:block;width:100%;max-width:100%;border:1px solid #43627b;background:#142435;color:#e0f0f8;border-radius:9px;padding:9px;min-height:40px}
+.action-review-card{padding:12px;margin-top:12px;border:1px solid #33536b;background:#112638;border-radius:10px}
+.action-review-card strong{display:block;font-size:12px;color:#dcecf7}
+.action-review-card dl{display:grid;grid-template-columns:80px minmax(0,1fr);column-gap:8px;row-gap:7px;margin:10px 0 0;font-size:12px}
+.action-review-card dt{color:#97b6c9}
+.action-review-card dd{margin:0;overflow-wrap:anywhere;color:#e1ecf6}
+.action-review-center .action-review-buttons{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.action-review-center .action-review-buttons button{margin:0}
+.action-review-center .action-review-warning{color:#efc5ce}
+.action-review-result{margin:12px 0;padding:10px;background:#143245;border:1px solid #365e71;border-radius:9px;font-size:12px}
+.action-review-result p{margin:5px 0}

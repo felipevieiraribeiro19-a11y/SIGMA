@@ -1,4 +1,4 @@
-export const MAX_MEDIA_BYTES = 3 * 1024 * 1024;
+export const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
 
 export type MediaAttachment = {name:string;mimeType:string;data:string};
 
@@ -21,7 +21,7 @@ export function mediaMime(file:File):string {
 export async function encodeMedia(file:File):Promise<MediaAttachment> {
   const mimeType=mediaMime(file);
   if(!mimeType) throw new Error('Arquivo não aceito. Use PDF, TXT, imagem ou áudio (MP3, M4A, WAV, WebM).');
-  if(!file.size||file.size>MAX_MEDIA_BYTES) throw new Error('O anexo precisa ter até 3 MB nesta versão.');
+  if(!file.size||file.size>MAX_MEDIA_BYTES) throw new Error('O anexo precisa ter até 10 MB nesta versão.');
   const data=await new Promise<string>((resolve,reject)=>{
     const reader=new FileReader();
     reader.onload=()=>{

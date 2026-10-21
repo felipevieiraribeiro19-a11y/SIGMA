@@ -90,6 +90,21 @@ O núcleo agora separa a intenção de uma mensagem em conversa simples, consult
 
 **Limitações:** perguntas ambíguas podem não ser reconhecidas; isso não substitui o futuro orquestrador model-driven com catálogo, orçamento, auditoria, ações confirmadas e respostas estruturadas. Nada desta etapa modifica os registros armazenados fora das conversas já existentes. Não foi implantada em produção.
 
+## Terceira etapa: núcleo de memória controlável (implementado em código, NÃO ATIVADO)
+
+A fundação agora contém `worker/src/core/memory-engine.ts` com regras determinísticas de memória pessoal **independentes de qualquer área de vida**:
+
+- Conversas ou documentos não são copiados automaticamente para uma memória permanente.
+- Somente comandos explícitos de lembrar algo podem **propor** uma lembrança; a proposta por si só não salva nada.
+- Persistência é impossível sem aprovação explícita do conteúdo exato por um usuário autenticado. Cancelar a proposta não grava.
+- Cada memória confirmada tem proprietário (UID), identificador, tipo, revisão, origem da informação, horários e texto aprovado.
+- Correções exigem autorização do proprietário e uma revisão esperada; conflito concorrente bloqueia a operação.
+- Exclusão aprovada elimina o conteúdo da memória e bloqueia restauração por retries antigos mediante marcador opaco. Isso **não apaga** um texto que já esteja em conversas, Drive ou outras fontes — o usuário precisará de controles adicionais para exclusão completa.
+- Busca local simples, sem API paga, considera apenas itens confirmados do proprietário, aponta a origem e impõe limites; não é busca semântica/vetorial.
+- Existe repositório **apenas em memória de testes**. **Nenhum endpoint de memória, tela de aprovação ou banco persistente foi conectado.** O SIGMA publicado não ganha gravações pessoais novas.
+
+O código é testado com textos artificiais e não usa dados reais do proprietário. **A fase seguinte** será persistência autenticada no Firebase, revisão e testes de Security Rules, controles de aprovação/correção/exclusão na interface e só depois habilitação voluntária.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

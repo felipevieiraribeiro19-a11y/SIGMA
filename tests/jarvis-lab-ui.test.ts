@@ -44,6 +44,13 @@ test('configuração de hosting é dedicada à página isolada, sem DB e sem bac
  assert.match(vite,/dist-jarvis-lab/);
  const workflow=readFileSync('.github/workflows/sigma-jarvis-lab-build.yml','utf8');
  assert.doesNotMatch(workflow,/firebase-tools|wrangler deploy|hosting:channel:deploy|workload_identity_provider/);
+ const manual=readFileSync('.github/workflows/sigma-jarvis-lab-preview-manual.yml','utf8');
+ assert.match(manual,/workflow_dispatch:/);
+ assert.doesNotMatch(manual,/^  (push|pull_request):/m);
+ assert.match(manual,/PUBLICAR-APENAS-LAB/);
+ assert.match(manual,/hosting:channel:deploy jarvis-lab/);
+ assert.match(manual,/--config firebase\.lab\.json/);
+ assert.match(manual,/sigma-github-deploy@sigma-61328\.iam\.gserviceaccount\.com/);
 });
 
 test('interface mantém execução de ações indisponível mesmo no laboratório',()=>{

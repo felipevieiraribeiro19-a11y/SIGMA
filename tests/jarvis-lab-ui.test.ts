@@ -58,11 +58,11 @@ test('configuração de hosting é dedicada à página isolada, sem DB e sem bac
 test('HTML offline é gerado sem publicar e com bloqueio de login local',()=>{
  const generator=readFileSync('scripts/build-jarvis-offline.mjs','utf8');
  const workflow=readFileSync('.github/workflows/sigma-jarvis-lab-build.yml','utf8');
- assert.match(generator,/SIGMA_Jarvis_Demonstracao_Offline\\.html/);
+ assert.match(generator,/SIGMA_Jarvis_Demonstracao_Offline\.html/);
  assert.match(generator,/Arquivo offline: login indisponível/);
  assert.match(generator,/Detalhes validados localmente/);
- assert.match(generator,/Confirmar execução \\(indisponível\\)/);
- assert.match(workflow,/node scripts\\/build-jarvis-offline\\.mjs/);
+ assert.match(generator,/Confirmar execução \(indisponível\)/);
+ assert.match(workflow,/node scripts\/build-jarvis-offline\.mjs/);
  assert.match(workflow,/sigma-jarvis-lab-html-unico/);
  assert.doesNotMatch(workflow,/hosting:channel:deploy|firebase-tools|wrangler deploy/);
 });

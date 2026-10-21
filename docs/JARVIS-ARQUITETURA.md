@@ -17,7 +17,7 @@
 
 ## Camadas e fluxo
 
-\`\`\`text
+```text
 iPhone / desktop / voz / anexos
        |
 Interface conversacional e painel de permissões (React PWA)
@@ -35,7 +35,7 @@ Orquestrador SIGMA
        |
 Firebase: autenticação + conversas
 Dados estruturados, índice documental e auditoria: FUTUROS, não ativados
-\`\`\`
+```
 
 ## Contratos de ferramenta
 
@@ -52,7 +52,7 @@ Na etapa de **fundação**, todas as ferramentas de escrita são BLOQUEADAS. Exp
 
 ## Memória futura, separada por responsabilidade
 
-- **Conversação**: perguntas e respostas; já existe Firestore \`users/{uid}/turns\`. Retenção, busca exaustiva, edição e exclusão ainda não estão prontas.
+- **Conversação**: perguntas e respostas; já existe Firestore `users/{uid}/turns`. Retenção, busca exaustiva, edição e exclusão ainda não estão prontas.
 - **Conhecimento pessoal**: fatos e preferências com origem, confiança, data, opção de contestar/editar/excluir; planejado.
 - **Dados estruturados**: entidades genéricas, eventos, transações, objetivos, tarefas, métricas (módulos), com consistência e trilha de alterações; planejado.
 - **Biblioteca**: Drive e uploads, indexação e consulta com fonte, acesso revogável e exclusão; planejado. Atualmente PDF em chat não equivale a biblioteca.
@@ -84,8 +84,8 @@ O núcleo agora separa a intenção de uma mensagem em conversa simples, consult
 - Tavily: mantém a busca sob demanda existente, com fontes e limites próprios.
 - Pedido para criar, alterar ou apagar evento/documento: classifica como intenção de ação ainda **não implementada**, não aciona escrita nem considera a simples aprovação como executor.
 - Fontes de serviço desconectadas são informadas como ausentes; jamais pressupõe permissão concedida a partir de um texto.
-- \`worker/src/core/orchestrator.ts\`: roteador de leitura e intenções, testável sem chamar Gemini ou Google.
-- \`worker/src/google.ts\`: consulta seletiva por provedor e não afirma que agenda vazia significa ausência de eventos se ela sequer foi consultada.
+- `worker/src/core/orchestrator.ts`: roteador de leitura e intenções, testável sem chamar Gemini ou Google.
+- `worker/src/google.ts`: consulta seletiva por provedor e não afirma que agenda vazia significa ausência de eventos se ela sequer foi consultada.
 - Testes simulam separação das consultas e verificam que um “Oi” não envia dados de calendário ao Gemini.
 
 **Limitações:** perguntas ambíguas podem não ser reconhecidas; isso não substitui o futuro orquestrador model-driven com catálogo, orçamento, auditoria, ações confirmadas e respostas estruturadas. Nada desta etapa modifica os registros armazenados fora das conversas já existentes. Não foi implantada em produção.
@@ -105,6 +105,18 @@ A fundação agora contém `worker/src/core/memory-engine.ts` com regras determi
 - As regras Firestore atuais NEGAM essa coleção; **nenhum endpoint de memória, tela de aprovação ou recurso persistente foi conectado ou liberado**. O SIGMA publicado não ganha gravações pessoais novas.
 
 O código é testado com textos artificiais e não usa dados reais do proprietário. **A fase seguinte** será persistência autenticada no Firebase, revisão e testes de Security Rules, controles de aprovação/correção/exclusão na interface e só depois habilitação voluntária.
+
+## Quarta etapa: painel de memória e regras candidatas (DESLIGADO)
+
+- `src/MemoryCenter.tsx` apresenta uma **demonstração com dados fictícios** do fluxo propor, aprovar, corrigir e excluir. Não usa Firestore, mensagens reais, APIs ou armazenamento local.
+- `src/memory-demo.ts` mantém a demonstração somente no estado React e a reinicia quando a página é recarregada.
+- `firestore.memory.rules.candidate` é uma política candidata com restrições de proprietário, formato, revisões e marcador de exclusão; **não é referenciada por `firebase.json` e não foi publicada**.
+- As regras de produção `firestore.rules` continuam inalteradas, negando `personalMemories`.
+- O Firebase Emulator ainda precisa validar a sintaxe, recusas e casos maliciosos. Os testes estáticos não substituem testes de regras reais.
+- A aprovação na interface não é uma autorização criptográfica; antes de ativar gravações, criar mecanismo confiável de aprovação para impedir bypass por chamada direta.
+- Limites e checklist da liberação: `docs/MEMORIA-CONTROLES.md`.
+
+**Resultado:** existe uma prévia testável da experiência, mas nenhuma memória pessoal foi criada ou persistida. Esta branch segue isolada da produção.
 
 ## Roteiro neutro e extensível
 

@@ -12,7 +12,7 @@ export type MemoryDraft={
 };
 export type ApprovedMemory=MemoryRecord&{
  kind:PersonalMemoryKind;content:string;revision:number;verification:'confirmed';
- retention:'until-deleted';provenance:[MemoryProvenance];
+ retention:'until-deleted';provenance:[MemoryProvenance,...MemoryProvenance[]];
 };
 export type MemoryApproval={
  proposalId:string;actorUid:string;approvedContent:string;
@@ -160,10 +160,11 @@ export async function searchMemory(
 /** For isolated automated tests only; never use as a production memory database. */
 export class InMemoryControlledMemoryRepository implements ControlledMemoryRepository{
  private entries=new Map<string,ApprovedMemory>();
+ private deletedIds=new Set<string>(); // Only opaque identifiers; prevents stale approval retries from resurrecting erased content.
  private key(uid:string,id:string){return uid+':'+id;}
  async insertIfAbsent(item:ApprovedMemory){
   const key=this.key(item.ownerUid,item.id);
-  if(this.entries.has(key))return false;
+  if(this.entries.has(key)||this.deletedIds.has(key))return false;
   this.entries.set(key,structuredClone(item));return true;
  }
  async get(ownerUid:string,id:string){return structuredClone(this.entries.get(this.key(ownerUid,id))||null);}
@@ -178,6 +179,6 @@ export class InMemoryControlledMemoryRepository implements ControlledMemoryRepos
  async deleteIfRevision(ownerUid:string,id:string,expectedRevision:number){
   const key=this.key(ownerUid,id),old=this.entries.get(key);
   if(!old||old.revision!==expectedRevision)return false;
-  return this.entries.delete(key);
+  this.entries.delete(key);this.deletedIds.add(key);return true;
  }
 }

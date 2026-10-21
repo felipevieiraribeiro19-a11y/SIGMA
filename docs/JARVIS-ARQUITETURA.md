@@ -181,6 +181,15 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 - Nada está conectado ao Worker publicado ou à interface; para produção falta validar provedores reais, consentimento confiável e tratamento de falhas distribuídas.
 - Guia: `docs/EXECUCAO-SIMULADA.md`.
 
+## Décima segunda etapa: execução de provedor fictício em Cloudflare local
+
+- O laboratório isolado agora persiste estados de execução fictícia e resultados de provedor fictício no Durable Object, com gravações transacionais.
+- **135 testes convencionais e 27 verificações HTTP no runtime local workerd passaram**, inclusive após reiniciar o Worker.
+- Confirmado: resultado positivo, rejeição, indisponibilidade, perda de resposta, reconciliação por consulta sem repetir a operação, isolamentos de UID e concorrência.
+- `executed:false` continua significando que nenhuma ação real foi executada; confirmação no mock não representa conclusão no Google.
+- Há lacunas reais a resolver antes da produção: consentimento ponta a ponta no iPhone, autenticação do executor, persistência do workflow completo e garantias/limites das APIs dos provedores.
+- Documentação e resultados: `docs/EXECUTOR-CLOUDFLARE-VALIDADO.md`.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

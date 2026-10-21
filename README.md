@@ -74,6 +74,7 @@ Não crie credenciais do Firebase no GitHub; os deploys existentes usam federaç
 - Critérios de segurança e simulação do fluxo de ações: \`docs/FLUXO-ACOES-JARVIS.md\`.
 - Consulta autenticada e painel de revisão, desativados por padrão: \`docs/REVISAO-ACOES-SEGURA.md\`.
 - Laboratório integrado de auditoria e autorizações simuladas: `docs/AUDITORIA-ACOES.md`.
+- Runtime local do Cloudflare com 16 verificações reais de Durable Object e reinício: `docs/CLOUDFLARE-LAB-LOCAL.md`. Nenhuma publicação remota.
 - Para recursos atuais e orçamento de serviços: \`docs/CUSTOS.md\`.
 - Histórico antigo de desenvolvimento: \`docs/STATUS.md\` (algumas seções descrevem protótipos desatualizados).
 

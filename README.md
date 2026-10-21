@@ -42,6 +42,7 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/core/action-flow.ts\`: circuitos de proposta, revisão e aprovação simulada (sempre `executed: false`); não ligado ao Worker.
 - \`worker/src/core/approval-durable.ts\`: adaptador transacional de propostas em Durable Objects, isolado por conta e testado com armazenamento simulado; **não está ligado ao Worker nem ativa ações**.
 - `worker/src/core/audited-approval.ts`: armazenamento transacional de autorizações com auditoria mínima, isolado, testado com dados fictícios, **não conectado à produção**.
+- `worker/src/core/mock-executor.ts`: executor de laboratório sem chamadas externas; resposta perdida não dispara repetição automática.
 - \`worker/src/core/approval-ledger.ts\`: protocolo de aprovação por ação exata, dono, expiração e uso único; isolado, sem executar tarefas.
 - \`worker/src/core/action-contracts.ts\`: propostas explícitas de ações, bloqueadas até existirem executores auditáveis.
 - \`worker/src/google.ts\`: consultas experimentais de leitura.
@@ -75,6 +76,7 @@ Não crie credenciais do Firebase no GitHub; os deploys existentes usam federaç
 - Consulta autenticada e painel de revisão, desativados por padrão: \`docs/REVISAO-ACOES-SEGURA.md\`.
 - Laboratório integrado de auditoria e autorizações simuladas: `docs/AUDITORIA-ACOES.md`.
 - Runtime local do Cloudflare com 16 verificações reais de Durable Object e reinício: `docs/CLOUDFLARE-LAB-LOCAL.md`. Nenhuma publicação remota.
+- Simulação de execução com estados confirmada/falha/incerta e consulta segura para reconciliar: `docs/EXECUCAO-SIMULADA.md`.
 - Para recursos atuais e orçamento de serviços: \`docs/CUSTOS.md\`.
 - Histórico antigo de desenvolvimento: \`docs/STATUS.md\` (algumas seções descrevem protótipos desatualizados).
 

@@ -18,6 +18,6 @@ export function validateAttachment(raw:unknown):Attachment|undefined {
  const a=raw as Record<string,unknown>;
  if(Object.keys(a).some(k=>!['name','mimeType','data'].includes(k)))throw new HttpError(400,'Anexo inválido.');
  const types=['application/pdf','text/plain','image/jpeg','image/png','image/webp','audio/mpeg','audio/mp3','audio/wav','audio/m4a','audio/webm','audio/ogg','audio/aac'];
- if(typeof a.name!=='string'||!a.name.trim()||a.name.length>100||/[\x00-\x1f]/.test(a.name)||typeof a.mimeType!=='string'||!types.includes(a.mimeType)||typeof a.data!=='string'||a.data.length<4||a.data.length>4194304||!(/^[A-Za-z0-9+/]+={0,2}$/).test(a.data)||a.data.length%4!==0)throw new HttpError(400,'Anexo inválido ou maior que 3 MB.');
+ if(typeof a.name!=='string'||!a.name.trim()||a.name.length>100||/[\x00-\x1f]/.test(a.name)||typeof a.mimeType!=='string'||!types.includes(a.mimeType)||typeof a.data!=='string'||a.data.length<4||a.data.length>4*Math.ceil(10*1024*1024/3)||!(/^[A-Za-z0-9+/]+={0,2}$/).test(a.data)||a.data.length%4!==0)throw new HttpError(400,'Anexo inválido ou maior que 10 MB.');
  return {name:a.name,mimeType:a.mimeType,data:a.data};
 }

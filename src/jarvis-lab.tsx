@@ -22,6 +22,7 @@ export function localFictionalPreview(request:ActionPreviewRequest):Promise<Acti
 }
 
 export function JarvisLab(){
+ const openedAsFile=typeof window!=='undefined'&&window.location.protocol==='file:';
  const [user,setUser]=useState<User|null>(null);
  const [authReady,setAuthReady]=useState(false);
  const [authError,setAuthError]=useState('');
@@ -29,12 +30,13 @@ export function JarvisLab(){
  const [showMemory,setShowMemory]=useState(false);
  const [showActions,setShowActions]=useState(false);
  useEffect(()=>{
+  if(openedAsFile){setAuthReady(true);return;}
   let alive=true;let unsubscribe=()=>{};
   prepareLabAuth(u=>{if(alive){setUser(u);setAuthReady(true);}})
    .then(fn=>{if(alive)unsubscribe=fn;else fn();})
    .catch(e=>{if(alive){setAuthReady(true);setAuthError(readableLabAuthError(e));}});
   return ()=>{alive=false;unsubscribe();};
- },[]);
+ },[openedAsFile]);
  async function toggleLogin(){
   if(loggingIn)return;setAuthError('');setLoggingIn(true);
   try{if(user)await logoutLab();else await loginLab();}
@@ -53,9 +55,10 @@ export function JarvisLab(){
     <h2>1. Verificação de login Google</h2>
     <p>O login é opcional. Serve apenas para testar a autenticação do navegador; não libera ferramentas nem consulta seus arquivos.</p>
     <p><strong>Estado:</strong> {user?'Google conectado para teste':authReady?'Sem sessão Google':'Preparando autenticação…'}</p>
-    <button type="button" disabled={!authReady||loggingIn} onClick={()=>{void toggleLogin();}}>
+    <button type="button" disabled={openedAsFile||!authReady||loggingIn} onClick={()=>{void toggleLogin();}}>
      {loggingIn?'Aguarde…':user?'Sair do laboratório':'Testar login Google'}
     </button>
+    {openedAsFile&&<p>Arquivo offline: login indisponível. Os exemplos de memória e tarefas continuam funcionando sem conexão.</p>}
     {authError&&<p className="lab-error" role="alert">{authError}</p>}
    </section>
    <section className="lab-panel" aria-label="Memória de demonstração">

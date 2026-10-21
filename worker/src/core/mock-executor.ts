@@ -95,7 +95,7 @@ export async function reconcileMockExecution(
  const old=await journal.get(receipt.actorUid,receipt.id);
  if(!old)throw Error('Não existe execução para reconciliar.');
  sameReceipt(old,receipt,await payloadHash(receipt));
- if(old.state='confirmed-in-mock'||old.state==='rejected-in-mock')return old;
+ if(old.state==='confirmed-in-mock'||old.state==='rejected-in-mock')return old;
  let status:ProviderResult|null;
  try{status=await provider.lookup(old.providerKey);}
  catch{return old;}

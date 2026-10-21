@@ -17,7 +17,7 @@ export type AssistantPlan={
 const calendar=/\b(agenda|calend[aá]rio|compromissos?|reuni(?:ão|ões)|eventos?|meus hor[aá]rios)\b/i;
 const drive=/\b(google drive|meu drive|no drive|arquivos? (?:do|no|meus?|que tenho)|documentos? (?:do|no|meus?|que tenho)|pastas? (?:do|no|minhas?)|pdfs? (?:do|no|meus?|que tenho))\b/i;
 const readRequest=/\b(me mostr[ea]|mostr[ea]|liste|listar|list[ea]|procure|procurar|encontre|encontrar|consult[ea]|consulte|verifique|confira|quais|qual|o que|quando|onde|tenho|veja|ver|pesquise|buscar|busque|meus|minhas|hoje|amanh[aã]|pr[oó]xim[oa]s?)\b/i;
-const writeRequest=/\b(crie|criar|agend[ea]|agendar|marque|marcar|adicione|adicionar|inclua|incluir|altere|alterar|mude|mudar|renomeie|renomear|mova|mover|remova|remover|cancele|cancelar|apague|apagar|exclua|excluir)\b/i;
+const writeRequest=/\b(crie|criar|agende|agendar|marque|marcar|adicione|adicionar|inclua|incluir|altere|alterar|mude|mudar|renomeie|renomear|mova|mover|remova|remover|cancele|cancelar|apague|apagar|exclua|excluir)\b/i;
 
 export function makeAssistantPlan(message:string,config:CapabilityConfig):AssistantPlan{
  const text=message.slice(0,3800).trim();
@@ -26,7 +26,7 @@ export function makeAssistantPlan(message:string,config:CapabilityConfig):Assist
  const hasDrive=drive.test(text);
  const writing=writeRequest.test(text);
  const reading=readRequest.test(text);
- const hasDirectCalendarQuestion=/\b(o que (?:eu )?tenho (?:para |pra )?(?:hoje|amanh[aã]|essa semana)|meus compromissos)\b/i.test(text);
+ const hasDirectCalendarQuestion=/\b(o que (?:eu )?tenho (?:para |pra |em |no |na )?(?:hoje|amanh[aã]|essa semana|pr[oó]xima semana|este m[eê]s|(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro))|meus compromissos)\b/i.test(text);
  // Se a intenção é mudar dados externos, primeiro apresentar proposta;
  // nunca transformar um pedido de escrita em consulta automática.
  const proposedAction=writing&&(hasCalendar||hasDrive)?{

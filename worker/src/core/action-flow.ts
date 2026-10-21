@@ -78,6 +78,14 @@ export function previewAction(input:{
 }):ActionPreview{
  if(typeof input.utterance!=='string'||input.utterance.length>3800||
   !Number.isSafeInteger(input.now)||input.now<0)throw new Error('Pedido inválido.');
+ const ambiguousTargets=/\b(?:agenda|calend[aá]rio|compromissos?|eventos?|reuni[aã]o)\b/i.test(input.utterance) &&
+  /\b(?:google drive|no drive|meu drive)\b/i.test(input.utterance);
+ if(ambiguousTargets)return {
+  status:'unsupported',capabilityId:null,actionKind:null,
+  missing:['separe as ações em pedidos individuais'],
+  summary:'Pedido envolvendo ferramentas diferentes: revise uma ação por vez.',
+  target:null,change:null,params:null,executionEnabled:false
+ };
  const plan=makeAssistantPlan(input.utterance,input.config);
  if(plan.mode!=='action-proposal'||!plan.proposedAction)return {
   status:'unsupported',capabilityId:null,actionKind:null,

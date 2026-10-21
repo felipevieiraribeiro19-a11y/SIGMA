@@ -37,6 +37,7 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/core/memory-firestore.ts\`: adaptador de armazenamento futuro no Firebase, testado com requisições simuladas; **não conectado**, com Security Rules atuais bloqueando acesso.
 - \`src/MemoryCenter.tsx\`: demonstração interativa local de aprovação, correção e exclusão; não consulta nem grava dados reais.
 - \`worker/src/core/memory-engine.ts\`: memória controlada por confirmação, revisão, origem, busca e exclusão; ainda só usa armazenamento temporário de testes, sem gravar no Firebase.
+- \`worker/src/core/approval-ledger.ts\`: protocolo de aprovação por ação exata, dono, expiração e uso único; isolado, sem executar tarefas.
 - \`worker/src/core/action-contracts.ts\`: propostas explícitas de ações, bloqueadas até existirem executores auditáveis.
 - \`worker/src/google.ts\`: consultas experimentais de leitura.
 - \`worker/src/web-search.ts\`: Tavily quando configurada, com limite.
@@ -62,7 +63,7 @@ Não crie credenciais do Firebase no GitHub; os deploys existentes usam federaç
 - Projeto procura operar em camadas gratuitas; antes de conectar um novo provedor, documente cotas, riscos e controle de custos.
 - Histórico existente é armazenado em Firestore e continua seguindo as regras de privacidade. Não utilizar conversas como registros estruturados confiáveis.
 - Mudanças em regras Firestore precisam de testes e confirmação deliberada, nunca publicação incidental.
-- \`firestore.memory.rules.candidate\` é apenas uma proposta, **não referenciada por firebase.json**. Não implantar até passar pelos testes do emulador e revisão da autorização de escrita.
+- \`firestore.memory.rules.candidate\` **nega escrita direta do cliente**, passou por 14 verificações no Firestore Emulator e não está referenciado por firebase.json. Continua não publicado; o backend seguro de execução ainda precisa ser desenvolvido.
 - Critérios de liberação e limites da exclusão: \`docs/MEMORIA-CONTROLES.md\`.
 - Para informações sobre recursos de leitura Google: \`docs/GOOGLE-AGENDA-DRIVE.md\`.
 - Para recursos atuais e orçamento de serviços: \`docs/CUSTOS.md\`.

@@ -37,6 +37,7 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/core/memory-firestore.ts\`: adaptador de armazenamento futuro no Firebase, testado com requisições simuladas; **não conectado**, com Security Rules atuais bloqueando acesso.
 - \`src/MemoryCenter.tsx\`: demonstração interativa local de aprovação, correção e exclusão; não consulta nem grava dados reais.
 - \`worker/src/core/memory-engine.ts\`: memória controlada por confirmação, revisão, origem, busca e exclusão; ainda só usa armazenamento temporário de testes, sem gravar no Firebase.
+- \`worker/src/core/action-flow.ts\`: circuitos de proposta, revisão e aprovação simulada (sempre `executed: false`); não ligado ao Worker.
 - \`worker/src/core/approval-durable.ts\`: adaptador transacional de propostas em Durable Objects, isolado por conta e testado com armazenamento simulado; **não está ligado ao Worker nem ativa ações**.
 - \`worker/src/core/approval-ledger.ts\`: protocolo de aprovação por ação exata, dono, expiração e uso único; isolado, sem executar tarefas.
 - \`worker/src/core/action-contracts.ts\`: propostas explícitas de ações, bloqueadas até existirem executores auditáveis.
@@ -67,6 +68,7 @@ Não crie credenciais do Firebase no GitHub; os deploys existentes usam federaç
 - \`firestore.memory.rules.candidate\` **nega escrita direta do cliente**, passou por 14 verificações no Firestore Emulator e não está referenciado por firebase.json. Continua não publicado; o backend seguro de execução ainda precisa ser desenvolvido.
 - Critérios de liberação e limites da exclusão: \`docs/MEMORIA-CONTROLES.md\`.
 - Para informações sobre recursos de leitura Google: \`docs/GOOGLE-AGENDA-DRIVE.md\`.
+- Critérios de segurança e simulação do fluxo de ações: \`docs/FLUXO-ACOES-JARVIS.md\`.
 - Para recursos atuais e orçamento de serviços: \`docs/CUSTOS.md\`.
 - Histórico antigo de desenvolvimento: \`docs/STATUS.md\` (algumas seções descrevem protótipos desatualizados).
 

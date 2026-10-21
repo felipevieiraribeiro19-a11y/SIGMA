@@ -61,3 +61,19 @@ export async function loadAgenda(config:Config,user:User,googleToken:string):Pro
  if(!response.ok)throw Error(data.error||'Não foi possível ler a Agenda e o Drive.');
  return data as GoogleData;
 }
+
+// Catálogo somente leitura; não ativa conexões ou ações sem autorização.
+export type CapabilityInfo={
+ id:string;title:string;domain:string;status:'available'|'preview'|'planned'|'not-configured';
+ description:string;risk:'read'|'write'|'external-side-effect';
+};
+export async function loadCapabilities(config:Config,user:User,googleToken?:string):Promise<CapabilityInfo[]>{
+ if(!config.apiBaseUrl)return [];
+ const response=await fetch(config.apiBaseUrl.replace(/\/$/,'')+'/api/capabilities',{
+  headers:{Authorization:'Bearer '+await user.getIdToken(),...(googleToken?{'X-Google-Token':googleToken}:{})},
+  cache:'no-store'
+ });
+ if(!response.ok)return [];
+ const data=await response.json() as {capabilities?:CapabilityInfo[]};
+ return Array.isArray(data.capabilities)?data.capabilities:[];
+}

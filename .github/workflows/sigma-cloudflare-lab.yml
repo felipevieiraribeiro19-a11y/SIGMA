@@ -2,8 +2,8 @@ name: SIGMA - laboratorio Cloudflare offline
 
 on:
   workflow_dispatch:
-  push:
-    branches: [sigma-jarvis-arquitetura]
+  pull_request:
+    branches: [sigma-work-integracao]
     paths:
       - 'worker/src/offline-approval-lab.ts'
       - 'worker/src/core/audited-approval.ts'
@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   real-local-cloudflare-runtime:
-    if: github.ref == 'refs/heads/sigma-jarvis-arquitetura'
+    if: github.head_ref == 'sigma-jarvis-arquitetura'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:

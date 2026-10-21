@@ -118,6 +118,15 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 
 **Resultado:** existe uma prévia testável da experiência, mas nenhuma memória pessoal foi criada ou persistida. Esta branch segue isolada da produção.
 
+## Quinta etapa: autorização e regras reais verificadas em emulador
+
+- `worker/src/core/approval-ledger.ts` implementa o protocolo **não conectado** de autorização por proposta exata: fingerprint SHA-256, dono, ferramenta, destino, descrição, validade curta, cancelamento e consumo único. Não executa ações e não guarda dados reais.
+- `TestApprovalStore` é volátil e serve apenas para testes de concorrência, expiração e replay. O armazenamento durável transacional e a conexão a endpoints autenticados ainda não existem.
+- O arquivo candidato `firestore.memory.rules.candidate` agora **nega TODAS as escritas diretas do cliente**, inclusive do proprietário. A leitura pertence exclusivamente ao usuário permitido. O arquivo de produção permanece inalterado.
+- Workflow `sigma-memory-emulator.yml`: usando apenas emulador local, executou **14 verificações** com sucesso sobre leitura permitida, isolamento entre contas, bloqueio de gravação, edição, exclusão e compatibilidade do histórico de conversas.
+- O adaptador futuro de escrita exige explicitamente credencial OAuth de identidade de servidor; token Firebase do navegador não é aceito como credencial do adaptador.
+- Mesmo com testes positivos, **não publicar regras nem ativar memória** antes de implementar e auditar executor de serviço, controles reais de consentimento e testes ponta a ponta.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

@@ -163,6 +163,15 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 - **Não existem endpoints reais de aprovação ou execução, nem deploy.** O armazenamento durável real e o fluxo humano ponta a ponta ainda devem ser testados.
 - Detalhes e riscos pendentes: `docs/AUDITORIA-ACOES.md`.
 
+## Décima etapa: teste real do runtime local Cloudflare (sem deploy)
+
+- O código do núcleo de aprovação com auditoria foi executado em um **Durable Object real do runtime local workerd/Miniflare**, não apenas em uma imitação de armazenamento.
+- O `wrangler dev --local` iniciou um Worker de laboratório separado e usou persistência em disco descartável; o teste parou e reiniciou o processo no mesmo estado.
+- Foram aprovadas **16 verificações HTTP**, incluindo persistência entre reinícios, um único consumo em concorrência, separação por conta fictícia, fingerprint obrigatório, cancelamento e auditoria sem texto da tarefa.
+- O workflow também passou por **128 testes convencionais** antes do laboratório. Logs em `SIGMA - laboratorio Cloudflare offline` na branch de desenvolvimento.
+- **Nenhuma API externa, memória pessoal ou Worker da conta do usuário foi acessado ou alterado.** O laboratório não é implantado na nuvem.
+- Guia e limitações: `docs/CLOUDFLARE-LAB-LOCAL.md`.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

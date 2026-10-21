@@ -8,7 +8,7 @@ import {bootstrap,login,logout,verifyDatabase,sendChat,loadHistory,readableError
 import './style.css';
 import {NeuralBackground} from './NeuralBackground';
 function LinkedMessage({text}:{text:string}){
- return <>{text.split(/(https:\/\/[^\\s<>"']+)/g).map((part,i)=>{
+ return <>{text.split(/(https:\/\/[^\s<>"']+)/g).map((part,i)=>{
   if(!part.startsWith('https://'))return <React.Fragment key={i}>{part}</React.Fragment>;
   try{
    const url=new URL(part);

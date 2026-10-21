@@ -19,7 +19,8 @@ A arquitetura e os critérios de conclusão estão em **[docs/JARVIS-ARQUITETURA
 | Calendar e Drive | Prova de conceito de leitura criada pela Arena; requer OAuth e testes reais; Drive lista metadados |
 | Catálogo de capacidades | Implementado na branch Jarvis, autenticado, indica recursos experimentais/futuros |
 | Identidade e contrato de ferramentas | Núcleo Jarvis geral; todas as ações de escrita bloqueadas |
-| Memória pessoal editável, biblioteca RAG, agentes proativos, outros modelos | **Planejado, não implementado** |
+| Memória pessoal | Núcleo de aprovação/correção/exclusão implementado em código; **sem persistência nem interface ativa** |
+| Biblioteca RAG, agentes proativos, outros modelos | **Planejado, não implementado** |
 | Controles de finanças/estudo como banco de dados | **Não implementados** nesta etapa; não confundir relatos com lançamentos |
 
 A aplicação segue operando em https://sigma-61328.web.app na versão previamente publicada. **A branch \`sigma-jarvis-arquitetura\` é trabalho de desenvolvimento, não foi publicada automaticamente.**
@@ -33,6 +34,7 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 - \`worker/src/core/authorization.ts\`: nega por padrão ações não disponíveis/não autorizadas.
 - \`worker/src/core/models.ts\`: interface do fornecedor e adaptador Gemini atual; outros modelos são apenas possibilidades futuras.
 - \`worker/src/core/memory-contracts.ts\`: tipos de memória com proveniência e consentimento; sem gravações automáticas.
+- \`worker/src/core/memory-engine.ts\`: memória controlada por confirmação, revisão, origem, busca e exclusão; ainda só usa armazenamento temporário de testes, sem gravar no Firebase.
 - \`worker/src/core/action-contracts.ts\`: propostas explícitas de ações, bloqueadas até existirem executores auditáveis.
 - \`worker/src/google.ts\`: consultas experimentais de leitura.
 - \`worker/src/web-search.ts\`: Tavily quando configurada, com limite.

@@ -7,6 +7,8 @@ on:
     paths:
       - 'worker/src/offline-approval-lab.ts'
       - 'worker/src/core/audited-approval.ts'
+      - 'worker/src/core/offline-mock-store.ts'
+      - 'worker/src/core/mock-executor.ts'
       - 'worker/src/core/action-flow.ts'
       - 'worker/src/core/approval-ledger.ts'
       - 'worker/wrangler.offline-lab.toml'

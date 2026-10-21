@@ -58,7 +58,7 @@ function scenarioFor(id:string):MockScenario{
 async function consumedReceipt(store:AuditedDurableApprovalStore,actor:Actor,id:string):Promise<ApprovalReceipt>{
  const [item,audit]=await Promise.all([store.read(actor,id),store.audit(actor,id)]);
  if(!item||item.state!=='consumed'||!audit)throw Error('Autorização ainda não consumida.');
- const event=audit.events.findLast(e=>e.kind==='simulation-consumed');
+ const event=[...audit.events].reverse().find(e=>e.kind==='simulation-consumed');
  if(!event)throw Error('Recibo de consumo indisponível.');
  return {id:item.id,actorUid:actor,capabilityId:item.capabilityId,
   target:item.target,change:item.change,digest:item.digest,consumedAt:event.at};

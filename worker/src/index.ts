@@ -8,7 +8,8 @@ import {listCapabilities} from './core/capabilities';
 import {authorizeOperation} from './core/authorization';
 import {buildGeminiRequest} from './core/models';
 import {makeAssistantPlan} from './core/orchestrator';
-export interface Env{GEMINI_API_KEY:string;GEMINI_MODEL:string;FIREBASE_PROJECT_ID:string;ALLOWED_UID:string;ALLOWED_ORIGINS:string;TAVILY_API_KEY?:string;QUOTA:DurableObjectNamespace;}
+import {readLimitedPreviewJson,buildReadOnlyActionPreview} from './core/review-api';
+export interface Env{GEMINI_API_KEY:string;GEMINI_MODEL:string;FIREBASE_PROJECT_ID:string;ALLOWED_UID:string;ALLOWED_ORIGINS:string;TAVILY_API_KEY?:string;ACTION_PREVIEW_ENABLED?:string;QUOTA:DurableObjectNamespace;}
 const keys=createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
 const instructions=SIGMA_IDENTITY;
 export function makeWorker(dependencies?:{verify?:typeof authenticate;fetch?:typeof fetch;memory?:ReturnType<typeof memoryStore>}){return {async fetch(request:Request,env:Env):Promise<Response>{
@@ -20,10 +21,24 @@ export function makeWorker(dependencies?:{verify?:typeof authenticate;fetch?:typ
   if(!origin||!allowed.includes(origin))throw new HttpError(403,'Origem não autorizada.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, X-Turn-Id, X-Google-Token','Access-Control-Max-Age':'600'}});
   const path=new URL(request.url).pathname;
-  if(!['/api/chat','/api/history','/api/agenda','/api/capabilities'].includes(path))throw new HttpError(404,'Endpoint não encontrado.');
+  if(!['/api/chat','/api/history','/api/agenda','/api/capabilities','/api/actions/preview'].includes(path))throw new HttpError(404,'Endpoint não encontrado.');
   if(request.method!==(path==='/api/history'||path==='/api/agenda'||path==='/api/capabilities'?'GET':'POST'))throw new HttpError(405,'Método não permitido.');
   if(!env.FIREBASE_PROJECT_ID||!env.ALLOWED_UID||!env.GEMINI_API_KEY||!env.GEMINI_MODEL||!env.QUOTA)throw new HttpError(503,'O SIGMA ainda precisa concluir a configuração das conexões.');
+  // Preview is strictly read-only, behind a default-OFF server flag.
+  // Deny before authentication and do not load conversation or OAuth integrations.
+  if(path==='/api/actions/preview'&&env.ACTION_PREVIEW_ENABLED!=='true')
+   throw new HttpError(404,'Prévia de ações ainda não habilitada.');
   const uid=await(dependencies?.verify||authenticate)(request,env);
+  if(path==='/api/actions/preview'){
+   if(!request.headers.get('Content-Type')?.startsWith('application/json'))
+    throw new HttpError(415,'A prévia precisa ser enviada em JSON.');
+   let payload:unknown;
+   try{payload=await readLimitedPreviewJson(request)}
+   catch{throw new HttpError(400,'Prévia inválida ou muito grande.');}
+   try{
+    return json(buildReadOnlyActionPreview(payload,{searchConfigured:false,googleConnected:false},Date.now()));
+   }catch{throw new HttpError(400,'Detalhes de prévia inválidos.');}
+  }
   const memory=dependencies?.memory||memoryStore(env.FIREBASE_PROJECT_ID,uid,request.headers.get('Authorization')||'');
   if(path==='/api/capabilities')return json({capabilities:listCapabilities({searchConfigured:!!env.TAVILY_API_KEY,googleConnected:!!request.headers.get('X-Google-Token')}),writesEnabled:false});
   if(path==='/api/history')return json({turns:await memory.recent(),limit:100});

@@ -34,7 +34,7 @@ function firestoreMock(){
   }
   assert.fail('URL ou método inesperado');
  }) as typeof fetch;
- return {repository:firebasePersonalMemoryRepository(project,uid,'fake-id-token',transport),requests,docs};
+ return {repository:firebasePersonalMemoryRepository(project,uid,{kind:'trusted-server-oauth',accessToken:'fake-id-token'},transport),requests,docs};
 }
 function proposal(){
  return draftMemory({proposalId:'memory_001',ownerUid:uid,kind:'preference',content:'Prefiro notícias com fontes oficiais',source:evidence,createdAt:time});
@@ -92,7 +92,8 @@ test('operações cruzando usuários bloqueiam antes de enviar pedido ao Firesto
  assert.equal(requests.length,0);
 });
 test('projeto, UID e token precisam ser válidos',()=>{
- assert.throws(()=>firebasePersonalMemoryRepository('bad!project',uid,'fake'));
- assert.throws(()=>firebasePersonalMemoryRepository(project,'x','fake'));
- assert.throws(()=>firebasePersonalMemoryRepository(project,uid,'with newline\n'));
+ assert.throws(()=>firebasePersonalMemoryRepository('bad!project',uid,{kind:'trusted-server-oauth',accessToken:'fake'}));
+ assert.throws(()=>firebasePersonalMemoryRepository(project,'x',{kind:'trusted-server-oauth',accessToken:'fake'}));
+ assert.throws(()=>firebasePersonalMemoryRepository(project,uid,{kind:'trusted-server-oauth',accessToken:'with newline\n'}));
+ assert.throws(()=>firebasePersonalMemoryRepository(project,uid,{kind:'client-firebase-id-token',accessToken:'fake'} as any));
 });

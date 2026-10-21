@@ -145,6 +145,16 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 - Não há endpoint de ação habilitado no Worker, nem persistência de autorizações no ambiente ativo.
 - Referência de controles e próximas etapas: `docs/FLUXO-ACOES-JARVIS.md`.
 
+## Oitava etapa: revisão autenticada de tarefas (NÃO habilitada)
+
+- `src/ActionReviewCenter.tsx`: painel de revisão com exemplos fictícios, integrado ao menu do SIGMA, sem botão ativo de execução.
+- `worker/src/core/review-api.ts`: validação determinística e limitada de prévias de ação, sem chamadas externas e sem persistência.
+- Endpoint autenticado `POST /api/actions/preview` adicionado ao Worker **atrás da flag opcional `ACTION_PREVIEW_ENABLED`**, não definida no deploy; por padrão retorna 404.
+- O servidor verifica origem e usuário Firebase antes de processar qualquer prévia quando a flag está habilitada num ambiente de testes.
+- Nenhuma confirmação ou execução remota foi implementada; `/api/actions/confirm` e `/api/actions/execute` não existem.
+- Testes com backend simulado verificaram rejeição de chamadas não autorizadas e que o resultado só diz `persisted:false`, `authorizedForExecution:false` e `executionEnabled:false`.
+- Guia detalhado: `docs/REVISAO-ACOES-SEGURA.md`.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

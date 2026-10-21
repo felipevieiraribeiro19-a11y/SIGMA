@@ -115,7 +115,7 @@ export async function editMemory(
  if(previous.revision!==confirmation.expectedRevision)throw new Error('A memória mudou: atualize antes de editar.');
  const next:ApprovedMemory={
   ...previous,content:text,revision:previous.revision+1,updatedAt:confirmation.confirmedAt,
-  provenance:[...previous.provenance,{sourceId:confirmation.id,sourceKind:'user-confirmation',observedAt:confirmation.confirmedAt}]
+  provenance:[previous.provenance[0],...previous.provenance.slice(1),{sourceId:confirmation.id,sourceKind:'user-confirmation',observedAt:confirmation.confirmedAt}]
  };
  if(!await repository.replaceIfRevision(next,confirmation.expectedRevision))throw new Error('A memória mudou: tente novamente.');
  return next;

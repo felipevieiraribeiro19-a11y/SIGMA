@@ -58,6 +58,8 @@ test('interface mantém execução de ações indisponível mesmo no laboratóri
  assert.match(panel,/Confirmar execução \(indisponível\)/);
  assert.match(panel,/disabled title="Execução bloqueada/);
  assert.match(panel,/mode==='offline'/);
+ assert.match(panel,/Detalhes validados localmente/);
+ assert.match(panel,/Detalhes validados pelo backend/);
  const lab=readFileSync('src/jarvis-lab.tsx','utf8');
  assert.match(lab,/mode="offline"/);
 });

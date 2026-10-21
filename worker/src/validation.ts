@@ -5,7 +5,7 @@ export function validateMessages(value:unknown):Message[]{
  const messages=(value as {messages?:unknown}).messages;
  if(!Array.isArray(messages)||!messages.length||messages.length>15)throw new HttpError(400,'Envie de 1 a 15 mensagens.');
  let total=0;
- for(let i=0;i<messages.length;i++){const m=messages[i];if(!m||typeof m!=='object'||Object.keys(m).some(k=>!['role','text'].includes(k))||m.role!==(i%2===0?'user':'assistant')||typeof m.text!=='string'||!m.text.trim()||m.text.length>(m.role==='user'?4000:12000))throw new HttpError(400,'Mensagem inválida ou muito longa.');total+=m.text.length}
+ for(let i=0;i<messages.length;i++){const m=messages[i];if(!m||typeof m!=='object'||Object.keys(m).some(k=>!['role','text'].includes(k))||m.role!==(i%2===0?'user':'assistant')||typeof m.text!=='string'||!m.text.trim()||m.text.length>(m.role==='user'?4000:16000))throw new HttpError(400,'Mensagem inválida ou muito longa.');total+=m.text.length}
  if(messages.at(-1).role!=='user'||total>24000)throw new HttpError(400,'O contexto ultrapassou o limite. Comece uma nova conversa.');
  return messages;
 }

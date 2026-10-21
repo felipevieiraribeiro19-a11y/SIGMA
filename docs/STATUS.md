@@ -1,5 +1,24 @@
 # SIGMA — estudos por conversa
 
+## Verificação ponta a ponta concluída em 21/10/2026
+
+Tudo abaixo foi confirmado com uso real no site `https://sigma-61328.web.app`, não por inspeção de código:
+
+| Item | Resultado |
+|---|---|
+| Login Google + conta autorizada | ✅ a conversa respondeu |
+| Gemini (modelo e chave) | ✅ respondeu em português |
+| `ALLOWED_UID` / claim administrativa | ✅ conta entrou e foi aceita |
+| Gravação no Firestore | ✅ "Conversa salva no Firebase" |
+| Tavily (busca gratuita) | ✅ retornou fontes com links clicáveis |
+
+Com isso, os quatro pontos que estavam "não verificados em execução" na versão anterior deste documento estão fechados. O que resta é decisão de produto, não de infraestrutura: retenção/exclusão de registros, integração com Drive/Calendar dentro do backend e catálogo Gran.
+
+Duas correções nasceram desse teste real (branch `arena/7a99dbb6-sigma`, PR #2):
+
+1. **Detector de pesquisa.** A frase "quais as novidades do concurso ... esta semana? mostre as fontes" não acionava busca. Causas: "mostre as fontes" não era reconhecido; "novidades" só valia com "últimas"; e o regex de assunto era `editais?`, que **nunca** casava com o singular "edital". Corrigido, com testes nos dois sentidos — pedidos sobre "fontes do direito administrativo" e relatos pessoais continuam não gastando cota.
+2. **Contexto da conversa.** A interface cortava apenas por quantidade (15 mensagens), não por tamanho, e o limite por resposta de assistente era 12.000 no servidor contra 16.000 na geração. Uma resposta longa fazia a mensagem seguinte ser recusada. Agora `src/history.ts` corta por orçamento de caracteres, garante que o histórico comece com fala do usuário e o limite por resposta foi alinhado em 16.000.
+
 ## Estado verificado em 21/10/2026 (substitui afirmações anteriores de "nada implantado")
 
 Verificado por fora do aplicativo — GitHub (runs, branches, PRs) e leitura do site publicado:

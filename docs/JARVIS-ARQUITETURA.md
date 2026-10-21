@@ -155,6 +155,14 @@ O código é testado com textos artificiais e não usa dados reais do proprietá
 - Testes com backend simulado verificaram rejeição de chamadas não autorizadas e que o resultado só diz `persisted:false`, `authorizedForExecution:false` e `executionEnabled:false`.
 - Guia detalhado: `docs/REVISAO-ACOES-SEGURA.md`.
 
+## Nona etapa: simulação integrada e auditoria com privacidade
+
+- O novo `worker/src/core/audited-approval.ts` armazena evento e mudança de estado na **mesma transação**, para que uma falha não confirme um sem o outro.
+- A auditoria guarda apenas identificador, capacidade, horário, tipo de evento, digest e `executed:false`; nunca conteúdo da conversa ou parâmetros da tarefa.
+- Os testes integram a prévia HTTP autenticada (com flag só de teste), aprovação e armazenamento simulado, incluindo concorrência, cancelamento, expiração, isolamento por conta e rollback.
+- **Não existem endpoints reais de aprovação ou execução, nem deploy.** O armazenamento durável real e o fluxo humano ponta a ponta ainda devem ser testados.
+- Detalhes e riscos pendentes: `docs/AUDITORIA-ACOES.md`.
+
 ## Roteiro neutro e extensível
 
 **Fundação:** identidade Jarvis, capacidade declarada, separação de conversa de memória, autorização central, testes, status visível e reversibilidade.

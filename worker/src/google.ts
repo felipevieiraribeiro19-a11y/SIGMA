@@ -19,6 +19,8 @@ export type GoogleContext = {
   materiais: { name: string; modifiedTime: string }[];
   expired: boolean;
   errors: ('agenda' | 'materiais')[];
+  calendarRequested?: boolean;
+  driveRequested?: boolean;
 };
 
 export function formatWhen(iso: string): string {
@@ -35,8 +37,9 @@ export function formatWhen(iso: string): string {
   });
 }
 
-export async function googleContext(token: string, transport: typeof fetch = fetch): Promise<GoogleContext> {
-  const result: GoogleContext = { agenda: [], materiais: [], expired: false, errors: [] };
+export async function googleContext(token: string, transport: typeof fetch = fetch, selection: {calendar: boolean;drive: boolean} = {calendar:true,drive:true}): Promise<GoogleContext> {
+  const result: GoogleContext = { agenda: [], materiais: [], expired: false, errors: [], calendarRequested:selection.calendar,driveRequested:selection.drive };
+  if(!selection.calendar&&!selection.drive)return result;
   if (!token || token.length > 4096 || /[\x00-\x1f]/.test(token)) throw new HttpError(400, 'Acesso ao Google inválido.');
   const headers = { Authorization: `Bearer ${token}` };
   const now = new Date();
@@ -51,12 +54,12 @@ export async function googleContext(token: string, transport: typeof fetch = fet
     `&fields=${encodeURIComponent('files(name,modifiedTime)')}`;
 
   const [calendar, drive] = await Promise.allSettled([
-    transport(calendarUrl, { headers, signal: AbortSignal.timeout(8000) }),
-    transport(driveUrl, { headers, signal: AbortSignal.timeout(8000) }),
+    selection.calendar?transport(calendarUrl, { headers, signal: AbortSignal.timeout(8000) }):Promise.resolve(null),
+    selection.drive?transport(driveUrl, { headers, signal: AbortSignal.timeout(8000) }):Promise.resolve(null),
   ]);
 
   let unauthorized = 0;
-  if (calendar.status === 'fulfilled') {
+  if (selection.calendar && calendar.status === 'fulfilled' && calendar.value) {
     if (calendar.value.status === 401 || calendar.value.status === 403) {
       result.errors.push('agenda');
       if (calendar.value.status === 401) unauthorized++;
@@ -73,11 +76,11 @@ export async function googleContext(token: string, transport: typeof fetch = fet
     } else {
       result.errors.push('agenda');
     }
-  } else {
+  } else if (selection.calendar) {
     result.errors.push('agenda');
   }
 
-  if (drive.status === 'fulfilled') {
+  if (selection.drive && drive.status === 'fulfilled' && drive.value) {
     if (drive.value.status === 401 || drive.value.status === 403) {
       result.errors.push('materiais');
       if (drive.value.status === 401) unauthorized++;
@@ -93,33 +96,33 @@ export async function googleContext(token: string, transport: typeof fetch = fet
     } else {
       result.errors.push('materiais');
     }
-  } else {
+  } else if (selection.drive) {
     result.errors.push('materiais');
   }
 
   // "Expirado" só quando o Google recusou a autorização (401) nos dois
   // serviços. API desativada no projeto responde 403: reconectar não
   // resolveria, então a mensagem precisa ser outra.
-  result.expired = unauthorized === 2;
+  result.expired = unauthorized === Number(selection.calendar)+Number(selection.drive);
   return result;
 }
 
 /** Bloco de contexto para o modelo. Vazio quando não há nada a dizer. */
 export function googlePrompt(context: GoogleContext): string | null {
   const lines: string[] = [];
-  if (context.agenda.length) {
+  if (context.calendarRequested !== false && context.agenda.length) {
     lines.push('Agenda (próximos 7 dias, lida agora):');
     for (const event of context.agenda) lines.push(`- ${formatWhen(event.start)} · ${event.summary}`);
-  } else if (!context.errors.includes('agenda')) {
+  } else if (context.calendarRequested !== false && !context.errors.includes('agenda')) {
     lines.push('Agenda (próximos 7 dias, lida agora): nenhum compromisso encontrado.');
-  } else {
+  } else if(context.calendarRequested !== false) {
     lines.push('Agenda: não foi possível ler nesta solicitação. Não afirme compromissos nem horários.');
   }
 
-  if (context.materiais.length) {
+  if (context.driveRequested !== false && context.materiais.length) {
     lines.push('Materiais no Drive (PDFs mais recentes, lidos agora):');
     for (const material of context.materiais) lines.push(`- ${material.name} (${formatWhen(material.modifiedTime)})`);
-  } else if (context.errors.includes('materiais')) {
+  } else if (context.driveRequested !== false && context.errors.includes('materiais')) {
     lines.push('Drive: não foi possível listar nesta solicitação. Não invente nomes de arquivos.');
   }
 

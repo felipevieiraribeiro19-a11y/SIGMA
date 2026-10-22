@@ -28,3 +28,22 @@ export function assertLabReply(data:unknown):string{
   throw Error('Servidor respondeu fora do contrato seguro.');
  return r.text;
 }
+
+export function readLabWebSources(data:unknown):LabWebSource[]{
+ const body=data as {web?:{searched?:unknown;sources?:unknown}}|null;
+ if(!body?.web)return [];
+ if(body.web.searched!==true||!Array.isArray(body.web.sources)||body.web.sources.length>4)
+  throw Error('Lista de fontes inválida.');
+ return body.web.sources.map((x:unknown)=>{
+  const item=x as Record<string,unknown>|null;
+  if(!item||typeof item.title!=='string'||!item.title.trim()||item.title.length>130||
+   typeof item.url!=='string'||item.url.length>1500)throw Error('Fonte inválida.');
+  let link:URL;
+  try{link=new URL(item.url);}catch{throw Error('Link inválido.');}
+  if(link.protocol!=='https:'||!link.hostname.includes('.'))
+   throw Error('Fonte precisa de HTTPS.');
+  return {title:item.title,url:link.href,
+   ...(typeof item.publishedDate==='string'&&item.publishedDate.length<=40?
+    {publishedDate:item.publishedDate}:{})};
+ });
+}

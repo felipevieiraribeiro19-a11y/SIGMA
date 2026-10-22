@@ -56,12 +56,48 @@ jobs:
       # Existing keyless WIF provider and service account; no new credentials.
       # If the provider rejects workflows on main, this fails closed.
       - name: Autenticar pelo WIF ja existente, sem chave privada
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/428047765465/locations/global/workloadIdentityPools/sigma-github/providers/github
           service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
+          token_format: access_token
           create_credentials_file: true
           export_environment_variables: true
+
+      # A primeira criacao do canal no Firebase CLI exige uma checagem de
+      # Service Usage nao necessaria para atualizar um canal ja existente.
+      # Tentar criar somente o canal autorizado via Firebase Hosting REST API,
+      # com o mesmo WIF; nao elevar permissoes nem alterar o site live.
+      - name: Garantir canal novo jarvis-lab pela API Hosting (sem IAM novo)
+        shell: bash
+        env:
+          LAB_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          node --input-type=module <<'NODE'
+          const site='sigma-61328';
+          const id='jarvis-lab';
+          const base='https://firebasehosting.googleapis.com/v1beta1/sites/'+site+'/channels';
+          const token=process.env.LAB_ACCESS_TOKEN;
+          if(!token) throw Error('Token WIF ausente; nao publicar');
+          const headers={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+          const get=await fetch(base+'/'+id,{headers});
+          if(get.status===200){
+            const channel=await get.json();
+            if(!channel.name?.endsWith('/channels/'+id)) throw Error('Canal inesperado');
+            console.log('CANAL_LAB_EXISTENTE');
+          } else if(get.status===404){
+            const created=await fetch(base+'?channelId='+id,{
+              method:'POST',headers,body:JSON.stringify({ttl:'172800s'})
+            });
+            if(!created.ok) throw Error('Criacao do canal jarvis-lab negada: HTTP '+created.status);
+            const channel=await created.json();
+            if(!channel.name?.endsWith('/channels/'+id)) throw Error('Criacao de canal inesperado');
+            console.log('CANAL_LAB_CRIADO');
+          } else {
+            throw Error('Consulta do canal jarvis-lab negada: HTTP '+get.status);
+          }
+          NODE
 
       - name: Publicar APENAS no canal temporario jarvis-lab (2 dias)
         shell: bash

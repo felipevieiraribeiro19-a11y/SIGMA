@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
 import {REVIEW_DEMOS} from '../src/ActionReviewCenter';
-import {readableLabAuthError,classifyLabAuthInternalError} from '../src/jarvis-lab-auth';
+import {readableLabAuthError,classifyLabAuthInternalError,safeLabCspDiagnostic} from '../src/jarvis-lab-auth';
 
 test('laboratório usa somente Auth e exemplos fictícios; sem gravação pessoal',()=>{
  const lab=readFileSync('src/jarvis-lab.tsx','utf8');
@@ -100,4 +100,29 @@ test('diagnóstico de auth/internal-error mostra somente categorias públicas',(
  assert.match(classifyLabAuthInternalError({customData:{originalError:{message:'Database is closing'}}}),/Armazenamento do Safari/);
  assert.match(classifyLabAuthInternalError({message:'redirect_uri_mismatch'}),/URI de retorno OAuth/);
  assert.match(classifyLabAuthInternalError({message:'no useful details'}),/Causa interna ainda não identificada/);
+});
+
+test('CSP do lab permite OAuth Google/Firebase somente em origens explicitamente declaradas',()=>{
+ const cfg=JSON.parse(readFileSync('firebase.lab.json','utf8'));
+ const csp=cfg.hosting.headers[0].headers.find((x:{key:string})=>x.key==='Content-Security-Policy')?.value;
+ assert.equal(typeof csp,'string');
+ assert.match(csp,/default-src 'none'/);
+ assert.match(csp,/script-src [^;]*https:\/\/apis\.google\.com/);
+ assert.match(csp,/connect-src [^;]*https:\/\/accounts\.google\.com/);
+ assert.match(csp,/connect-src [^;]*https:\/\/www\.googleapis\.com/);
+ assert.match(csp,/connect-src [^;]*https:\/\/sigma-61328\.firebaseapp\.com/);
+ assert.match(csp,/frame-src [^;]*https:\/\/sigma-61328\.firebaseapp\.com/);
+ assert.doesNotMatch(csp,/\*\.google|https:\/\/\*\.workers\.dev/);
+ assert.match(csp,/form-action 'none'/);
+});
+
+test('mensagens de bloqueio CSP removem parâmetros, tokens e domínios não reconhecidos',()=>{
+ const safe=safeLabCspDiagnostic('connect-src','https://accounts.google.com/o/oauth2?code=SECRET_TOKEN');
+ assert.match(safe,/connect-src.*accounts\.google\.com/);
+ assert.doesNotMatch(safe,/SECRET_TOKEN|\/o\/oauth2/);
+ const unknown=safeLabCspDiagnostic('script-src','https://unauthorized.example.com/?state=SECRET');
+ assert.equal(unknown.includes('SECRET'),false);
+ assert.equal(unknown.includes('unauthorized.example.com'),false);
+ assert.match(unknown,/recurso externo/);
+ assert.equal(safeLabCspDiagnostic('report-uri','https://accounts.google.com?token=secret'), '');
 });

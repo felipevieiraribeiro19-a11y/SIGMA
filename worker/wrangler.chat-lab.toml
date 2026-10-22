@@ -10,6 +10,8 @@ FIREBASE_PROJECT_ID = "sigma-61328"
 ALLOWED_ORIGIN = "https://sigma-61328--jarvis-lab-pw5dmfbc.web.app"
 GEMINI_MODEL = "gemini-3.5-flash-lite"
 LAB_CHAT_ENABLED = "false"
+# Etapa 15: pesquisa paga/em cotas somente com habilitação explícita.
+LAB_WEB_ENABLED = "false"
 # ALLOWED_UID e GEMINI_API_KEY devem ser segredos do Worker de laboratório.
 # Nunca colocar os valores neste arquivo nem no GitHub.
 [[durable_objects.bindings]]

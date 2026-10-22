@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: false
+      connect_lab_memory:
+        description: "Habilitar memoria manual e persistente no Worker LAB? Somente testes com dados ficticios."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read

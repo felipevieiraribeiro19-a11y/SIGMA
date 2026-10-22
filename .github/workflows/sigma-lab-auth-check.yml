@@ -1,4 +1,5 @@
 name: SIGMA - diagnostico somente leitura Auth laboratorio
+# Revalidacao apos inclusao do dominio autorizado em 22-10-2026
 
 on:
   push:

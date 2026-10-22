@@ -1,7 +1,7 @@
 export type Message={role:'user'|'assistant';text:string};
 export class HttpError extends Error{constructor(public status:number,message:string){super(message)}}
 export function validateMessages(value:unknown):Message[]{
- if(!value||typeof value!=='object'||Object.keys(value).some(k=>!['messages','memoryIds'].includes(k)))throw new HttpError(400,'Formato de mensagem inválido.');
+ if(!value||typeof value!=='object'||Object.keys(value).some(k=>k!=='messages'))throw new HttpError(400,'Formato de mensagem inválido.');
  const messages=(value as {messages?:unknown}).messages;
  if(!Array.isArray(messages)||!messages.length||messages.length>15)throw new HttpError(400,'Envie de 1 a 15 mensagens.');
  let total=0;

@@ -119,7 +119,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const afoMeaning=resolveAfoMeaning(messages);
    const clarification=clarifyAfo(messages);
    if(clarification){
-    return reply({text:clarification,persisted:false,executed:false,provider:'gemini'});
+    return reply({text:clarification,persisted:false,executed:false,provider:'lab'});
    }
    // Cota independente da QUOTA usada em produção, por UID.
    const limit=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))

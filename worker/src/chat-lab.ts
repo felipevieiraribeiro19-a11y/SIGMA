@@ -90,7 +90,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const raw=new Uint8Array(bytes);let i=0;
    for(const part of parts){raw.set(part,i);i+=part.byteLength;}
    let data:unknown;
-   try{data=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw));}
+   try{data=JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(raw));}
    catch{throw new HttpError(400,'JSON inválido.');}
    const messages=validateMessages(data);
    // Cota independente da QUOTA usada em produção, por UID.
@@ -135,7 +135,7 @@ export class LabChatQuota {
    const previous=await tx.get<Parameters<typeof quotaDecision>[0]>('requests');
    const decision=quotaDecision(previous,Date.now(),15);
    // Menor limite de pico que o Worker principal.
-   if(decision.state.minuteCount>=4)return false;
+   if(decision.state.minuteCount>4)return false;
    if(decision.allowed)await tx.put('requests',decision.state);
    return decision.allowed;
   });

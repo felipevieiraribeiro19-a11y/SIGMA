@@ -1,5 +1,6 @@
 /** Contrato do chat experimental. Zero persistência, sem backend de produção. */
 export type LabChatMessage={role:'user'|'assistant';text:string};
+export type LabWebSource={title:string;url:string;publishedDate?:string};
 export function validLabApiBase(value:unknown):string|null{
  if(typeof value!=='string'||!value.trim())return null;
  try{

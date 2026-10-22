@@ -39,3 +39,20 @@ button:disabled{cursor:not-allowed;opacity:.48}button:focus-visible,select:focus
 .action-review-warning{color:#efc8ce!important}.action-review-result{padding:10px;border:1px solid #365a76;border-radius:9px;background:#142c3e}
 .action-review-result p{font-size:12px;margin:5px 0}
 @media(min-width:600px){.lab-panel{padding:24px}.jarvis-lab main{padding:28px}.lab-panel>button{min-width:210px}}
+
+/* Etapa 14 — sessão efêmera e não persistida de chat */
+.lab-chat{margin-top:10px}
+.lab-chat h3{font-size:15px;color:#e2f5ff;margin:10px 0}
+.lab-chat label{display:block;font-size:13px;margin:14px 0 8px;color:#bad7e6}
+.lab-chat textarea{display:block;width:100%;border:1px solid #426784;border-radius:11px;background:#091a28;color:#e4f6ff;padding:12px;font:inherit;resize:vertical;min-height:90px}
+.lab-chat textarea:focus-visible{outline:2px solid #78d5fb;outline-offset:2px}
+.lab-chat textarea:disabled{opacity:.5}
+.lab-chat-notice{padding:12px;border:1px solid #5b6576;border-radius:10px;background:#222d38}
+.lab-chat-dialog{max-height:360px;overflow-y:auto;margin:14px 0;padding:10px;border:1px solid #315066;border-radius:12px}
+.lab-chat-bubble{padding:12px;margin-bottom:9px;border-radius:12px;overflow-wrap:anywhere;white-space:pre-wrap}
+.lab-chat-bubble strong{font-size:12px;color:#b4eaff}
+.lab-chat-bubble p{margin:6px 0 0;white-space:pre-wrap}
+.lab-chat-user{margin-left:10%;background:#194059}
+.lab-chat-assistant{margin-right:10%;background:#182938;border:1px solid #325670}
+.lab-chat-buttons{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.lab-chat-buttons button{font-size:13px;padding:10px}

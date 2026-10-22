@@ -68,6 +68,8 @@ jobs:
               provider_enabled:r.ok&&payload.providerId==='google.com',
               auth_url_is_google:uri?.hostname==='accounts.google.com',
               redirect_to_firebase:redirect.startsWith('https://sigma-61328.firebaseapp.com/__/auth/handler'),
+              redirect_uri_host: (()=>{try{return new URL(redirect).hostname}catch{return null}})(),
+              redirect_uri_path: (()=>{try{return new URL(redirect).pathname}catch{return null}})(),
               service_disabled:typeof payload.error?.message==='string'&&payload.error.message.includes('OPERATION_NOT_ALLOWED')
             }));
           }catch(e){console.log('LAB_AUTH_GOOGLE_PROVIDER='+JSON.stringify({network_error:true}));}

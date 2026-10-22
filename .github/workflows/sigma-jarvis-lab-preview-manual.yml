@@ -67,6 +67,29 @@ jobs:
 
       # Optional and explicitly gated: no Worker deploy on normal UI-only preview.
       # Gemini credentials remain Cloudflare secrets; no key is read or written by GitHub.
+      - name: Verificar prerequisitos do Tavily no laboratorio
+        if: ${{ inputs.connect_lab_web }}
+        env:
+          CHAT_SELECTED: ${{ inputs.connect_lab_chat }}
+          CLOUDFLARE_TOKEN_FOR_CHECK: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          if(process.env.CHAT_SELECTED!=='true')throw Error('A pesquisa requer chat LAB ativo.');
+          if(!process.env.CLOUDFLARE_TOKEN_FOR_CHECK)throw Error('Token Cloudflare indisponivel.');
+          const base='https://api.cloudflare.com/client/v4';
+          const url=base+'/accounts/ffbf8770e586438ce53536e3bf0f5d65/workers/scripts/sigma-jarvis-cerebro-lab/secrets';
+          const resp=await fetch(url,{headers:{
+            Authorization:'Bearer '+process.env.CLOUDFLARE_TOKEN_FOR_CHECK
+          },signal:AbortSignal.timeout(10000)});
+          if(!resp.ok)throw Error('Conferencia dos segredos do LAB indisponivel.');
+          const data=await resp.json();
+          if(data.success!==true||!Array.isArray(data.result)||
+            !data.result.some(v=>v.name==='TAVILY_API_KEY'))
+            throw Error('TAVILY_API_KEY nao foi cadastrada no Worker LAB.');
+          console.log('SEGREDO_TAVILY_LAB_PRESENTE');
+          NODE
+
       - name: Conferir destino isolado e gerar config temporaria com chat ativo
         if: ${{ inputs.connect_lab_chat }}
         env:

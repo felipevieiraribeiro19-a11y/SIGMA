@@ -1,0 +1,71 @@
+name: SIGMA - preparar APENAS cerebro Jarvis Lab (manual)
+
+# Registers on main but checks out a fixed, independently tested Jarvis commit.
+# Never deploys the production sigma-cerebro Worker.
+on:
+  workflow_dispatch:
+    inputs:
+      acknowledge:
+        description: "Digite PREPARAR-WORKER-LAB (somente Worker LAB; Gemini desativado)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sigma-jarvis-worker-lab-only
+  cancel-in-progress: false
+
+jobs:
+  publish-disabled-lab-worker:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.actor == 'felipevieiraribeiro19-a11y' && inputs.acknowledge == 'PREPARAR-WORKER-LAB' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout validated, isolated Jarvis commit
+        uses: actions/checkout@v4
+        with:
+          ref: bf22949e4be6bd34ca4fef0a1271a808b1b386b4
+          persist-credentials: false
+
+      - name: Guard correct code and fail-closed Worker configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "bf22949e4be6bd34ca4fef0a1271a808b1b386b4"
+          test -f worker/src/chat-lab.ts
+          test -f worker/wrangler.chat-lab.toml
+          grep -qx 'name = "sigma-jarvis-cerebro-lab"' worker/wrangler.chat-lab.toml
+          grep -qx 'main = "src/chat-lab.ts"' worker/wrangler.chat-lab.toml
+          grep -qx 'LAB_CHAT_ENABLED = "false"' worker/wrangler.chat-lab.toml
+          grep -qx 'name = "LAB_QUOTA"' worker/wrangler.chat-lab.toml
+          grep -qx 'class_name = "LabChatQuota"' worker/wrangler.chat-lab.toml
+          ! grep -q 'name = "sigma-cerebro"' worker/wrangler.chat-lab.toml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Testar e validar sem segredos
+        run: |
+          npm ci
+          npm run check:worker
+          npm test
+          npm run build:lab
+          node tests/verify-jarvis-lab-build.mjs
+
+      - name: Publicar SOMENTE Worker desativado sigma-jarvis-cerebro-lab
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ffbf8770e586438ce53536e3bf0f5d65
+          wranglerVersion: "4.45.0"
+          workingDirectory: worker
+          command: deploy --config wrangler.chat-lab.toml
+
+      - name: Informar modo seguro
+        run: |
+          echo "Worker LAB preparado. LAB_CHAT_ENABLED=false."
+          echo "Nenhuma chave Gemini nova, nenhuma escrita Firestore e nenhum deploy do SIGMA principal."

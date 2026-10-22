@@ -181,7 +181,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
      ?relevantLabMemory(raw,messages[messages.length-1].text)
      :readSelectedMemory(raw,approvedIds);
     usedMemoryCount=rows.length;
-    approvedMemoryContext=userApprovedMemoryContext(rows);
+    approvedMemoryContext=userApprovedMemoryContext(rows,autoMemory?'auto':'manual');
    }
    // Cota independente da QUOTA usada em produção, por UID.
    const limit=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))

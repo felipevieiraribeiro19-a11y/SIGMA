@@ -74,7 +74,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
    }
    const answer=assertLabReply(result);
    const sources=readLabWebSources(result);
-   const memoryData=(result as {memory?:{consulted?:unknown;count?:unknown}}|null)?.memory;
+   const memoryData=(result as {memory?:{consulted?:unknown;count?:unknown;mode?:unknown}}|null)?.memory;
    const consulted=memoryData?.consulted===true&&
     typeof memoryData.count==='number'&&
     Number.isInteger(memoryData.count)&&memoryData.count>=1&&memoryData.count<=3

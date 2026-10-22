@@ -15,6 +15,11 @@ on:
         required: false
         type: boolean
         default: false
+      connect_lab_web:
+        description: "Ativar pesquisa Tavily somente no Worker de laboratorio?"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read

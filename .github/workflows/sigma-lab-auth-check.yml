@@ -1,0 +1,46 @@
+name: SIGMA - diagnostico somente leitura Auth laboratorio
+
+on:
+  push:
+    branches: [sigma-jarvis-arquitetura]
+    paths:
+      - '.github/workflows/sigma-lab-auth-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  domain-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir dominio temporario autorizado no Firebase (somente GET)
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const raw=readFileSync('src/jarvis-lab-auth.ts','utf8');
+          const key=raw.match(/apiKey:'([^']+)'/)?.[1];
+          if(!key) throw Error('Config web publica nao localizada');
+          const target='sigma-61328--jarvis-lab-pw5dmfbc.web.app';
+          let response;
+          try {
+           response=await fetch('https://identitytoolkit.googleapis.com/v1/projects?key='+encodeURIComponent(key),
+            {headers:{Accept:'application/json'},signal:AbortSignal.timeout(12000)});
+          }catch(err){
+           console.log('FIREBASE_DOMAIN_CHECK_INCONCLUSIVE=network-blocked');process.exit(0);
+          }
+          if(!response.ok){
+           console.log('FIREBASE_DOMAIN_CHECK_INCONCLUSIVE=HTTP_'+response.status);process.exit(0);
+          }
+          const data=await response.json();
+          if(!Array.isArray(data.authorizedDomains)){
+           console.log('FIREBASE_DOMAIN_CHECK_INCONCLUSIVE=missing-field');process.exit(0);
+          }
+          const authorized=data.authorizedDomains.some(d=>d===target);
+          console.log('FIREBASE_LAB_DOMAIN_AUTHORIZED='+authorized);
+          console.log('FIREBASE_DOMAIN_CHECK_VALID=true');
+          // Do not print auth domains, user data, or web config keys.
+          NODE

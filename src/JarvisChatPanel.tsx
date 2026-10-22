@@ -16,9 +16,10 @@ export function JarvisChatPanel({user}:{user:User|null}){
  const [selectedMemoryIds,setSelectedMemoryIds]=useState<string[]>([]);
  const [memoryPickerOpen,setMemoryPickerOpen]=useState(false);
  const [loadingMemory,setLoadingMemory]=useState(false);
+ const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);},[user?.uid]);
  async function refreshMemoryChoices(){
   if(!user||!api||loadingMemory||busy)return;
   setLoadingMemory(true);setError('');
@@ -55,7 +56,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
   try{payload=approvedChatRequest(messages,selectedMemoryIds);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);
+  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -71,7 +72,12 @@ export function JarvisChatPanel({user}:{user:User|null}){
    }
    const answer=assertLabReply(result);
    const sources=readLabWebSources(result);
-   if(!controller.signal.aborted){setHistory([...messages,{role:'assistant',text:answer}]);setWebSources(sources);setDraft('');setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);}
+   const memoryData=(result as {memory?:{consulted?:unknown;count?:unknown}}|null)?.memory;
+   const consulted=memoryData?.consulted===true&&
+    typeof memoryData.count==='number'&&
+    Number.isInteger(memoryData.count)&&memoryData.count>=1&&memoryData.count<=3
+     ?memoryData.count:0;
+   if(!controller.signal.aborted){setHistory([...messages,{role:'assistant',text:answer}]);setWebSources(sources);setConsultedMemoryCount(consulted);setDraft('');setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);}
   }catch(e){
    if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Erro de conexão.');
   }finally{
@@ -79,7 +85,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
   }
  }
  return <div className="lab-chat">
-  <h3>Conversa com Gemini (Etapa 14)</h3>
+  <h3>Conversa com Gemini + pesquisa + memória opcional</h3>
   <p>Conversa temporária: não fica salva, não lê Agenda ou Drive e não executa ações. Pesquisa na web apenas quando necessário, se habilitada. Consultas podem ser enviadas à Tavily. Use exemplos fictícios e evite dados pessoais.</p>
   {!api&&<p className="lab-chat-notice" role="status">Integração em preparação: o Worker isolado ainda não foi publicado e validado.</p>}
   {api&&!user&&<p className="lab-chat-notice" role="status">Faça login Google acima para habilitar os testes de conversa.</p>}
@@ -89,6 +95,9 @@ export function JarvisChatPanel({user}:{user:User|null}){
     <LabFormattedText text={m.text}/>
    </div>)}
   </div>}
+  {consultedMemoryCount>0&&<p className="lab-memory-used" role="status">
+   <strong>Memória:</strong> {consultedMemoryCount} registro(s) escolhido(s) por você foram consultados nesta resposta.
+  </p>}
   {webSources.length>0&&<div className="lab-chat-sources" aria-label="Links encontrados na última pesquisa">
     <strong>Fontes encontradas na pesquisa</strong>
     <p>Resultados de busca podem estar desatualizados. Confira dados importantes diretamente na fonte oficial correspondente.</p>
@@ -128,7 +137,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

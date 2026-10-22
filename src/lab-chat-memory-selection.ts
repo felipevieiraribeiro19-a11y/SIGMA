@@ -15,8 +15,10 @@ export function readMemoryChoices(result:unknown):SharedMemoryChoice[]{
  });
 }
 /** Never bundle memory text into chat body, only explicitly checked IDs. */
-export function approvedChatRequest(messages:LabChatMessage[],ids:string[]){
+export function approvedChatRequest(messages:LabChatMessage[],ids:string[],auto=false){
  if(ids.length>3||new Set(ids).size!==ids.length||ids.some(id=>!UUID.test(id)))
   throw Error('Selecione no máximo três memórias diferentes.');
- return ids.length?{messages,memoryIds:ids.slice()}:{messages};
+ if(auto&&ids.length)throw Error('Escolha seleção manual ou busca contextual, não ambas.');
+ return auto?{messages,memoryMode:'relevant' as const}:
+  ids.length?{messages,memoryIds:ids.slice()}:{messages};
 }

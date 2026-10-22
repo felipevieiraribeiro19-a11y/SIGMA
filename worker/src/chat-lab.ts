@@ -158,10 +158,9 @@ export function makeLabChatWorker(deps:Dependencies={}){
    let data:unknown;
    try{data=JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(raw));}
    catch{throw new HttpError(400,'JSON inválido.');}
-   const messages=validateMessages(data);
-   // Consentimento é específico desta mensagem e se refere somente a IDs.
-   // O backend não confia em textos de memória enviados pelo navegador.
+   // Validação do contrato do laboratório separada do schema geral de produção.
    const approvedIds=selectedMemoryIds(data);
+   const messages=validateMessages({messages:(data as {messages?:unknown}|null)?.messages});
    let approvedMemoryContext='';
    if(approvedIds.length){
     if(env.LAB_MEMORY_ENABLED!=='true'||!env.LAB_MEMORY)

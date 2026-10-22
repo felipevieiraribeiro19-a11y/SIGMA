@@ -18,8 +18,8 @@ const labFirebaseWebConfig={
 let auth:Auth|undefined;
 export async function prepareLabAuth(onUser:(user:User|null)=>void):Promise<()=>void>{
  const app=getApps().length?getApp():initializeApp(labFirebaseWebConfig);
- // Do NOT call getAuth() here: that eagerly initializes IndexedDB/browser
- // persistence before setPersistence(), which can fail on iOS Safari.
+ // Avoid default Auth bootstrap: that eagerly initializes IndexedDB/browser
+ // persistence which can fail on iOS Safari.
  // This isolated lab intentionally loses login state when the page reloads.
  // Firebase's popup helper remains available via browserPopupRedirectResolver.
  const instance=initializeAuth(app,{

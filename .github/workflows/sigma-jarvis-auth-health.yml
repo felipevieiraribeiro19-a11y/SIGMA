@@ -39,7 +39,15 @@ jobs:
                 const data=await r.json();
                 result.domain_authorized=Array.isArray(data.authorizedDomains)&&
                   data.authorizedDomains.includes('sigma-61328--jarvis-lab-pw5dmfbc.web.app');
+                result.project_id_present=typeof data.projectId==='string';
                 result.project_id_matches=data.projectId==='sigma-61328';
+                result.project_id_value=typeof data.projectId==='string'?data.projectId.slice(0,100):null;
+              }
+              if(label==='auth-init'&&r.ok){
+                const init=await r.json();
+                result.firebase_project_matches=init.projectId==='sigma-61328';
+                result.firebase_api_key_matches=init.apiKey===key;
+                result.firebase_auth_domain_matches=init.authDomain==='sigma-61328.firebaseapp.com';
               }
               console.log('LAB_AUTH_HEALTH='+JSON.stringify(result));
             }catch(e){console.log('LAB_AUTH_HEALTH='+JSON.stringify({name:label,network_error:true}));}

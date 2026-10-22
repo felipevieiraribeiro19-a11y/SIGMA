@@ -69,6 +69,8 @@ jobs:
       # Gemini credentials remain Cloudflare secrets; no key is read or written by GitHub.
       - name: Conferir destino isolado e gerar config temporaria com chat ativo
         if: ${{ inputs.connect_lab_chat }}
+        env:
+          ENABLE_WEB_LAB: ${{ inputs.connect_lab_web }}
         shell: bash
         run: |
           node --input-type=module <<'NODE'
@@ -79,6 +81,7 @@ jobs:
             'name = "sigma-jarvis-cerebro-lab"',
             'main = "src/chat-lab.ts"',
             'LAB_CHAT_ENABLED = "false"',
+            'LAB_WEB_ENABLED = "false"',
             'FIREBASE_PROJECT_ID = "sigma-61328"',
             'ALLOWED_ORIGIN = "https://sigma-61328--jarvis-lab-pw5dmfbc.web.app"',
             'name = "LAB_QUOTA"',
@@ -87,7 +90,11 @@ jobs:
           if(original.includes('name = "sigma-cerebro"'))throw Error('Worker de producao proibido');
           if((original.match(/LAB_CHAT_ENABLED = "false"/g)||[]).length!==1)
             throw Error('Flag de laboratorio inesperada');
-          const enabled=original.replace('LAB_CHAT_ENABLED = "false"','LAB_CHAT_ENABLED = "true"');
+          let enabled=original.replace('LAB_CHAT_ENABLED = "false"','LAB_CHAT_ENABLED = "true"');
+          if(process.env.ENABLE_WEB_LAB==='true'){
+            enabled=enabled.replace('LAB_WEB_ENABLED = "false"','LAB_WEB_ENABLED = "true"');
+            if(!enabled.includes('LAB_WEB_ENABLED = "true"'))throw Error('Flag Tavily nao habilitada.');
+          }
           if(!enabled.includes('LAB_CHAT_ENABLED = "true"'))throw Error('Falha ao habilitar somente LAB');
           // The file exists only on ephemeral GitHub runner, never committed.
           writeFileSync('worker/wrangler.chat-lab.enabled.toml',enabled);

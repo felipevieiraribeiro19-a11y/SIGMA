@@ -2,6 +2,7 @@ import {useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import type {User} from 'firebase/auth';
 import {MemoryCenter} from './MemoryCenter';
+import {JarvisChatPanel} from './JarvisChatPanel';
 import {ActionReviewCenter} from './ActionReviewCenter';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
 import type {ActionPreviewRequest,ActionPreviewResult} from './services';
@@ -47,7 +48,7 @@ export function JarvisLab(){
   <header><span className="lab-symbol" aria-hidden="true">Σ</span><div><strong>SIGMA</strong><small>LABORATÓRIO JARVIS · ISOLADO</small></div></header>
   <main>
    <div className="lab-warning" role="status"><strong>MODO DE TESTES — NÃO É O SIGMA PRINCIPAL</strong>
-    <p>Somente exemplos fictícios. O laboratório não salva memórias, não envia mensagens à IA e não executa tarefas reais.</p>
+    <p>Somente exemplos fictícios. O laboratório não salva memórias nem executa tarefas reais. A conversa com IA só funcionará depois da conexão isolada ser ativada.</p>
    </div>
    <h1>Seu Jarvis, em construção.</h1>
    <p className="lab-lead">Teste as futuras funções com segurança. Nenhum registro pessoal é necessário.</p>
@@ -61,8 +62,12 @@ export function JarvisLab(){
     {openedAsFile&&<p>Arquivo offline: login indisponível. Os exemplos de memória e tarefas continuam funcionando sem conexão.</p>}
     {authError&&<p className="lab-error" role="alert">{authError}</p>}
    </section>
+   <section className="lab-panel" aria-label="Conversa experimental com inteligência artificial">
+    <h2>2. Conversa com IA (experimental)</h2>
+    <JarvisChatPanel user={user}/>
+   </section>
    <section className="lab-panel" aria-label="Memória de demonstração">
-    <h2>2. Memória controlada (simulação)</h2>
+    <h2>3. Memória controlada (simulação)</h2>
     <p>Aprovar, corrigir e excluir dados que não são seus e desaparecem ao recarregar a página.</p>
     <button type="button" aria-expanded={showMemory} onClick={()=>setShowMemory(v=>!v)}>
      {showMemory?'Fechar demonstração':'Abrir memória fictícia'}
@@ -70,14 +75,14 @@ export function JarvisLab(){
     {showMemory&&<MemoryCenter/>}
    </section>
    <section className="lab-panel" aria-label="Revisão de ações fictícias">
-    <h2>3. Revisão de tarefas (simulação)</h2>
+    <h2>4. Revisão de tarefas (simulação)</h2>
     <p>Verifique uma proposta de calendário ou arquivo fictício. A validação acontece no próprio navegador; execução sempre bloqueada.</p>
     <button type="button" aria-expanded={showActions} onClick={()=>setShowActions(v=>!v)}>
      {showActions?'Fechar revisão':'Abrir revisão fictícia'}
     </button>
     {showActions&&<ActionReviewCenter mode="offline" onPreview={localFictionalPreview}/>}
    </section>
-   <p className="lab-footer">Sem acesso a Gemini, Tavily, Google Drive, Calendar ou histórico Firebase. Não utilize para armazenar informações reais. Teste experimental em desenvolvimento.</p>
+   <p className="lab-footer">As demonstrações de memória e ações são fictícias. O chat Gemini fica desligado até que um Worker exclusivo do laboratório seja configurado e validado. Não envie dados pessoais.</p>
   </main>
  </div>;
 }

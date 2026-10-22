@@ -2,6 +2,7 @@ import {useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import type {User} from 'firebase/auth';
 import {MemoryCenter} from './MemoryCenter';
+import {LabRealMemory} from './LabRealMemory';
 import {JarvisChatPanel} from './JarvisChatPanel';
 import {ActionReviewCenter} from './ActionReviewCenter';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
@@ -11,9 +12,9 @@ import './jarvis-lab.css';
 
 /**
  * ISOLATED BROWSER LAB:
- *  - Firebase Auth is optional and never used to read documents or chat history.
+ *  - Firebase Auth protects optional lab APIs; no implicit personal memory saves.
  *  - Every preview runs locally through deterministic validation with fake input.
- *  - No calls to SIGMA Worker, Gemini, Calendar, Drive or Firestore.
+ *  - The local action-preview demo never calls SIGMA production or Firestore.
  */
 export function localFictionalPreview(request:ActionPreviewRequest):Promise<ActionPreviewResult>{
  const result=buildReadOnlyActionPreview(
@@ -58,7 +59,7 @@ export function JarvisLab(){
   <header><span className="lab-symbol" aria-hidden="true">Σ</span><div><strong>SIGMA</strong><small>LABORATÓRIO JARVIS · ISOLADO</small></div></header>
   <main>
    <div className="lab-warning" role="status"><strong>MODO DE TESTES — NÃO É O SIGMA PRINCIPAL</strong>
-    <p>Somente exemplos fictícios. O laboratório não salva memórias nem executa tarefas reais. A conversa com IA só funcionará depois da conexão isolada ser ativada.</p>
+    <p>Ambiente separado do SIGMA principal. O chat não salva mensagens nem executa tarefas reais. Memórias só poderão ser guardadas quando o módulo opcional for habilitado e você autorizar cada registro.</p>
    </div>
    <h1>Seu Jarvis, em construção.</h1>
    <p className="lab-lead">Teste as futuras funções com segurança. Nenhum registro pessoal é necessário.</p>
@@ -86,15 +87,20 @@ export function JarvisLab(){
     </button>
     {showMemory&&<MemoryCenter/>}
    </section>
+   <section className="lab-panel" aria-label="Memória pessoal experimental">
+    <h2>4. Memória pessoal (opcional, preparação)</h2>
+    <p>Registro manual em armazenamento separado, ativado somente quando você autorizar. Não copia o histórico de conversa e não importa informações do SIGMA principal.</p>
+    <LabRealMemory user={user}/>
+   </section>
    <section className="lab-panel" aria-label="Revisão de ações fictícias">
-    <h2>4. Revisão de tarefas (simulação)</h2>
+    <h2>5. Revisão de tarefas (simulação)</h2>
     <p>Verifique uma proposta de calendário ou arquivo fictício. A validação acontece no próprio navegador; execução sempre bloqueada.</p>
     <button type="button" aria-expanded={showActions} onClick={()=>setShowActions(v=>!v)}>
      {showActions?'Fechar revisão':'Abrir revisão fictícia'}
     </button>
     {showActions&&<ActionReviewCenter mode="offline" onPreview={localFictionalPreview}/>}
    </section>
-   <p className="lab-footer">As demonstrações de memória e ações são fictícias. O chat Gemini fica desligado até que um Worker exclusivo do laboratório seja configurado e validado. Não envie dados pessoais.</p>
+   <p className="lab-footer">As demonstrações permanecem fictícias. O módulo experimental de memória é opcional e não grava conversas automaticamente. Não utilize informações sensíveis nos testes.</p>
   </main>
  </div>;
 }

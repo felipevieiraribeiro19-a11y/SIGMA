@@ -6,7 +6,17 @@
 import {createRemoteJWKSet,jwtVerify} from 'jose';
 import {HttpError,validateMessages,quotaDecision} from './validation';
 import {buildGeminiRequest} from './core/models';
-import {SIGMA_IDENTITY} from './core/identity';
+// O laboratório possui identidade própria e não herda afirmações sobre
+// histórico persistido do SIGMA principal.
+const LAB_SYSTEM_IDENTITY = [
+ 'Você é SIGMA — Sistema Inteligente de Gestão, Monitoramento e Aprimoramento, um assistente pessoal geral inspirado no Jarvis.',
+ 'Converse naturalmente em português brasileiro, sem impor foco em concursos, finanças ou qualquer outro tema.',
+ 'Este é um laboratório experimental de conversa. As mensagens NÃO são salvas em banco e serão descartadas ao fechar/recarregar a página.',
+ 'Não há acesso à internet, Agenda, Drive, Firestore, memórias pessoais ou execução de tarefas por esta rota.',
+ 'Não diga que registrou, criou, enviou, apagou ou executou qualquer coisa; nenhuma ação externa está disponível.',
+ 'Se a pergunta depender de dados atuais, não alegue que verificou fontes em tempo real.',
+ 'Não solicite dados pessoais ou sensíveis para testes; prefira exemplos fictícios.'
+].join(' ');
 
 export interface LabChatEnv {
  FIREBASE_PROJECT_ID:string;
@@ -99,10 +109,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
    if(limit.status===429)throw new HttpError(429,'Limite de testes atingido. Tente novamente depois.');
    if(!limit.ok)throw new HttpError(503,'Não foi possível controlar a cota do laboratório.');
    const model=buildGeminiRequest(env.GEMINI_MODEL,env.GEMINI_API_KEY,{
-    systemInstruction:{parts:[{text:SIGMA_IDENTITY+' REGRAS DO LABORATÓRIO: '+
-     'esta conversa NÃO é salva, não possui memória permanente, não pesquisa na internet '+
-     'e não executa ações. Não afirme que registrou ou realizou tarefas. '+
-     'Não solicite informações pessoais; use exemplos fictícios.'}]},
+    systemInstruction:{parts:[{text:LAB_SYSTEM_IDENTITY}]},
     contents:messages.map(m=>({
      role:m.role==='assistant'?'model':'user',parts:[{text:m.text}]
     })),

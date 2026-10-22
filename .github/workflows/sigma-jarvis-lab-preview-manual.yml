@@ -99,11 +99,115 @@ jobs:
           }
           NODE
 
-      - name: Publicar APENAS no canal temporario jarvis-lab (2 dias)
+      - name: Publicar HTML e assets SOMENTE via Firebase Hosting REST no canal jarvis-lab
         shell: bash
+        env:
+          LAB_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
-          npx --yes firebase-tools@latest hosting:channel:deploy jarvis-lab \
-            --config firebase.lab.json \
-            --project sigma-61328 \
-            --expires 2d \
-            --non-interactive
+          node --input-type=module <<'NODE'
+          import {readFileSync,readdirSync} from 'node:fs';
+          import {resolve,join} from 'node:path';
+          import {gzipSync} from 'node:zlib';
+          import {createHash} from 'node:crypto';
+
+          // The service account can manage Hosting channels, but the Firebase CLI
+          // requires serviceusage.services.get. Use the documented Hosting REST API.
+          const site='sigma-61328';
+          const channelId='jarvis-lab';
+          const host='https://firebasehosting.googleapis.com/v1beta1';
+          const token=process.env.LAB_ACCESS_TOKEN;
+          if(!token) throw Error('Sem token WIF; publicacao bloqueada');
+
+          const cfg=JSON.parse(readFileSync('firebase.lab.json','utf8')).hosting;
+          if(cfg.public!=='dist-jarvis-lab' ||
+             cfg.rewrites?.length!==1 ||
+             cfg.rewrites[0].source!=='**' ||
+             cfg.rewrites[0].destination!=='/index.html' ||
+             cfg.headers?.length!==1 ||
+             cfg.headers[0].source!=='**') {
+            throw Error('Configuracao do laboratorio inesperada');
+          }
+          const headers=Object.fromEntries(cfg.headers[0].headers.map(h=>[h.key,h.value]));
+          if(headers['Cache-Control']!=='no-store' ||
+             !headers['Content-Security-Policy']?.includes("default-src 'none'") ||
+             headers['X-Robots-Tag']!=='noindex, nofollow, noarchive') {
+            throw Error('Cabecalhos de seguranca ausentes');
+          }
+
+          const dir=resolve(cfg.public);
+          const entries=[
+            ...readdirSync(dir,{withFileTypes:true}).filter(e=>e.isFile()).map(e=>e.name),
+            ...readdirSync(join(dir,'assets'),{withFileTypes:true}).filter(e=>e.isFile()).map(e=>'assets/'+e.name)
+          ].sort();
+          if(entries.length!==3 || !entries.includes('index.html') ||
+             entries.filter(x=>/^assets\/[\w.-]+\.js$/.test(x)).length!==1 ||
+             entries.filter(x=>/^assets\/[\w.-]+\.css$/.test(x)).length!==1) {
+            throw Error('Build nao contem apenas index.html, JS e CSS do laboratorio');
+          }
+          const fileHashes={};
+          const zipped=new Map();
+          for(const file of entries) {
+            const compressed=gzipSync(readFileSync(join(dir,file)));
+            const hash=createHash('sha256').update(compressed).digest('hex');
+            fileHashes['/'+file]=hash;
+            zipped.set(hash,compressed);
+          }
+
+          const authHeaders={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+          async function api(url,method='GET',body) {
+            if(!url.startsWith(host+'/sites/'+site+'/')) throw Error('API fora do site permitido');
+            const r=await fetch(url,{
+              method,headers:authHeaders,
+              ...(body===undefined?{}:{body:JSON.stringify(body)})
+            });
+            if(!r.ok) throw Error('Firebase Hosting API '+method+' retornou HTTP '+r.status);
+            return await r.json();
+          }
+
+          const channelName='sites/'+site+'/channels/'+channelId;
+          const channel=await api(host+'/'+channelName);
+          if(channel.name!==channelName ||
+             !channel.url?.startsWith('https://') ||
+             !channel.url.endsWith('.web.app')) {
+            throw Error('Canal ou URL inesperados, publicacao bloqueada');
+          }
+          const version=await api(host+'/sites/'+site+'/versions','POST',{
+            config:{
+              rewrites:[{glob:'**',path:'/index.html'}],
+              headers:[{glob:'**',headers}]
+            }
+          });
+          if(!/^sites\/sigma-61328\/versions\/[A-Za-z0-9_-]+$/.test(version.name||'')) {
+            throw Error('Versao retornada fora do site autorizado');
+          }
+          const url=host+'/'+version.name;
+          const populated=await api(url+':populateFiles','POST',{files:fileHashes});
+          const expectedUpload='https://upload-firebasehosting.googleapis.com/upload/'+version.name+'/files';
+          if(populated.uploadUrl!==expectedUpload ||
+             !Array.isArray(populated.uploadRequiredHashes)) {
+            throw Error('Destino de upload inesperado');
+          }
+          for(const hash of populated.uploadRequiredHashes) {
+            if(!zipped.has(hash)) throw Error('Hash requerido desconhecido');
+            const response=await fetch(populated.uploadUrl+'/'+hash,{
+              method:'POST',
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/octet-stream'},
+              body:zipped.get(hash)
+            });
+            if(!response.ok) throw Error('Upload de asset negado: HTTP '+response.status);
+          }
+          const finalized=await api(url+'?update_mask=status','PATCH',{status:'FINALIZED'});
+          if(finalized.status!=='FINALIZED') throw Error('Versao nao finalizada');
+
+          // Only releases for the named preview channel; never /sites/{id}/releases.
+          const release=await api(host+'/'+channelName+'/releases?versionName='+encodeURIComponent(version.name),'POST',{});
+          if(!release.name?.startsWith(channelName+'/releases/') ||
+             release.version?.name!==version.name) {
+            throw Error('Resposta de release nao confirma canal e versao');
+          }
+          const confirmed=await api(host+'/'+channelName);
+          if(confirmed.url!==channel.url) throw Error('URL do canal mudou inesperadamente');
+          console.log('JARVIS_LAB_RELEASE_CONFIRMED');
+          console.log('JARVIS_LAB_URL='+confirmed.url);
+          console.log('JARVIS_LAB_EXPIRES='+String(confirmed.expireTime||'nao informado'));
+          NODE

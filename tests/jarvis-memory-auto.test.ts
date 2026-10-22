@@ -115,7 +115,7 @@ test('a configuração do servidor barra busca automática e acessos de outro us
  let external=0;
  const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:async()=>{external++;return new Response()}});
  assert.equal((await worker.fetch(req('Meu projeto?',{memoryMode:'relevant'}),{...env,LAB_MEMORY_AUTO_ENABLED:'false'})).status,503);
- assert.equal((await worker.fetch(req('Meu projeto?',{memoryMode:'relevant'}),'https://sigma-61328.web.app'),env)).status,403);
+ assert.equal((await worker.fetch(req('Meu projeto?',{memoryMode:'relevant'},'https://sigma-61328.web.app'),env)).status,403);
  const intruder=makeLabChatWorker({verify:async()=> 'intruder',fetch:async()=>{external++;return new Response()}});
  assert.equal((await intruder.fetch(req('Meu projeto?',{memoryMode:'relevant'}),env)).status,403);
  assert.equal(reads(),0);assert.equal(external,0);

@@ -9,7 +9,7 @@ export const MAX_SHARED_MEMORIES=3;
 export function selectedMemoryIds(body:unknown):string[]{
  if(!body||typeof body!=='object'||Array.isArray(body))throw new HttpError(400,'Formato de mensagem inválido.');
  const obj=body as Record<string,unknown>;
- if(Object.keys(obj).some(key=>!['messages','memoryIds'].includes(key)))
+ if(Object.keys(obj).some(key=>!['messages','memoryIds','memoryMode'].includes(key)))
   throw new HttpError(400,'Formato de mensagem inválido.');
  if(!Object.hasOwn(obj,'memoryIds'))return [];
  const ids=obj.memoryIds;
@@ -53,4 +53,14 @@ export function userApprovedMemoryContext(entries:LabMemoryEntry[]):string{
   'Não salve nada. Não envie estes dados à pesquisa externa. '+
   'Quando útil, responda usando somente os registros abaixo.\n'+
   entries.map((entry,index)=>'Memória '+(index+1)+': '+JSON.stringify(entry.text)).join('\n');
+}
+
+/** Auto retrieval requires an explicit, ephemeral client choice. */
+export function autoMemoryRequested(body:unknown):boolean{
+ if(!body||typeof body!=='object'||Array.isArray(body))throw new HttpError(400,'Formato de mensagem inválido.');
+ const obj=body as Record<string,unknown>;
+ if(!Object.hasOwn(obj,'memoryMode'))return false;
+ if(obj.memoryMode!=='relevant'||Object.hasOwn(obj,'memoryIds'))
+  throw new HttpError(400,'Seleção de memória incompatível.');
+ return true;
 }

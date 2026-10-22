@@ -1,7 +1,7 @@
 import {initializeApp,getApps,getApp} from 'firebase/app';
 import {
- getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged,
- setPersistence,browserSessionPersistence,inMemoryPersistence,type Auth,type User
+ initializeAuth,browserPopupRedirectResolver,GoogleAuthProvider,signInWithPopup,
+ signOut,onAuthStateChanged,inMemoryPersistence,type Auth,type User
 } from 'firebase/auth';
 
 /**
@@ -18,14 +18,14 @@ const labFirebaseWebConfig={
 let auth:Auth|undefined;
 export async function prepareLabAuth(onUser:(user:User|null)=>void):Promise<()=>void>{
  const app=getApps().length?getApp():initializeApp(labFirebaseWebConfig);
- const instance=getAuth(app);
- try{
-  await setPersistence(instance,browserSessionPersistence);
- }catch(error){
-  // Embedded browsers may forbid Web Storage. Use volatile memory only in this case.
-  if((error as {code?:string})?.code!=='auth/web-storage-unsupported')throw error;
-  await setPersistence(instance,inMemoryPersistence);
- }
+ // Do NOT call getAuth() here: that eagerly initializes IndexedDB/browser
+ // persistence before setPersistence(), which can fail on iOS Safari.
+ // This isolated lab intentionally loses login state when the page reloads.
+ // Firebase's popup helper remains available via browserPopupRedirectResolver.
+ const instance=initializeAuth(app,{
+  persistence:inMemoryPersistence,
+  popupRedirectResolver:browserPopupRedirectResolver
+ });
  auth=instance;
  return onAuthStateChanged(instance,onUser);
 }

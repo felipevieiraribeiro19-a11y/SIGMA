@@ -55,7 +55,7 @@ export function JarvisLab(){
    <section className="lab-panel" aria-label="Login de testes">
     <h2>1. Verificação de login Google</h2>
     <p>O login é opcional. Serve apenas para testar a autenticação do navegador; não libera ferramentas nem consulta seus arquivos.</p>
-    <p>**iPhone:** abra este endereço no Safari, fora do navegador interno do ChatGPT, antes de testar o login Google. Se falhar, copie apenas o código de erro mostrado abaixo.</p>
+    <p><strong>iPhone:</strong> abra este endereço no Safari, fora do navegador interno do ChatGPT, antes de testar o login Google. Se falhar, informe apenas o código de erro mostrado abaixo.</p>
     <p><strong>Estado:</strong> {user?'Google conectado para teste':authReady?'Sem sessão Google':'Preparando autenticação…'}</p>
     <button type="button" disabled={openedAsFile||!authReady||loggingIn} onClick={()=>{void toggleLogin();}}>
      {loggingIn?'Aguarde…':user?'Sair do laboratório':'Testar login Google'}

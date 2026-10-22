@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import type {User} from 'firebase/auth';
-import {assertLabReply,nextLabMessages,validLabApiBase,type LabChatMessage} from './jarvis-chat-protocol';
+import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,type LabWebSource,type LabChatMessage} from './jarvis-chat-protocol';
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
 
@@ -9,16 +9,17 @@ export function JarvisChatPanel({user}:{user:User|null}){
  const [draft,setDraft]=useState('');
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
+ const [webSources,setWebSources]=useState<LabWebSource[]>([]);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);},[user?.uid]);
  async function send(){
   if(!user||!api||busy)return;
   let messages:LabChatMessage[];
   try{messages=nextLabMessages(history,draft);}
   catch(e){setError(e instanceof Error?e.message:'Mensagem inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');
+  setBusy(true);setError('');setWebSources([]);
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -33,7 +34,8 @@ export function JarvisChatPanel({user}:{user:User|null}){
     throw Error(typeof reason==='string'?reason:'O laboratório não respondeu.');
    }
    const answer=assertLabReply(result);
-   if(!controller.signal.aborted){setHistory([...messages,{role:'assistant',text:answer}]);setDraft('');}
+   const sources=readLabWebSources(result);
+   if(!controller.signal.aborted){setHistory([...messages,{role:'assistant',text:answer}]);setWebSources(sources);setDraft('');}
   }catch(e){
    if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Erro de conexão.');
   }finally{
@@ -42,7 +44,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
  }
  return <div className="lab-chat">
   <h3>Conversa com Gemini (Etapa 14)</h3>
-  <p>Conversa temporária: não fica salva, não lê Agenda ou Drive, não pesquisa na internet e não executa ações. Use apenas exemplos fictícios.</p>
+  <p>Conversa temporária: não fica salva, não lê Agenda ou Drive e não executa ações. Pesquisa na web apenas quando necessário, se habilitada. Consultas podem ser enviadas à Tavily. Use exemplos fictícios e evite dados pessoais.</p>
   {!api&&<p className="lab-chat-notice" role="status">Integração em preparação: o Worker isolado ainda não foi publicado e validado.</p>}
   {api&&!user&&<p className="lab-chat-notice" role="status">Faça login Google acima para habilitar os testes de conversa.</p>}
   {history.length>0&&<div className="lab-chat-dialog" aria-label="Mensagens desta sessão">
@@ -50,6 +52,15 @@ export function JarvisChatPanel({user}:{user:User|null}){
     <strong>{m.role==='user'?'Você (exemplo)':'SIGMA'}</strong><p>{m.text}</p>
    </div>)}
   </div>}
+  {webSources.length>0&&<div className="lab-chat-sources" aria-label="Fontes reais da última pesquisa">
+    <strong>Fontes consultadas nesta resposta</strong>
+    <ul>{webSources.map((source,i)=><li key={source.url}>
+      <a href={source.url} target="_blank" rel="noopener noreferrer">
+       {i+1}. {source.title}
+      </a>
+      {source.publishedDate&&<small> · {source.publishedDate}</small>}
+    </li>)}</ul>
+   </div>}
   <label htmlFor="lab-chat-input">Mensagem de teste</label>
   <textarea id="lab-chat-input" rows={3} maxLength={2000}
    placeholder="Exemplo fictício: Sigma, explique o que você consegue fazer."
@@ -59,7 +70,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':'Enviar para Gemini'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

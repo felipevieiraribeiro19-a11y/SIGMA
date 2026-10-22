@@ -54,8 +54,9 @@ export function JarvisChatPanel({user}:{user:User|null}){
     <LabFormattedText text={m.text}/>
    </div>)}
   </div>}
-  {webSources.length>0&&<div className="lab-chat-sources" aria-label="Fontes reais da última pesquisa">
-    <strong>Fontes consultadas nesta resposta</strong>
+  {webSources.length>0&&<div className="lab-chat-sources" aria-label="Links encontrados na última pesquisa">
+    <strong>Fontes encontradas na pesquisa</strong>
+    <p>Confira datas, vagas e salários no edital oficial. Resultados de busca podem estar desatualizados.</p>
     <ul>{webSources.map((source,i)=><li key={source.url}>
       <a href={source.url} target="_blank" rel="noopener noreferrer">
        {i+1}. {source.title}

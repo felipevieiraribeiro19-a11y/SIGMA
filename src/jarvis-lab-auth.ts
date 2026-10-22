@@ -38,6 +38,26 @@ export async function loginLab():Promise<void>{
 export async function logoutLab():Promise<void>{
  if(auth)await signOut(auth);
 }
+/**
+ * Report browser CSP violations without exposing full URLs, OAuth codes,
+ * state parameters, account identifiers, or the unknown external origin.
+ */
+export function safeLabCspDiagnostic(directive:unknown,blockedURI:unknown):string{
+ const name=typeof directive==='string'?directive.trim().toLowerCase():'';
+ if(!['connect-src','frame-src','script-src','form-action','worker-src','child-src','default-src'].includes(name))return '';
+ let destination='recurso externo';
+ if(typeof blockedURI==='string'){
+  try{
+   const host=new URL(blockedURI).hostname.toLowerCase();
+   if(host==='accounts.google.com'||host==='apis.google.com'||
+      host==='www.googleapis.com'||host==='identitytoolkit.googleapis.com'||
+      host==='securetoken.googleapis.com'||host==='www.gstatic.com'||
+      host==='sigma-61328.firebaseapp.com')destination=host;
+  }catch{}
+ }
+ return 'Política de segurança bloqueou '+name+' para '+destination+'.';
+}
+
 /** Classify known Firebase internal failures without leaking raw SDK messages or OAuth URLs. */
 export function classifyLabAuthInternalError(error:unknown):string{
  const e=error as {message?:unknown;customData?:{originalError?:{message?:unknown}}}|null;

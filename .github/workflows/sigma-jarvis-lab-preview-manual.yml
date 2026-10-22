@@ -70,6 +70,18 @@ jobs:
           test ! -e dist-jarvis-lab/config.json
           test ! -e dist-jarvis-lab/sw.js
 
+      - name: Proteger selecao opcional de memoria
+        if: ${{ inputs.connect_lab_memory }}
+        env:
+          CHAT_SELECTED: ${{ inputs.connect_lab_chat }}
+        shell: bash
+        run: |
+          if [ "$CHAT_SELECTED" != "true" ]; then
+            echo "A memoria depende do Worker LAB habilitado"
+            exit 1
+          fi
+          echo "MEMORIA_LAB_EXPLICITAMENTE_SELECIONADA"
+
       # Optional and explicitly gated: no Worker deploy on normal UI-only preview.
       # Gemini credentials remain Cloudflare secrets; no key is read or written by GitHub.
       - name: Verificar prerequisitos do Tavily no laboratorio
@@ -99,6 +111,7 @@ jobs:
         if: ${{ inputs.connect_lab_chat }}
         env:
           ENABLE_WEB_LAB: ${{ inputs.connect_lab_web }}
+          ENABLE_MEMORY_LAB: ${{ inputs.connect_lab_memory }}
         shell: bash
         run: |
           node --input-type=module <<'NODE'
@@ -110,6 +123,7 @@ jobs:
             'main = "src/chat-lab.ts"',
             'LAB_CHAT_ENABLED = "false"',
             'LAB_WEB_ENABLED = "false"',
+            'LAB_MEMORY_ENABLED = "false"',
             'FIREBASE_PROJECT_ID = "sigma-61328"',
             'ALLOWED_ORIGIN = "https://sigma-61328--jarvis-lab-pw5dmfbc.web.app"',
             'name = "LAB_QUOTA"',
@@ -122,6 +136,13 @@ jobs:
           if(process.env.ENABLE_WEB_LAB==='true'){
             enabled=enabled.replace('LAB_WEB_ENABLED = "false"','LAB_WEB_ENABLED = "true"');
             if(!enabled.includes('LAB_WEB_ENABLED = "true"'))throw Error('Flag Tavily nao habilitada.');
+          }
+          if(process.env.ENABLE_MEMORY_LAB==='true'){
+            enabled=enabled.replace('LAB_MEMORY_ENABLED = "false"','LAB_MEMORY_ENABLED = "true"');
+            if(!enabled.includes('LAB_MEMORY_ENABLED = "true"'))throw Error('Flag memoria nao habilitada.');
+            if(!enabled.includes('name = "LAB_MEMORY"')||
+               !enabled.includes('class_name = "LabMemoryStore"'))
+              throw Error('Binding memoria isolada ausente.');
           }
           if(!enabled.includes('LAB_CHAT_ENABLED = "true"'))throw Error('Falha ao habilitar somente LAB');
           // The file exists only on ephemeral GitHub runner, never committed.

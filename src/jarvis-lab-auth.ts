@@ -38,6 +38,28 @@ export async function loginLab():Promise<void>{
 export async function logoutLab():Promise<void>{
  if(auth)await signOut(auth);
 }
+/** Classify known Firebase internal failures without leaking raw SDK messages or OAuth URLs. */
+export function classifyLabAuthInternalError(error:unknown):string{
+ const e=error as {message?:unknown;customData?:{originalError?:{message?:unknown}}}|null;
+ const messages=[e?.message,e?.customData?.originalError?.message]
+  .filter((x):x is string=>typeof x==='string')
+  .join(' ').toLowerCase();
+ if(/invalid idp response|invalid idp credential/.test(messages))
+  return 'Retorno do provedor Google inválido.';
+ if(/database is closing|database is hidden|closing\/hidden/.test(messages))
+  return 'Armazenamento do Safari foi interrompido durante o login.';
+ if(/missing initial state|initial state missing/.test(messages))
+  return 'O navegador perdeu o estado da sessão de autenticação.';
+ if(/redirect_uri_mismatch|redirect uri mismatch/.test(messages))
+  return 'URI de retorno OAuth não autorizada.';
+ if(/content security policy|refused to frame|refused to connect/.test(messages))
+  return 'O navegador bloqueou uma conexão pela política de segurança da página.';
+ if(/indexeddb|web storage|storage access|sessionstorage|localstorage/.test(messages))
+  return 'Armazenamento exigido pelo login está indisponível.';
+ if(/networkerror|failed to fetch|load failed|network request failed/.test(messages))
+  return 'Houve uma falha de conexão durante a autenticação.';
+ return 'Causa interna ainda não identificada.';
+}
 /** Public, non-sensitive codes only. Never display tokens, raw provider errors or emails. */
 export function readableLabAuthError(error:unknown){
  const raw=(error as {code?:unknown})?.code;
@@ -62,7 +84,7 @@ export function readableLabAuthError(error:unknown){
   case 'auth/invalid-api-key':
    return 'Configuração da autenticação Firebase inválida. Código: '+code;
   case 'auth/internal-error':
-   return 'O Firebase falhou ao autenticar. Abra diretamente no Safari e tente novamente. Código: '+code;
+   return 'O Firebase não concluiu o login Google. Código: '+code+'. Diagnóstico: '+classifyLabAuthInternalError(error)+' Não compartilhe links ou tokens de autenticação.';
   default:
    return 'Falha de autenticação Google. Abra no Safari e informe somente este código (sem compartilhar dados pessoais): '+code;
  }

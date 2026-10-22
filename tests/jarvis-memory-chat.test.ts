@@ -75,7 +75,9 @@ test('duas memórias escolhidas são obtidas do servidor e só elas entram no Ge
  assert.match(context,/azul/);
  assert.doesNotMatch(context,/NÃO escolhi/);
  assert.match(context,/Memórias escolhidas|MEMÓRIAS ESCOLHIDAS/);
- assert.doesNotMatch(JSON.stringify(await reply.json()),/Projeto Alfa|Minha cor favorita/);
+ const responseBody=await reply.json();
+ assert.deepEqual(responseBody.memory,{consulted:true,count:2});
+ assert.doesNotMatch(JSON.stringify(responseBody),/Projeto Alfa|Minha cor favorita/);
  assert.equal((await memory.fetch(new Request('https://lab-memory.internal/entries'))).status,200);
 });
 test('seleção não existe, foi excluída ou memória desativada: negar sem chamada ao Gemini',async()=>{

@@ -56,7 +56,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
   </div>}
   {webSources.length>0&&<div className="lab-chat-sources" aria-label="Links encontrados na última pesquisa">
     <strong>Fontes encontradas na pesquisa</strong>
-    <p>Confira datas, vagas e salários no edital oficial. Resultados de busca podem estar desatualizados.</p>
+    <p>Resultados de busca podem estar desatualizados. Confira dados importantes diretamente na fonte oficial correspondente.</p>
     <ul>{webSources.map((source,i)=><li key={source.url}>
       <a href={source.url} target="_blank" rel="noopener noreferrer">
        {i+1}. {source.title}

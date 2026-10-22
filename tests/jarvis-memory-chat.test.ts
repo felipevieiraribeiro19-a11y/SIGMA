@@ -20,7 +20,7 @@ function fixture(){
   LAB_MEMORY_ENABLED:'true',GEMINI_API_KEY:'gemini-demo-key',
   GEMINI_MODEL:'mock-model',TAVILY_API_KEY:'tavily-demo-key',
   LAB_QUOTA:{idFromName:(id:string)=>id,get:()=>({fetch:async()=>new Response(null,{status:204})})},
-  LAB_MEMORY:{idFromName:(id:string)=>id,get:()=>({fetch:(request:Request)=>{memoryCalls++;return memory.fetch(request)}})}
+  LAB_MEMORY:{idFromName:(id:string)=>id,get:()=>({fetch:(request:Request|string)=>{memoryCalls++;return memory.fetch(typeof request==='string'?new Request(request):request)}})}
  } as any;
  return {memory,env,memoryCalls:()=>memoryCalls};
 }

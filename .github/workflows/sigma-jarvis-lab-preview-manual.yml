@@ -198,7 +198,12 @@ jobs:
           if(get.status===200){
             const channel=await get.json();
             if(!channel.name?.endsWith('/channels/'+id)) throw Error('Canal inesperado');
-            console.log('CANAL_LAB_EXISTENTE');
+            // Renew only this preview channel; never update the live channel.
+            const renewed=await fetch(base+'/'+id+'?updateMask=ttl',{
+              method:'PATCH',headers,body:JSON.stringify({ttl:'604800s'})
+            });
+            if(!renewed.ok)throw Error('Nao foi possivel renovar o canal jarvis-lab.');
+            console.log('CANAL_LAB_RENOVADO');
           } else if(get.status===404){
             const created=await fetch(base+'?channelId='+id,{
               method:'POST',headers,body:JSON.stringify({ttl:'172800s'})

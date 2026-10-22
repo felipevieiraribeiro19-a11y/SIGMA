@@ -6,6 +6,10 @@ on:
     branches: [sigma-work-integracao]
     paths:
       - 'worker/src/offline-approval-lab.ts'
+      - 'worker/src/chat-lab.ts'
+      - 'worker/wrangler.chat-lab.toml'
+      - 'tests/run-jarvis-chat-offline.sh'
+      - 'tests/chat-lab-http.mjs'
       - 'worker/src/core/audited-approval.ts'
       - 'worker/src/core/offline-mock-store.ts'
       - 'worker/src/core/mock-executor.ts'
@@ -42,3 +46,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ""
           CLOUDFLARE_API_TOKEN: ""
         run: bash tests/run-cloudflare-offline-lab.sh
+      - name: Verify isolated chat Worker is fail-closed in local workerd
+        env:
+          CI: "true"
+          CLOUDFLARE_ACCOUNT_ID: ""
+          CLOUDFLARE_API_TOKEN: ""
+        run: bash tests/run-jarvis-chat-offline.sh

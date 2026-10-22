@@ -70,3 +70,19 @@ button:disabled{cursor:not-allowed;opacity:.48}button:focus-visible,select:focus
 .lab-chat-sources li{margin:9px 0;line-height:1.45}
 .lab-chat-sources a{color:#b3b4ff;overflow-wrap:anywhere;text-decoration:underline}
 .lab-chat-sources small{color:#9aafc0}
+
+/* Stage 16: explicit opt-in memory controls, deliberately separate from chat. */
+.lab-real-memory{min-width:0}
+.lab-real-memory h3{font-size:15px;color:#d5edff;margin:14px 0 8px}
+.lab-real-memory label{display:block;font-size:13px;line-height:1.55;margin:10px 0;color:#b7d4e5}
+.lab-real-memory textarea{display:block;width:100%;min-height:76px;background:#091a28;color:#e4f6ff;border:1px solid #426784;border-radius:10px;padding:10px;font:inherit;resize:vertical}
+.lab-real-memory button{font-size:13px;margin:5px 7px 5px 0}
+.lab-real-memory .lab-memory-warning{color:#f1d5ae}
+.lab-real-memory input[type="checkbox"]{width:18px;height:18px;vertical-align:middle;margin-right:8px}
+.lab-real-memory .lab-memory-consent{display:flex;gap:6px;align-items:flex-start}
+.lab-memory-entries{padding-left:0;list-style:none}
+.lab-memory-entries li{background:#132a3b;border:1px solid #355970;border-radius:11px;padding:12px;margin:12px 0;overflow-wrap:anywhere}
+.lab-memory-entries li p{color:#e7f2fb}
+.lab-memory-actions{display:flex;gap:8px;flex-wrap:wrap}
+.lab-memory-danger{border-top:1px solid #42627a;margin-top:20px;padding-top:15px}
+.lab-real-memory .memory-delete{border-color:#99546a;color:#ffd9e5}

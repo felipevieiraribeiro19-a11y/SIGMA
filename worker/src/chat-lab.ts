@@ -118,7 +118,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
      }finally{reader.releaseLock();}
      const bytes=new Uint8Array(count);let n=0;
      for(const part of parts){bytes.set(part,n);n+=part.byteLength;}
-     try{payload=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}
+     try{payload=JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(bytes));}
      catch{throw new HttpError(400,'JSON inválido.');}
     }
     const subpath=path.slice('/api/lab/memory'.length);

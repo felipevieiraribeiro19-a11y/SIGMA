@@ -11,7 +11,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
  const [error,setError]=useState('');
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{if(!user){pending.current?.abort();setHistory([]);setDraft('');}},[user]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');},[user?.uid]);
  async function send(){
   if(!user||!api||busy)return;
   let messages:LabChatMessage[];

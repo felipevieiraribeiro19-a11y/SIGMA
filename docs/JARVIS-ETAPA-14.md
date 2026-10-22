@@ -37,3 +37,10 @@ node scripts/build-jarvis-offline.mjs
 ```
 
 Os testes de HTTP com modelo simulado não provam autenticação ponta a ponta nem chamada real ao Gemini. Esse marco depende de configurar/autorizar o Worker isolado e fazer um teste no iPhone.
+
+## Continuidade (22/10/2026)
+- Subdomínio Cloudflare consultado na conta: `felipevieiraribeiro19`.
+- Confirmação de leitura: `sigma-jarvis-cerebro-lab` ainda não existe no Cloudflare; `sigma-cerebro` permanece intacto.
+- A chave Gemini atual é `secret_text` vinculado apenas ao Worker principal. Sua cópia para o novo Worker **não é possível pela API de leitura**. Requer entrada manual e segura pelo proprietário no painel Cloudflare ou outro fluxo de segredos autorizado.
+- A publicação inicial do Worker, se aprovada, deve ter `LAB_CHAT_ENABLED=false`, sem chaves inseridas em GitHub.
+- A origem permitida e a CSP do frontend devem especificar somente o domínio exato de laboratório.

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
 import {REVIEW_DEMOS} from '../src/ActionReviewCenter';
+import {readableLabAuthError} from '../src/jarvis-lab-auth';
 
 test('laboratório usa somente Auth e exemplos fictícios; sem gravação pessoal',()=>{
  const lab=readFileSync('src/jarvis-lab.tsx','utf8');
@@ -76,4 +77,14 @@ test('interface mantém execução de ações indisponível mesmo no laboratóri
  assert.match(panel,/Detalhes validados pelo backend/);
  const lab=readFileSync('src/jarvis-lab.tsx','utf8');
  assert.match(lab,/mode="offline"/);
+});
+
+test('erros de login apresentam somente códigos públicos e orientam Safari',()=>{
+ assert.match(readableLabAuthError({code:'auth/internal-error'}),/Safari.*auth\\/internal-error/);
+ assert.match(readableLabAuthError({code:'auth/unauthorized-domain'}),/Firebase Authentication.*auth\\/unauthorized-domain/);
+ assert.match(readableLabAuthError({code:'auth/popup-blocked'}),/Safari.*auth\\/popup-blocked/);
+ assert.match(readableLabAuthError({code:'auth/web-storage-unsupported'}),/Safari.*auth\\/web-storage-unsupported/);
+ assert.match(readableLabAuthError({code:'auth/network-request-failed'}),/Safari.*auth\\/network-request-failed/);
+ assert.equal(readableLabAuthError({code:'auth/secreto?token=ABCD'}).includes('ABCD'),false);
+ assert.equal(readableLabAuthError({message:'sensitive email example@secret.com'}).includes('example@secret.com'),false);
 });

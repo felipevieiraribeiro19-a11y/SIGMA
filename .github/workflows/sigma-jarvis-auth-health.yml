@@ -1,0 +1,47 @@
+name: SIGMA - checar infraestrutura de login (somente leitura)
+on:
+  push:
+    branches: [sigma-jarvis-arquitetura]
+    paths:
+      - '.github/workflows/sigma-jarvis-auth-health.yml'
+permissions:
+  contents: read
+jobs:
+  read-only-auth-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Diagnosticar endpoints publicos sem tokens nem dados pessoais
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const config=readFileSync('src/jarvis-lab-auth.ts','utf8');
+          const key=config.match(/apiKey:'([^']+)'/)?.[1];
+          if(!key) throw Error('API key publica ausente na config local');
+          const preview='https://sigma-61328--jarvis-lab-pw5dmfbc.web.app';
+          const paths=[
+            ['preview-index',preview+'/'],
+            ['auth-handler','https://sigma-61328.firebaseapp.com/__/auth/handler'],
+            ['auth-iframe','https://sigma-61328.firebaseapp.com/__/auth/iframe'],
+            ['auth-init','https://sigma-61328.firebaseapp.com/__/firebase/init.json'],
+            ['auth-projects','https://identitytoolkit.googleapis.com/v1/projects?key='+encodeURIComponent(key)]
+          ];
+          for(const [label,url] of paths){
+            try {
+              const r=await fetch(url,{signal:AbortSignal.timeout(10000),redirect:'manual'});
+              const type=r.headers.get('content-type')||'';
+              const location=r.headers.get('location')||'';
+              const result={name:label,http:r.status,content_type:type.split(';')[0],
+                redirected: r.status>=300&&r.status<400,external_redirect:location.startsWith('http')};
+              if(label==='auth-projects'&&r.ok){
+                const data=await r.json();
+                result.domain_authorized=Array.isArray(data.authorizedDomains)&&
+                  data.authorizedDomains.includes('sigma-61328--jarvis-lab-pw5dmfbc.web.app');
+                result.project_id_matches=data.projectId==='sigma-61328';
+              }
+              console.log('LAB_AUTH_HEALTH='+JSON.stringify(result));
+            }catch(e){console.log('LAB_AUTH_HEALTH='+JSON.stringify({name:label,network_error:true}));}
+          }
+          NODE

@@ -25,6 +25,11 @@ on:
         required: false
         type: boolean
         default: false
+      connect_lab_memory_auto:
+        description: "Habilitar busca contextual opcional das memórias na sessão? Exige chat e memória."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -82,6 +87,19 @@ jobs:
           fi
           echo "MEMORIA_LAB_EXPLICITAMENTE_SELECIONADA"
 
+      - name: Proteger consulta contextual de memoria LAB
+        if: ${{ inputs.connect_lab_memory_auto }}
+        env:
+          CHAT_SELECTED: ${{ inputs.connect_lab_chat }}
+          MEMORY_SELECTED: ${{ inputs.connect_lab_memory }}
+        shell: bash
+        run: |
+          if [ "$CHAT_SELECTED" != "true" ] || [ "$MEMORY_SELECTED" != "true" ]; then
+            echo "Busca contextual exige chat e memoria LAB ativados."
+            exit 1
+          fi
+          echo "BUSCA_CONTEXTUAL_LAB_EXPLICITAMENTE_SELECIONADA"
+
       # Optional and explicitly gated: no Worker deploy on normal UI-only preview.
       # Gemini credentials remain Cloudflare secrets; no key is read or written by GitHub.
       - name: Verificar prerequisitos do Tavily no laboratorio
@@ -112,6 +130,7 @@ jobs:
         env:
           ENABLE_WEB_LAB: ${{ inputs.connect_lab_web }}
           ENABLE_MEMORY_LAB: ${{ inputs.connect_lab_memory }}
+          ENABLE_MEMORY_AUTO_LAB: ${{ inputs.connect_lab_memory_auto }}
         shell: bash
         run: |
           node --input-type=module <<'NODE'
@@ -124,6 +143,7 @@ jobs:
             'LAB_CHAT_ENABLED = "false"',
             'LAB_WEB_ENABLED = "false"',
             'LAB_MEMORY_ENABLED = "false"',
+            'LAB_MEMORY_AUTO_ENABLED = "false"',
             'FIREBASE_PROJECT_ID = "sigma-61328"',
             'ALLOWED_ORIGIN = "https://sigma-61328--jarvis-lab-pw5dmfbc.web.app"',
             'name = "LAB_QUOTA"',
@@ -143,6 +163,11 @@ jobs:
             if(!enabled.includes('name = "LAB_MEMORY"')||
                !enabled.includes('class_name = "LabMemoryStore"'))
               throw Error('Binding memoria isolada ausente.');
+          }
+          if(process.env.ENABLE_MEMORY_AUTO_LAB==='true'){
+            if(process.env.ENABLE_MEMORY_LAB!=='true')throw Error('Memoria do LAB precisa estar ativa.');
+            enabled=enabled.replace('LAB_MEMORY_AUTO_ENABLED = "false"','LAB_MEMORY_AUTO_ENABLED = "true"');
+            if(!enabled.includes('LAB_MEMORY_AUTO_ENABLED = "true"'))throw Error('Flag contextual ausente.');
           }
           if(!enabled.includes('LAB_CHAT_ENABLED = "true"'))throw Error('Falha ao habilitar somente LAB');
           // The file exists only on ephemeral GitHub runner, never committed.

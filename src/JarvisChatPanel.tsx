@@ -16,12 +16,14 @@ export function JarvisChatPanel({user}:{user:User|null}){
  const [selectedMemoryIds,setSelectedMemoryIds]=useState<string[]>([]);
  const [memoryPickerOpen,setMemoryPickerOpen]=useState(false);
  const [loadingMemory,setLoadingMemory]=useState(false);
+ const [autoMemory,setAutoMemory]=useState(false);
+ const [autoMemoryResult,setAutoMemoryResult]=useState<'found'|'none'|null>(null);
  const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);},[user?.uid]);
  async function refreshMemoryChoices(){
-  if(!user||!api||loadingMemory||busy)return;
+  if(!user||!api||loadingMemory||busy||autoMemory)return;
   setLoadingMemory(true);setError('');
   try{
    const token=await user.getIdToken();
@@ -53,10 +55,10 @@ export function JarvisChatPanel({user}:{user:User|null}){
   try{messages=nextLabMessages(history,draft);}
   catch(e){setError(e instanceof Error?e.message:'Mensagem inválida.');return;}
   let payload:ReturnType<typeof approvedChatRequest>;
-  try{payload=approvedChatRequest(messages,selectedMemoryIds);}
+  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);
+  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -77,7 +79,15 @@ export function JarvisChatPanel({user}:{user:User|null}){
     typeof memoryData.count==='number'&&
     Number.isInteger(memoryData.count)&&memoryData.count>=1&&memoryData.count<=3
      ?memoryData.count:0;
-   if(!controller.signal.aborted){setHistory([...messages,{role:'assistant',text:answer}]);setWebSources(sources);setConsultedMemoryCount(consulted);setDraft('');setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);}
+   const autoResult=memoryData?.mode==='auto'&&memoryData?.consulted===true&&consulted>0
+     ?'found':memoryData?.mode==='auto'&&memoryData?.consulted===false&&memoryData?.count===0
+     ?'none':null;
+   if(!controller.signal.aborted){
+    setHistory([...messages,{role:'assistant',text:answer}]);
+    setWebSources(sources);setConsultedMemoryCount(consulted);
+    setAutoMemoryResult(autoResult);
+    setDraft('');setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
+   }
   }catch(e){
    if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Erro de conexão.');
   }finally{
@@ -95,8 +105,9 @@ export function JarvisChatPanel({user}:{user:User|null}){
     <LabFormattedText text={m.text}/>
    </div>)}
   </div>}
+  {autoMemoryResult==='none'&&<p className="lab-memory-used" role="status">Nenhuma memória relevante foi encontrada nesta pergunta. Nada foi compartilhado da sua base com o Gemini.</p>}
   {consultedMemoryCount>0&&<p className="lab-memory-used" role="status">
-   <strong>Memória:</strong> {consultedMemoryCount} registro(s) escolhido(s) por você foram consultados nesta resposta.
+   <strong>Memória:</strong> {consultedMemoryCount} registro(s) {autoMemoryResult==='found'?'relevante(s) encontrado(s) com sua autorização':'escolhido(s) por você'} foram usados nesta resposta.
   </p>}
   {webSources.length>0&&<div className="lab-chat-sources" aria-label="Links encontrados na última pesquisa">
     <strong>Fontes encontradas na pesquisa</strong>
@@ -110,10 +121,23 @@ export function JarvisChatPanel({user}:{user:User|null}){
    </div>}
   {api&&user&&<div className="lab-chat-memory" aria-label="Compartilhar memórias escolhidas somente nesta pergunta">
    <strong>Memória na conversa (opcional)</strong>
-   <p>Escolha até três registros já aprovados. Eles serão compartilhados com o Gemini somente nesta pergunta, não com a Tavily. Não serão salvas novas memórias.</p>
-   <button type="button" disabled={busy||loadingMemory}
+   <p>Escolha manualmente até três registros ou ative a busca contextual nesta sessão. Apenas memórias relevantes serão compartilhadas com o Gemini; nunca com a Tavily. O SIGMA não salva novas memórias automaticamente.</p>
+   <label className="lab-auto-memory-consent">
+    <input type="checkbox" checked={autoMemory} disabled={busy||loadingMemory}
+     onChange={event=>{
+      setAutoMemory(event.target.checked);
+      setSelectedMemoryIds([]);
+      setMemoryPickerOpen(false);
+      setMemoryChoices([]);
+      setAutoMemoryResult(null);
+     }}/>
+    <span><strong>Buscar memórias relevantes automaticamente nesta sessão.</strong>
+     <small>Desligado por padrão; não fica salvo. Pode ser desativado a qualquer momento. Até 3 memórias aprovadas poderão ser enviadas ao Gemini em cada pergunta.</small>
+    </span>
+   </label>
+   <button type="button" disabled={busy||loadingMemory||autoMemory}
     onClick={()=>memoryPickerOpen?(setMemoryPickerOpen(false),setSelectedMemoryIds([]),setMemoryChoices([])):void refreshMemoryChoices()}>
-    {loadingMemory?'Consultando…':memoryPickerOpen?'Fechar seleção de memórias':'Escolher memórias para esta pergunta'}
+    {loadingMemory?'Consultando…':autoMemory?'Busca contextual ativa nesta sessão':memoryPickerOpen?'Fechar seleção de memórias':'Escolher memórias para esta pergunta'}
    </button>
    {memoryPickerOpen&&<div>
     <button type="button" disabled={busy||loadingMemory} onClick={()=>void refreshMemoryChoices()}>Atualizar memórias</button>
@@ -135,9 +159,9 @@ export function JarvisChatPanel({user}:{user:User|null}){
    disabled={!api||!user||busy}/>
   <div className="lab-chat-buttons">
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
-    {busy?'Conversando…':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
+    {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

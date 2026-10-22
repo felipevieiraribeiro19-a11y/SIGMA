@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       connect_lab_chat:
-        description: "Conectar visualmente chat ao Worker separado? Use somente apos ativacao e teste seguro."
+        description: "Ativar CHAT REAL Gemini somente no Worker LAB e conectar interface? (limite de testes; sem Firestore)"
         required: false
         type: boolean
         default: false
@@ -59,6 +59,77 @@ jobs:
           test -f dist-jarvis-lab/index.html
           test ! -e dist-jarvis-lab/config.json
           test ! -e dist-jarvis-lab/sw.js
+
+      # Optional and explicitly gated: no Worker deploy on normal UI-only preview.
+      # Gemini credentials remain Cloudflare secrets; no key is read or written by GitHub.
+      - name: Conferir destino isolado e gerar config temporaria com chat ativo
+        if: ${{ inputs.connect_lab_chat }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          const path='worker/wrangler.chat-lab.toml';
+          const original=readFileSync(path,'utf8');
+          for(const guard of [
+            'name = "sigma-jarvis-cerebro-lab"',
+            'main = "src/chat-lab.ts"',
+            'LAB_CHAT_ENABLED = "false"',
+            'FIREBASE_PROJECT_ID = "sigma-61328"',
+            'ALLOWED_ORIGIN = "https://sigma-61328--jarvis-lab-pw5dmfbc.web.app"',
+            'name = "LAB_QUOTA"',
+            'class_name = "LabChatQuota"'
+          ])if(!original.includes(guard))throw Error('Configuracao insegura; chat nao sera ativado');
+          if(original.includes('name = "sigma-cerebro"'))throw Error('Worker de producao proibido');
+          if((original.match(/LAB_CHAT_ENABLED = "false"/g)||[]).length!==1)
+            throw Error('Flag de laboratorio inesperada');
+          const enabled=original.replace('LAB_CHAT_ENABLED = "false"','LAB_CHAT_ENABLED = "true"');
+          if(!enabled.includes('LAB_CHAT_ENABLED = "true"'))throw Error('Falha ao habilitar somente LAB');
+          // The file exists only on ephemeral GitHub runner, never committed.
+          writeFileSync('worker/wrangler.chat-lab.enabled.toml',enabled);
+          console.log('SOMENTE_WORKER_LAB_CONFIRMED');
+          NODE
+
+      - name: Ativar somente Worker Jarvis LAB, preservando segredos existentes
+        if: ${{ inputs.connect_lab_chat }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ffbf8770e586438ce53536e3bf0f5d65
+          wranglerVersion: "4.45.0"
+          workingDirectory: worker
+          command: deploy --config wrangler.chat-lab.enabled.toml --keep-vars
+
+      - name: Testar CORS e bloqueio de tokens invalidos sem consumir Gemini
+        if: ${{ inputs.connect_lab_chat }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const endpoint='https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev/api/lab/chat';
+          const origin='https://sigma-61328--jarvis-lab-pw5dmfbc.web.app';
+          const response=await fetch(endpoint,{
+            method:'OPTIONS',headers:{Origin:origin},
+            signal:AbortSignal.timeout(12000)
+          });
+          if(response.status!==204||response.headers.get('access-control-allow-origin')!==origin)
+            throw Error('CORS do laboratorio nao autorizado. Parando antes do Hosting.');
+          const unauthorized=await fetch(endpoint,{
+            method:'POST',headers:{
+              Origin:origin,Authorization:'Bearer token-ficticio-invalido',
+              'Content-Type':'application/json'
+            },
+            body:JSON.stringify({messages:[{role:'user',text:'Teste sem credencial; não chamar Gemini'}]}),
+            signal:AbortSignal.timeout(12000)
+          });
+          if(unauthorized.status!==401)
+            throw Error('Worker nao rejeitou token invalido ou chat nao ativou: HTTP '+unauthorized.status);
+          const other=await fetch(endpoint,{
+            method:'OPTIONS',headers:{Origin:'https://sigma-61328.web.app'},
+            signal:AbortSignal.timeout(12000)
+          });
+          if(other.status!==403||other.headers.get('access-control-allow-origin')!==null)
+            throw Error('Worker nao bloqueou origem de producao.');
+          console.log('CHAT_LAB_AUTH_AND_CORS_GUARDS_OK');
+          NODE
 
       # Existing keyless WIF provider and service account; no new credentials.
       # If the provider rejects workflows on main, this fails closed.

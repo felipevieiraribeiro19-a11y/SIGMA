@@ -8,6 +8,7 @@ import {createRemoteJWKSet,jwtVerify} from 'jose';
 import {HttpError,validateMessages,quotaDecision} from './validation';
 import {buildGeminiRequest} from './core/models';
 import {searchIntent,searchTavily,webSearchQuery,type WebSource} from './web-search';
+import {LabMemoryStore} from './lab-memory';
 // O laboratório possui identidade própria e não herda afirmações sobre
 // histórico persistido do SIGMA principal.
 const LAB_SYSTEM_IDENTITY = [
@@ -37,6 +38,8 @@ export interface LabChatEnv {
  LAB_WEB_ENABLED?:string;
  TAVILY_API_KEY?:string;
  LAB_QUOTA:DurableObjectNamespace;
+ LAB_MEMORY_ENABLED?:string;
+ LAB_MEMORY?:DurableObjectNamespace;
 }
 type Dependencies={
  verify?:(request:Request,env:LabChatEnv)=>Promise<string>;
@@ -79,15 +82,55 @@ export function makeLabChatWorker(deps:Dependencies={}){
     throw new HttpError(403,'Origem não autorizada.');
    headers['Access-Control-Allow-Origin']=origin;
    const path=new URL(request.url).pathname;
-   if(path!=='/api/lab/chat')throw new HttpError(404,'Rota inexistente.');
+   const memoryPath=path==='/api/lab/memory'||path.startsWith('/api/lab/memory/');
+   if(path!=='/api/lab/chat'&&!memoryPath)throw new HttpError(404,'Rota inexistente.');
    if(request.method==='OPTIONS'){
     return new Response(null,{status:204,headers:{
-     ...headers,'Access-Control-Allow-Methods':'POST, OPTIONS',
+     ...headers,'Access-Control-Allow-Methods':memoryPath&&env.LAB_MEMORY_ENABLED==='true'?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
      'Access-Control-Allow-Headers':'Authorization, Content-Type',
      'Access-Control-Max-Age':'600'
     }});
    }
-   if(request.method!=='POST')throw new HttpError(405,'Método não permitido.');
+   if(!memoryPath&&request.method!=='POST')throw new HttpError(405,'Método não permitido.');
+   if(memoryPath){
+    if(env.LAB_MEMORY_ENABLED!=='true'||!env.LAB_MEMORY)
+     throw new HttpError(503,'Memória pessoal ainda não habilitada no laboratório.');
+    const uid=await(deps.verify||verifyLabUser)(request,env);
+    if(uid!==env.ALLOWED_UID)throw new HttpError(403,'Conta não autorizada.');
+    if(!['GET','POST','PATCH','DELETE'].includes(request.method))
+     throw new HttpError(405,'Método não permitido.');
+    if((request.method==='POST'||request.method==='PATCH')&&
+      !request.headers.get('Content-Type')?.startsWith('application/json'))
+     throw new HttpError(415,'Envie memória em JSON.');
+    let payload:unknown=undefined;
+    if(request.method==='POST'||request.method==='PATCH'){
+     if(Number(request.headers.get('Content-Length')||0)>1200)
+      throw new HttpError(413,'Memória grande demais.');
+     let count=0;const parts:Uint8Array[]=[];
+     const reader=request.body?.getReader();
+     if(!reader)throw new HttpError(400,'Memória ausente.');
+     try{
+      while(true){const {done,value}=await reader.read();if(done)break;
+       count+=value.byteLength;
+       if(count>1200){await reader.cancel();throw new HttpError(413,'Memória grande demais.');}
+       parts.push(value);
+      }
+     }finally{reader.releaseLock();}
+     const bytes=new Uint8Array(count);let n=0;
+     for(const part of parts){bytes.set(part,n);n+=part.byteLength;}
+     try{payload=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}
+     catch{throw new HttpError(400,'JSON inválido.');}
+    }
+    const subpath=path.slice('/api/lab/memory'.length);
+    if(subpath&& !/^\/[0-9a-f-]{36}$/i.test(subpath))
+     throw new HttpError(404,'Rota de memória inválida.');
+    const internal=new Request('https://lab-memory.internal/entries'+subpath,{
+     method:request.method,
+     ...(payload===undefined?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    });
+    const result=await env.LAB_MEMORY.get(env.LAB_MEMORY.idFromName(uid)).fetch(internal);
+    return reply(await result.json(),result.status);
+   }
    if(env.LAB_CHAT_ENABLED!=='true')
     throw new HttpError(503,'Conversa real ainda desativada no laboratório.');
    if(!env.FIREBASE_PROJECT_ID||!env.ALLOWED_UID||!env.LAB_QUOTA||

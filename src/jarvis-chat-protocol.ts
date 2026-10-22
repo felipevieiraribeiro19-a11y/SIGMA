@@ -6,7 +6,7 @@ export function validLabApiBase(value:unknown):string|null{
   const url=new URL(value);
   // Não aceitar o Worker de produção, nem domínios de terceiros.
   if(url.protocol!=='https:'||!/^sigma-jarvis-cerebro-lab\.[a-z0-9-]+\.workers\.dev$/.test(url.hostname)
-   ||url.pathname!=='/'||url.search||url.hash||url.username||url.password)
+   ||url.port||url.pathname!=='/'||url.search||url.hash||url.username||url.password)
    return null;
   return url.origin;
  }catch{return null;}

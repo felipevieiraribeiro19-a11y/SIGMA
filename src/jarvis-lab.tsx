@@ -6,7 +6,7 @@ import {JarvisChatPanel} from './JarvisChatPanel';
 import {ActionReviewCenter} from './ActionReviewCenter';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
 import type {ActionPreviewRequest,ActionPreviewResult} from './services';
-import {prepareLabAuth,loginLab,logoutLab,readableLabAuthError} from './jarvis-lab-auth';
+import {prepareLabAuth,loginLab,logoutLab,readableLabAuthError,safeLabCspDiagnostic} from './jarvis-lab-auth';
 import './jarvis-lab.css';
 
 /**
@@ -27,6 +27,7 @@ export function JarvisLab(){
  const [user,setUser]=useState<User|null>(null);
  const [authReady,setAuthReady]=useState(false);
  const [authError,setAuthError]=useState('');
+ const [authBrowserDiagnostic,setAuthBrowserDiagnostic]=useState('');
  const [loggingIn,setLoggingIn]=useState(false);
  const [showMemory,setShowMemory]=useState(false);
  const [showActions,setShowActions]=useState(false);
@@ -38,8 +39,17 @@ export function JarvisLab(){
    .catch(e=>{if(alive){setAuthReady(true);setAuthError(readableLabAuthError(e));}});
   return ()=>{alive=false;unsubscribe();};
  },[openedAsFile]);
+ useEffect(()=>{
+  if(openedAsFile)return;
+  const onViolation=(event:SecurityPolicyViolationEvent)=>{
+   const publicDiagnostic=safeLabCspDiagnostic(event.violatedDirective,event.blockedURI);
+   if(publicDiagnostic)setAuthBrowserDiagnostic(publicDiagnostic);
+  };
+  window.addEventListener('securitypolicyviolation',onViolation);
+  return ()=>window.removeEventListener('securitypolicyviolation',onViolation);
+ },[openedAsFile]);
  async function toggleLogin(){
-  if(loggingIn)return;setAuthError('');setLoggingIn(true);
+  if(loggingIn)return;setAuthError('');setAuthBrowserDiagnostic('');setLoggingIn(true);
   try{if(user)await logoutLab();else await loginLab();}
   catch(e){setAuthError(readableLabAuthError(e));}
   finally{setLoggingIn(false);}
@@ -62,6 +72,7 @@ export function JarvisLab(){
     </button>
     {openedAsFile&&<p>Arquivo offline: login indisponível. Os exemplos de memória e tarefas continuam funcionando sem conexão.</p>}
     {authError&&<p className="lab-error" role="alert">{authError}</p>}
+    {authBrowserDiagnostic&&<p className="lab-error" role="status">{authBrowserDiagnostic}</p>}
    </section>
    <section className="lab-panel" aria-label="Conversa experimental com inteligência artificial">
     <h2>2. Conversa com IA (experimental)</h2>

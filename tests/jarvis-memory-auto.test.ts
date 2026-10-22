@@ -53,7 +53,7 @@ function fixture(){
  const store=new LabMemoryStore({storage:{transaction:async(fn:(tx:any)=>Promise<unknown>)=>fn({
   get:async(k:string)=>data.get(k),
   put:async(k:string,v:unknown)=>{data.set(k,v)}
- })} as any);
+ })}} as any);
  let read=0;
  const env={
   ALLOWED_ORIGIN:origin,ALLOWED_UID:'owner-test',FIREBASE_PROJECT_ID:'sigma-61328',

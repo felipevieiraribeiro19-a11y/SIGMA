@@ -46,7 +46,21 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ""
           CLOUDFLARE_API_TOKEN: ""
         run: bash tests/run-cloudflare-offline-lab.sh
-      - name: Verify isolated chat Worker is fail-closed in local workerd
+
+
+  chat-lab-http:
+    if: github.head_ref == 'sigma-jarvis-arquitetura'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies for isolated lab
+        run: npm ci
+      - name: Start isolated chat Worker in local workerd; confirm fail closed
         env:
           CI: "true"
           CLOUDFLARE_ACCOUNT_ID: ""

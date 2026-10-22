@@ -1,0 +1,21 @@
+# ETAPA 14: Worker novo e INDEPENDENTE, não é o sigma-cerebro.
+# NÃO publicar antes de configurar origem exata, UID e secret Gemini.
+name = "sigma-jarvis-cerebro-lab"
+main = "src/chat-lab.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "sigma-61328"
+# URL REAL confirmada no Hosting, sem a barra final. Atualizar caso o canal mude.
+ALLOWED_ORIGIN = "https://sigma-61328--jarvis-lab-pw5dmfbc.web.app"
+GEMINI_MODEL = "gemini-3.5-flash-lite"
+LAB_CHAT_ENABLED = "false"
+# ALLOWED_UID e GEMINI_API_KEY devem ser segredos do Worker de laboratório.
+# Nunca colocar os valores neste arquivo nem no GitHub.
+[[durable_objects.bindings]]
+name = "LAB_QUOTA"
+class_name = "LabChatQuota"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LabChatQuota"]

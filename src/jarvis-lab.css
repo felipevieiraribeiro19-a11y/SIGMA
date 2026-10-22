@@ -86,3 +86,14 @@ button:disabled{cursor:not-allowed;opacity:.48}button:focus-visible,select:focus
 .lab-memory-actions{display:flex;gap:8px;flex-wrap:wrap}
 .lab-memory-danger{border-top:1px solid #42627a;margin-top:20px;padding-top:15px}
 .lab-real-memory .memory-delete{border-color:#99546a;color:#ffd9e5}
+
+/* Etapa 16B: seleção voluntária de memórias por pergunta. */
+.lab-chat-memory{margin:14px 0;padding:12px;border:1px solid #426784;background:#10293a;border-radius:12px;min-width:0}
+.lab-chat-memory strong{color:#dfedfb;font-size:14px}
+.lab-chat-memory p{margin:7px 0 10px}
+.lab-chat-memory button{font-size:13px;padding:10px 12px;margin:4px 6px 5px 0}
+.lab-chat-memory ul{padding:0;margin:8px 0;list-style:none}
+.lab-chat-memory li{padding:8px;margin:7px 0;border-radius:9px;border:1px solid #355c73;background:#102433}
+.lab-chat-memory label{display:flex;align-items:flex-start;gap:10px;margin:0;overflow-wrap:anywhere;font-size:13px;line-height:1.5;cursor:pointer}
+.lab-chat-memory label span{min-width:0;flex:1}
+.lab-chat-memory input[type="checkbox"]{width:19px;height:19px;flex:0 0 19px;margin-top:3px}

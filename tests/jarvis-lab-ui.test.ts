@@ -80,11 +80,11 @@ test('interface mantém execução de ações indisponível mesmo no laboratóri
 });
 
 test('erros de login apresentam somente códigos públicos e orientam Safari',()=>{
- assert.match(readableLabAuthError({code:'auth/internal-error'}),/Safari.*auth\\/internal-error/);
- assert.match(readableLabAuthError({code:'auth/unauthorized-domain'}),/Firebase Authentication.*auth\\/unauthorized-domain/);
- assert.match(readableLabAuthError({code:'auth/popup-blocked'}),/Safari.*auth\\/popup-blocked/);
- assert.match(readableLabAuthError({code:'auth/web-storage-unsupported'}),/Safari.*auth\\/web-storage-unsupported/);
- assert.match(readableLabAuthError({code:'auth/network-request-failed'}),/Safari.*auth\\/network-request-failed/);
+ assert.match(readableLabAuthError({code:'auth/internal-error'}),/Safari.*auth\/internal-error/);
+ assert.match(readableLabAuthError({code:'auth/unauthorized-domain'}),/Firebase Authentication.*auth\/unauthorized-domain/);
+ assert.match(readableLabAuthError({code:'auth/popup-blocked'}),/Safari.*auth\/popup-blocked/);
+ assert.match(readableLabAuthError({code:'auth/web-storage-unsupported'}),/Safari.*auth\/web-storage-unsupported/);
+ assert.match(readableLabAuthError({code:'auth/network-request-failed'}),/Safari.*auth\/network-request-failed/);
  assert.equal(readableLabAuthError({code:'auth/secreto?token=ABCD'}).includes('ABCD'),false);
  assert.equal(readableLabAuthError({message:'sensitive email example@secret.com'}).includes('example@secret.com'),false);
 });

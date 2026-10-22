@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import type {User} from 'firebase/auth';
+import {LabFormattedText} from './jarvis-lab-markdown';
 import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,type LabWebSource,type LabChatMessage} from './jarvis-chat-protocol';
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
@@ -49,7 +50,8 @@ export function JarvisChatPanel({user}:{user:User|null}){
   {api&&!user&&<p className="lab-chat-notice" role="status">Faça login Google acima para habilitar os testes de conversa.</p>}
   {history.length>0&&<div className="lab-chat-dialog" aria-label="Mensagens desta sessão">
    {history.map((m,i)=><div className={'lab-chat-bubble '+(m.role==='user'?'lab-chat-user':'lab-chat-assistant')} key={i}>
-    <strong>{m.role==='user'?'Você (exemplo)':'SIGMA'}</strong><p>{m.text}</p>
+    <strong>{m.role==='user'?'Você (exemplo)':'SIGMA'}</strong>
+    <LabFormattedText text={m.text}/>
    </div>)}
   </div>}
   {webSources.length>0&&<div className="lab-chat-sources" aria-label="Fontes reais da última pesquisa">

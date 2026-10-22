@@ -52,4 +52,23 @@ jobs:
               console.log('LAB_AUTH_HEALTH='+JSON.stringify(result));
             }catch(e){console.log('LAB_AUTH_HEALTH='+JSON.stringify({name:label,network_error:true}));}
           }
+          // Creates only an unsigned OAuth start URL: does NOT authenticate any user,
+          // read user information, or change Firebase account configuration.
+          try {
+            const r=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key='+encodeURIComponent(key),{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({providerId:'google.com',continueUri:preview+'/'}),
+              signal:AbortSignal.timeout(10000)
+            });
+            const payload=await r.json().catch(()=>({}));
+            const uri=typeof payload.authUri==='string'?new URL(payload.authUri):null;
+            const redirect=uri?.searchParams.get('redirect_uri')||'';
+            console.log('LAB_AUTH_GOOGLE_PROVIDER='+JSON.stringify({
+              http:r.status,
+              provider_enabled:r.ok&&payload.providerId==='google.com',
+              auth_url_is_google:uri?.hostname==='accounts.google.com',
+              redirect_to_firebase:redirect.startsWith('https://sigma-61328.firebaseapp.com/__/auth/handler'),
+              service_disabled:typeof payload.error?.message==='string'&&payload.error.message.includes('OPERATION_NOT_ALLOWED')
+            }));
+          }catch(e){console.log('LAB_AUTH_GOOGLE_PROVIDER='+JSON.stringify({network_error:true}));}
           NODE

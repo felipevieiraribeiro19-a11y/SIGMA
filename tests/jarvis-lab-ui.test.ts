@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
 import {REVIEW_DEMOS} from '../src/ActionReviewCenter';
-import {readableLabAuthError} from '../src/jarvis-lab-auth';
+import {readableLabAuthError,classifyLabAuthInternalError} from '../src/jarvis-lab-auth';
 
 test('laboratório usa somente Auth e exemplos fictícios; sem gravação pessoal',()=>{
  const lab=readFileSync('src/jarvis-lab.tsx','utf8');
@@ -15,7 +15,9 @@ test('laboratório usa somente Auth e exemplos fictícios; sem gravação pessoa
  assert.match(lab,/location\.protocol==='file:'/);
  assert.match(lab,/disabled=\{openedAsFile\|\|!authReady\|\|loggingIn\}/);
  assert.match(lab,/executa tarefas reais|execução sempre bloqueada/);
- assert.match(auth,/browserSessionPersistence/);
+ assert.match(auth,/initializeAuth/);
+ assert.match(auth,/inMemoryPersistence/);
+ assert.doesNotMatch(auth,/\bgetAuth\(/);
  assert.match(auth,/signInWithPopup/);
  assert.doesNotMatch(sample,/\b(getFirestore|setDoc|addDoc|deleteDoc|updateDoc|verifyDatabase|sendChat|loadHistory|X-Google-Token)\b/);
  assert.doesNotMatch(sample,/workers\.dev|sigma-cerebro|\bfetch\s*\(/i);
@@ -87,4 +89,15 @@ test('erros de login apresentam somente códigos públicos e orientam Safari',()
  assert.match(readableLabAuthError({code:'auth/network-request-failed'}),/Safari.*auth\/network-request-failed/);
  assert.equal(readableLabAuthError({code:'auth/secreto?token=ABCD'}).includes('ABCD'),false);
  assert.equal(readableLabAuthError({message:'sensitive email example@secret.com'}).includes('example@secret.com'),false);
+});
+
+test('diagnóstico de auth/internal-error mostra somente categorias públicas',()=>{
+ const issue={code:'auth/internal-error',
+  message:'Invalid IdP response/credential: https://example.invalid/handler?code=SECRET_VALUE'};
+ const message=readableLabAuthError(issue);
+ assert.match(message,/Retorno do provedor Google inválido/);
+ assert.doesNotMatch(message,/SECRET_VALUE|example\\.invalid/);
+ assert.match(classifyLabAuthInternalError({customData:{originalError:{message:'Database is closing'}}}),/Armazenamento do Safari/);
+ assert.match(classifyLabAuthInternalError({message:'redirect_uri_mismatch'}),/URI de retorno OAuth/);
+ assert.match(classifyLabAuthInternalError({message:'no useful details'}),/Causa interna ainda não identificada/);
 });

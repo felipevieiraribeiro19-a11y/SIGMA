@@ -23,7 +23,7 @@ export function nextLabMessages(history:LabChatMessage[],text:string):LabChatMes
 export function assertLabReply(data:unknown):string{
  if(!data||typeof data!=='object')throw Error('Resposta inválida do laboratório.');
  const r=data as Record<string,unknown>;
- if(r.persisted!==false||r.executed!==false||(r.provider!=='gemini'&&r.provider!=='lab')||
+ if(r.persisted!==false||r.executed!==false||r.provider!=='gemini'||
   typeof r.text!=='string'||!r.text.trim()||r.text.length>12000)
   throw Error('Servidor respondeu fora do contrato seguro.');
  return r.text;

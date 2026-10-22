@@ -12,6 +12,8 @@ GEMINI_MODEL = "gemini-3.5-flash-lite"
 LAB_CHAT_ENABLED = "false"
 # Etapa 15: pesquisa paga/em cotas somente com habilitação explícita.
 LAB_WEB_ENABLED = "false"
+# Etapa 16: memória manual, isolada, não habilitada em produção.
+LAB_MEMORY_ENABLED = "false"
 # ALLOWED_UID e GEMINI_API_KEY devem ser segredos do Worker de laboratório.
 # Nunca colocar os valores neste arquivo nem no GitHub.
 [[durable_objects.bindings]]
@@ -21,3 +23,12 @@ class_name = "LabChatQuota"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["LabChatQuota"]
+
+# Store separately from chat quota and SIGMA production. No Firestore access.
+[[durable_objects.bindings]]
+name = "LAB_MEMORY"
+class_name = "LabMemoryStore"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["LabMemoryStore"]

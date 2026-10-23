@@ -4,6 +4,8 @@ import type {User} from 'firebase/auth';
 import {MemoryCenter} from './MemoryCenter';
 import {LabRealMemory} from './LabRealMemory';
 import {JarvisChatPanel} from './JarvisChatPanel';
+import {LabEcosystemPanel} from './LabEcosystemPanel';
+import {LabIntegrationsPanel} from './LabIntegrationsPanel';
 import {ActionReviewCenter} from './ActionReviewCenter';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
 import type {ActionPreviewRequest,ActionPreviewResult} from './services';
@@ -32,6 +34,8 @@ export function JarvisLab(){
  const [loggingIn,setLoggingIn]=useState(false);
  const [showMemory,setShowMemory]=useState(false);
  const [showActions,setShowActions]=useState(false);
+ const [googleReadToken,setGoogleReadToken]=useState<string|null>(null);
+ useEffect(()=>{setGoogleReadToken(null);},[user?.uid]);
  useEffect(()=>{
   if(openedAsFile){setAuthReady(true);return;}
   let alive=true;let unsubscribe=()=>{};
@@ -77,7 +81,7 @@ export function JarvisLab(){
    </section>
    <section className="lab-panel" aria-label="Conversa experimental com inteligência artificial">
     <h2>2. Conversa com IA (experimental)</h2>
-    <JarvisChatPanel user={user}/>
+    <JarvisChatPanel user={user} googleToken={googleReadToken}/>
    </section>
    <section className="lab-panel" aria-label="Memória de demonstração">
     <h2>3. Memória controlada (simulação)</h2>
@@ -99,6 +103,14 @@ export function JarvisLab(){
      {showActions?'Fechar revisão':'Abrir revisão fictícia'}
     </button>
     {showActions&&<ActionReviewCenter mode="offline" onPreview={localFictionalPreview}/>}
+   </section>
+   <section className="lab-panel" aria-label="Gestão pessoal no SIGMA">
+    <h2>6. Gestão integrada — estudos, rotina, tarefas e finanças</h2>
+    <LabEcosystemPanel user={user}/>
+   </section>
+   <section className="lab-panel" aria-label="Serviços Google e Notion">
+    <h2>7. Integrações — Google Calendar, Drive e Notion</h2>
+    <LabIntegrationsPanel user={user} googleToken={googleReadToken} onGoogleToken={setGoogleReadToken}/>
    </section>
    <p className="lab-footer">As demonstrações permanecem fictícias. O módulo experimental de memória é opcional e não grava conversas automaticamente. Não utilize informações sensíveis nos testes.</p>
   </main>

@@ -47,3 +47,22 @@ export function readLabWebSources(data:unknown):LabWebSource[]{
     {publishedDate:item.publishedDate}:{})};
  });
 }
+
+/** A Gemini tool result is a suggestion, never an authorization to write. */
+export type LabProjectProposal={
+ kind:'project.create';source:'gemini';requiresApproval:true;
+ title:string;goal:string;notes:string;
+};
+export function readLabProjectProposal(data:unknown):LabProjectProposal|null{
+ if(!data||typeof data!=='object'||Array.isArray(data))return null;
+ const x=(data as {projectProposal?:unknown}).projectProposal;
+ if(!x||typeof x!=='object'||Array.isArray(x))return null;
+ const v=x as Record<string,unknown>;
+ if(v.kind!=='project.create'||v.source!=='gemini'||v.requiresApproval!==true||
+  typeof v.title!=='string'||typeof v.goal!=='string'||typeof v.notes!=='string'||
+  v.title.trim().length<2||v.title.length>120||
+  v.goal.trim().length<2||v.goal.length>1000||v.notes.length>2000)
+  return null;
+ return {kind:'project.create',source:'gemini',requiresApproval:true,
+  title:v.title,goal:v.goal,notes:v.notes};
+}

@@ -45,9 +45,26 @@ export class LabMemoryStore{
   if(url.origin!=='https://lab-memory.internal'||url.search||url.hash)
    return json({error:'Rota interna inválida.'},404);
   const path=url.pathname;
-  if(path!=='/entries'&&!/^\/entries\/[0-9a-f-]{36}$/i.test(path))
+  if(path!=='/entries'&&path!=='/settings'&&!/^\/entries\/[0-9a-f-]{36}$/i.test(path))
    return json({error:'Rota inexistente.'},404);
   try{
+   if(path==='/settings'){
+    if(request.method==='GET'){
+     const recallEnabled=await this.state.storage.transaction(async tx=>
+      (await tx.get<boolean>('recallEnabled'))===true);
+     return json({recallEnabled});
+    }
+    if(request.method==='PATCH'){
+     const value=await request.json().catch(()=>null);
+     if(!value||typeof value!=='object'||Array.isArray(value)||
+      Object.keys(value).length!==1||typeof (value as {recallEnabled?:unknown}).recallEnabled!=='boolean')
+      throw new HttpError(400,'Envie somente recallEnabled como verdadeiro ou falso.');
+     const recallEnabled=(value as {recallEnabled:boolean}).recallEnabled;
+     await this.state.storage.transaction(async tx=>{await tx.put('recallEnabled',recallEnabled);});
+     return json({recallEnabled});
+    }
+    return json({error:'Método não permitido.'},405);
+   }
    const read=async()=>await this.state.storage.transaction(async tx=>
     (await tx.get<LabMemoryEntry[]>('entries'))||[]);
    if(request.method==='GET'&&path==='/entries'){

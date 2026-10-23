@@ -18,6 +18,8 @@ LAB_MEMORY_ENABLED = "false"
 LAB_MEMORY_AUTO_ENABLED = "false"
 # Ecosystem LAB: no production Firestore, secrets only on Cloudflare.
 LAB_WORKSPACE_ENABLED = "false"
+# Etapa 8: proposals only, disabled pending LAB review; no auto-create from Gemini.
+LAB_BRAIN_ENABLED = "false"
 LAB_CONNECTORS_ENABLED = "false"
 LAB_ACTIONS_ENABLED = "false"
 LAB_DOCUMENTS_ENABLED = "false"

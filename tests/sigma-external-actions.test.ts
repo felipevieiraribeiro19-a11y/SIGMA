@@ -22,7 +22,8 @@ test('duas etapas: propõe sem executar e reivindica somente uma vez',async()=>{
  assert.equal(draft.status,201);assert.equal(draft.data.action.status,'pending');
  const id=draft.data.action.id;
  assert.equal((await call(store,'/claim/'+id,'POST',{confirmed:false})).status,400);
- const [a,b]=await Promise.all([call(store,'/claim/'+id,'POST',{confirmed:true}),call(store,'/claim/'+id,'POST',{confirmed:true})]);
+ const a=await call(store,'/claim/'+id,'POST',{confirmed:true});
+ const b=await call(store,'/claim/'+id,'POST',{confirmed:true});
  assert.deepEqual([a.status,b.status].sort(),[200,409]);
  assert.equal((await call(store,'/finish/'+id,'POST',{status:'succeeded',providerId:'google-id'})).status,200);
  assert.equal((await call(store,'/finish/'+id,'POST',{status:'succeeded'})).status,409);

@@ -261,6 +261,26 @@ export function makeLabChatWorker(deps:Dependencies={}){
        }));
       return reply(await response.json(),response.status);
      }
+     if(path==='/api/lab/workspace/projects'||
+        /^\/api\/lab\/workspace\/projects\/[0-9a-f-]{36}$/i.test(path)){
+      if(!['GET','POST','PATCH'].includes(request.method))
+       throw new HttpError(405,'Método de projetos não permitido.');
+      let body:unknown;
+      if(request.method==='POST'||request.method==='PATCH'){
+       if(!request.headers.get('Content-Type')?.startsWith('application/json'))
+        throw new HttpError(415,'Envie JSON para projetos.');
+       const raw=await request.text();
+       if(raw.length>4000)throw new HttpError(413,'Projeto grande demais.');
+       try{body=JSON.parse(raw);}catch{throw new HttpError(400,'JSON do projeto inválido.');}
+      }
+      const response=await env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid)).fetch(
+       new Request('https://lab-workspace.internal'+path.slice('/api/lab/workspace'.length),{
+        method:request.method,...(body===undefined?{}:{
+         headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+        })
+       }));
+      return reply(await response.json(),response.status);
+     }
      const suffix=path.slice('/api/lab/workspace'.length);
      if(suffix&&!/^\/[0-9a-f-]{36}$/i.test(suffix))
       throw new HttpError(404,'Rota do espaço de trabalho inválida.');

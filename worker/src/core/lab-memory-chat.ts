@@ -9,7 +9,7 @@ export const MAX_SHARED_MEMORIES=3;
 export function selectedMemoryIds(body:unknown):string[]{
  if(!body||typeof body!=='object'||Array.isArray(body))throw new HttpError(400,'Formato de mensagem inválido.');
  const obj=body as Record<string,unknown>;
- if(Object.keys(obj).some(key=>!['messages','memoryIds','memoryMode','connectors','useLibrary'].includes(key)))
+ if(Object.keys(obj).some(key=>!['messages','memoryIds','memoryMode','connectors','useLibrary','useProjects'].includes(key)))
   throw new HttpError(400,'Formato de mensagem inválido.');
  if(!Object.hasOwn(obj,'memoryIds'))return [];
  const ids=obj.memoryIds;

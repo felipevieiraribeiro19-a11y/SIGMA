@@ -22,6 +22,7 @@ import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,
 import {proposeContinuousLearning} from './core/continuous-learning';
 import {SIGMA_MODULES} from './core/ecosystem-manifest';
 import {PROJECT_TOOL_DECLARATION,projectToolInstruction,readProjectProposal,projectPreviewText} from './core/project-proposal-tool';
+import {readSharedProjects,type ProjectContextReceipt} from './core/project-chat-context';
 // O laboratório possui identidade própria e não herda afirmações sobre
 // histórico persistido do SIGMA principal.
 const LAB_SYSTEM_IDENTITY = [
@@ -432,6 +433,9 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const requestedLibrary=(data as {useLibrary?:unknown}|null)?.useLibrary;
    if(requestedLibrary!==undefined&&typeof requestedLibrary!=='boolean')
     throw new HttpError(400,'Seleção da biblioteca inválida.');
+   const requestedProjects=(data as {useProjects?:unknown}|null)?.useProjects;
+   if(requestedProjects!==undefined&&typeof requestedProjects!=='boolean')
+    throw new HttpError(400,'Autorização dos projetos inválida.');
    const messages=validateMessages({messages:(data as {messages?:unknown}|null)?.messages});
    let approvedMemoryContext='';
    let usedMemoryCount=0;
@@ -501,6 +505,23 @@ export function makeLabChatWorker(deps:Dependencies={}){
      })).join('\\n'):
      'Biblioteca local consultada: nenhum documento encontrado para esta pergunta. Não invente fonte.';
    }
+   let projectContext='';
+   let projectContextReceipt:ProjectContextReceipt|undefined;
+   if(requestedProjects===true){
+    if(env.LAB_BRAIN_ENABLED!=='true'||env.LAB_WORKSPACE_ENABLED!=='true'||!env.LAB_WORKSPACE)
+     throw new HttpError(503,'Consulta de projetos ainda desabilitada no laboratório.');
+    // User's Firebase UID was verified above. Only this user's private DO may be read.
+    const stub=env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid));
+    const response=await stub.fetch('https://lab-workspace.internal/projects',{method:'GET'});
+    if(!response.ok)throw new HttpError(503,'Projetos pessoais indisponíveis nesta pergunta.');
+    let projects:unknown;
+    try{projects=await response.json();}catch{
+     throw new HttpError(503,'Resposta dos projetos inválida.');
+    }
+    const safe=readSharedProjects(projects);
+    projectContext=safe.prompt;
+    projectContextReceipt=safe.receipt;
+   }
    // Cota independente da QUOTA usada em produção, por UID.
    const limit=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))
     .fetch('https://lab-quota.internal/consume',{method:'POST'});
@@ -543,7 +564,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
      (projectProposalEnabled?' '+projectToolInstruction():'')}]},
     contents:messages.map((m,i)=>({
      role:m.role==='assistant'?'model':'user',
-     parts:[{text:m.text},...(i===messages.length-1&&approvedMemoryContext?[{text:approvedMemoryContext}]:[]),...(i===messages.length-1&&onlineContext?[{text:onlineContext}]:[]),...(i===messages.length-1&&connectorContext?[{text:connectorContext}]:[]),...(i===messages.length-1&&libraryContext?[{text:libraryContext}]:[])]
+     parts:[{text:m.text},...(i===messages.length-1&&approvedMemoryContext?[{text:approvedMemoryContext}]:[]),...(i===messages.length-1&&onlineContext?[{text:onlineContext}]:[]),...(i===messages.length-1&&connectorContext?[{text:connectorContext}]:[]),...(i===messages.length-1&&libraryContext?[{text:libraryContext}]:[]),...(i===messages.length-1&&projectContext?[{text:projectContext}]:[])]
     })),
     generationConfig:{maxOutputTokens:1100},
     ...(projectProposalEnabled?{tools:[PROJECT_TOOL_DECLARATION]}:{})
@@ -562,6 +583,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
    if(answer.length>12000)throw new HttpError(502,'Resposta grande demais.');
    return reply({text:answer,persisted:false,executed:false,provider:'gemini',
     ...(projectProposal?{projectProposal}:{}),
+    ...(projectContextReceipt?{projects:projectContextReceipt}:{}),
     ...(sources.length?{web:{searched:true,sources:sources.map(x=>({title:x.title,url:x.url,publishedDate:x.publishedDate}))}}:{}),
     ...(autoMemory?{memory:{consulted:usedMemoryCount>0,count:usedMemoryCount,mode:'auto'}}:
       usedMemoryCount?{memory:{consulted:true,count:usedMemoryCount}}:{}),

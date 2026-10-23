@@ -88,7 +88,8 @@ test('rota de briefing usa somente os registros locais e nunca grava ou busca Go
  const origin='https://sigma-61328--jarvis-lab-pw5dmfbc.web.app';
  const env={
   ALLOWED_ORIGIN:origin,ALLOWED_UID:'owner',LAB_WORKSPACE_ENABLED:'true',
-  LAB_WORKSPACE:{idFromName:(v:string)=>v,get:()=>({fetch:(req:Request)=>db.store.fetch(req)})}
+  LAB_WORKSPACE:{idFromName:(v:string)=>v,get:()=>({fetch:(req:Request|string,init?:RequestInit)=>
+   db.store.fetch(typeof req==='string'?new Request(req,init):req)})}
  } as any;
  const request=new Request('https://worker.invalid/api/lab/workspace/briefing',{
   headers:{Origin:origin,Authorization:'Bearer fake-id-token'}

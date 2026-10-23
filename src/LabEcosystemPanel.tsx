@@ -2,9 +2,10 @@ import {useEffect,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {validLabApiBase} from './jarvis-chat-protocol';
 import {LabStudyCyclePanel} from './LabStudyCyclePanel';
+import {LabProjectsPanel,type LabProject} from './LabProjectsPanel';
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
 type Kind='study'|'daily'|'task'|'finance';
-type Entry={id:string;kind:Kind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;dueDate?:string;priority?:'low'|'normal'|'high';subject?:string;questionsTotal?:number;questionsCorrect?:number};
+type Entry={id:string;kind:Kind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;dueDate?:string;priority?:'low'|'normal'|'high';subject?:string;questionsTotal?:number;questionsCorrect?:number;projectId?:string};
 type SubjectPerformance={subject:string;sessions:number;studiedMinutes:number;questionsTotal:number;questionsCorrect:number;questionsWrong:number;accuracyPercent:number|null};
 type StudyPerformance={overall:SubjectPerformance;today:SubjectPerformance;subjects:SubjectPerformance[];unclassifiedSessions:number;disclaimer:string};
 type DayBriefing={studyPerformance:StudyPerformance;date:string;studyMinutesToday:number;studySessionsToday:number;financeNetToday:number;financeEntriesToday:number;tasksCompletedToday:number;openTasks:number;overdueTasks:number;dueToday:number;dueNext7Days:number;undatedTasks:number;highlightedTasks:{id:string;title:string;dueDate:string|null;priority:string;group:string}[];latestDiary:{title:string;date:string}|null;guidance:string[];limitation:string};
@@ -13,6 +14,8 @@ const labels:Record<Kind,string>={study:'Estudos',daily:'Diário e rotina',task:
 export function LabEcosystemPanel({user}:{user:User|null}){
  const [entries,setEntries]=useState<Entry[]>([]);
  const [totals,setTotals]=useState<Totals|null>(null);
+ const [projects,setProjects]=useState<LabProject[]>([]);
+ const [selectedProjectId,setSelectedProjectId]=useState('');
  const [kind,setKind]=useState<Kind>('study');
  const [title,setTitle]=useState('');
  const [notes,setNotes]=useState('');
@@ -25,7 +28,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
  const [questionsCorrect,setQuestionsCorrect]=useState('');
  const [briefing,setBriefing]=useState<DayBriefing|null>(null);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
- useEffect(()=>{setEntries([]);setTotals(null);setBriefing(null);setError('');setNotice('');},[user?.uid]);
+ useEffect(()=>{setEntries([]);setTotals(null);setBriefing(null);setProjects([]);setSelectedProjectId('');setError('');setNotice('');},[user?.uid]);
  async function call(path:string,method='GET',body?:unknown):Promise<any>{
   if(!user||!api)throw Error('Entre com Google no laboratório.');
   const token=await user.getIdToken();
@@ -37,10 +40,13 @@ export function LabEcosystemPanel({user}:{user:User|null}){
   return data;
  }
  async function reload(){
-  const [records,today]=await Promise.all([call(''),call('/briefing')]);
+  const [records,today,projectData]=await Promise.all([call(''),call('/briefing'),call('/projects')]);
   setEntries(Array.isArray(records.entries)?records.entries:[]);
   setTotals(records.totals||null);
   setBriefing(today as DayBriefing);
+  const all:LabProject[]=Array.isArray(projectData.projects)?projectData.projects:[];
+  setProjects(all);
+  setSelectedProjectId(current=>current&&!all.some(p=>p.id===current&&p.status!=='archived')?'':current);
  }
  async function refresh(){
   if(!user||busy)return;
@@ -57,6 +63,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
       (questionsTotal===''||questionsCorrect===''))
     throw Error('Preencha tanto o total de questões quanto a quantidade de acertos.');
    await call('','POST',{kind,title,notes,minutes:Number(minutes),amount:Number(amount),done:false,
+    ...(selectedProjectId?{projectId:selectedProjectId}:{}),
     ...(kind==='task'?{...(dueDate?{dueDate}:{}),priority}:{}),
     ...(kind==='study'?{...(subject.trim()?{subject:subject.trim()}:{}),
      ...(questionsTotal!==''&&questionsCorrect!==''?{
@@ -75,6 +82,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
    await call('/'+entry.id,remove?'DELETE':'PATCH',remove?undefined:{
     kind:entry.kind,title:entry.title,notes:entry.notes,minutes:entry.minutes,
     amount:entry.amount,done:!entry.done,
+    ...(entry.projectId?{projectId:entry.projectId}:{}),
     ...(entry.kind==='task'?{...(entry.dueDate?{dueDate:entry.dueDate}:{}),priority:entry.priority||'normal'}:{}),
     ...(entry.kind==='study'?{...(entry.subject?{subject:entry.subject}:{}),
      ...(entry.questionsTotal!==undefined?{
@@ -88,6 +96,8 @@ export function LabEcosystemPanel({user}:{user:User|null}){
  }
  return <div className="lab-workspace">
   <p>Registre informações estruturadas, separadas do chat. Nada é criado automaticamente a partir de mensagens.</p>
+  <LabProjectsPanel user={user} projects={projects} selectedId={selectedProjectId}
+   onSelect={setSelectedProjectId} onRefresh={reload}/>
   <div className="lab-workspace-stats">
    <span>Estudado: <strong>{totals?Math.round(totals.studiedMinutes/6)/10+' h':'—'}</strong></span>
    <span>Tarefas abertas: <strong>{totals?.tasksOpen??'—'}</strong></span>
@@ -138,6 +148,13 @@ export function LabEcosystemPanel({user}:{user:User|null}){
   </section>}
   <LabStudyCyclePanel user={user}/>
   <div className="lab-workspace-form">
+   <label>Projeto deste registro<select value={selectedProjectId}
+    onChange={e=>setSelectedProjectId(e.target.value)}>
+    <option value="">Sem projeto (registro geral)</option>
+    {projects.filter(p=>p.status!=='archived').map(p=><option key={p.id} value={p.id}>
+     {p.title}{p.status==='paused'?' (pausado)':''}</option>)}
+   </select></label>
+   {selectedProjectId&&<p role="status">Os novos registros serão vinculados a este projeto. A lista abaixo exibirá somente seus registros.</p>}
    <label>Categoria<select value={kind} onChange={e=>setKind(e.target.value as Kind)}>{Object.entries(labels).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label>
    <label>Assunto ou título<input maxLength={160} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: Contabilidade — revisão de exercícios"/></label>
    <label>Observações<textarea rows={3} maxLength={1500} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Detalhes, progresso, próximos passos"/></label>
@@ -161,8 +178,9 @@ export function LabEcosystemPanel({user}:{user:User|null}){
   </div>
   {notice&&<p role="status">{notice}</p>}
   {error&&<p className="lab-error" role="alert">{error}</p>}
-  {entries.length>0&&<ul className="lab-workspace-list">{entries.map(e=><li key={e.id}>
+  {entries.length>0&&<ul className="lab-workspace-list">{entries.filter(e=>!selectedProjectId||e.projectId===selectedProjectId).map(e=><li key={e.id}>
    <strong>{labels[e.kind]} — {e.title}</strong>
+   {e.projectId&&<small>Projeto: {projects.find(p=>p.id===e.projectId)?.title||'Projeto não localizado'}</small>
    <small>{new Date(e.createdAt).toLocaleDateString('pt-BR')}{e.kind==='study'?' · '+e.minutes+' min':''}{e.kind==='study'&&e.subject?' · '+e.subject:''}{e.kind==='study'&&e.questionsTotal!==undefined?' · '+e.questionsCorrect+'/'+e.questionsTotal+' questões certas':''}{e.kind==='finance'?' · '+e.amount.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):''}{e.kind==='task'&&e.dueDate?' · Prazo '+e.dueDate.split('-').reverse().join('/'):''}{e.kind==='task'&&e.priority==='high'?' · Prioridade alta':''}</small>
    {e.notes&&<p>{e.notes}</p>}
    {e.kind==='task'&&<button type="button" disabled={busy} onClick={()=>void mutate(e)}>{e.done?'Marcar pendente':'Marcar concluída'}</button>}

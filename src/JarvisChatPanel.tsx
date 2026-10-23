@@ -17,13 +17,66 @@ export function JarvisChatPanel({user}:{user:User|null}){
  const [memoryPickerOpen,setMemoryPickerOpen]=useState(false);
  const [loadingMemory,setLoadingMemory]=useState(false);
  const [autoMemory,setAutoMemory]=useState(false);
+ const [memoryPreferenceBusy,setMemoryPreferenceBusy]=useState(false);
+ const [memoryPreferenceReady,setMemoryPreferenceReady]=useState(false);
+ const [memoryPreferenceError,setMemoryPreferenceError]=useState('');
  const [autoMemoryResult,setAutoMemoryResult]=useState<'found'|'none'|null>(null);
  const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
  useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);},[user?.uid]);
+ useEffect(()=>{
+  let live=true;
+  setAutoMemory(false);
+  setMemoryPreferenceReady(false);
+  setMemoryPreferenceError('');
+  if(!user||!api)return ()=>{live=false;};
+  void (async()=>{
+   try{
+    const token=await user.getIdToken();
+    const result=await fetch(api+'/api/lab/memory/settings',{
+     method:'GET',headers:{Authorization:'Bearer '+token},cache:'no-store'
+    });
+    const data:unknown=await result.json().catch(()=>null);
+    if(!result.ok){
+     const reason=(data as {error?:unknown}|null)?.error;
+     throw Error(typeof reason==='string'?reason:'Não foi possível consultar sua preferência.');
+    }
+    const value=(data as {recallEnabled?:unknown}|null)?.recallEnabled;
+    if(typeof value!=='boolean')throw Error('Preferência de memória inválida.');
+    if(live)setAutoMemory(value);
+   }catch(e){
+    if(live)setMemoryPreferenceError(e instanceof Error?e.message:'Preferência indisponível.');
+   }finally{if(live)setMemoryPreferenceReady(true);}
+  })();
+  return ()=>{live=false;};
+ },[user?.uid]);
+ async function setPersistentMemory(next:boolean){
+  if(!user||!api||busy||memoryPreferenceBusy||!memoryPreferenceReady)return;
+  setMemoryPreferenceBusy(true);setMemoryPreferenceError('');
+  try{
+   const token=await user.getIdToken();
+   const result=await fetch(api+'/api/lab/memory/settings',{
+    method:'PATCH',cache:'no-store',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({recallEnabled:next})
+   });
+   const data:unknown=await result.json().catch(()=>null);
+   if(!result.ok){
+    const reason=(data as {error?:unknown}|null)?.error;
+    throw Error(typeof reason==='string'?reason:'Não foi possível alterar a memória.');
+   }
+   if((data as {recallEnabled?:unknown}|null)?.recallEnabled!==next)
+    throw Error('O servidor não confirmou a preferência.');
+   setAutoMemory(next);
+   setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
+   setAutoMemoryResult(null);
+  }catch(e){setMemoryPreferenceError(e instanceof Error?e.message:'Falha ao salvar sua escolha.');}
+  finally{setMemoryPreferenceBusy(false);}
+ }
+
  async function refreshMemoryChoices(){
-  if(!user||!api||loadingMemory||busy||autoMemory)return;
+  if(!user||!api||loadingMemory||busy||autoMemory||memoryPreferenceBusy)return;
   setLoadingMemory(true);setError('');
   try{
    const token=await user.getIdToken();
@@ -50,7 +103,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
   );
  }
  async function send(){
-  if(!user||!api||busy)return;
+  if(!user||!api||busy||memoryPreferenceBusy)return;
   let messages:LabChatMessage[];
   try{messages=nextLabMessages(history,draft);}
   catch(e){setError(e instanceof Error?e.message:'Mensagem inválida.');return;}
@@ -121,23 +174,18 @@ export function JarvisChatPanel({user}:{user:User|null}){
    </div>}
   {api&&user&&<div className="lab-chat-memory" aria-label="Compartilhar memórias escolhidas somente nesta pergunta">
    <strong>Memória na conversa (opcional)</strong>
-   <p>Escolha manualmente até três registros ou ative a busca contextual nesta sessão. Apenas memórias relevantes serão compartilhadas com o Gemini; nunca com a Tavily. O SIGMA não salva novas memórias automaticamente.</p>
+   <p>Você pode autorizar uma única vez a consulta automática às memórias aprovadas. A preferência fica salva na sua conta, continua após reabrir o SIGMA e pode ser desligada aqui. O Gemini recebe até três notas relacionadas à pergunta; a Tavily não recebe essas notas. Nenhum registro novo é criado automaticamente.</p>
    <label className="lab-auto-memory-consent">
-    <input type="checkbox" checked={autoMemory} disabled={busy||loadingMemory}
-     onChange={event=>{
-      setAutoMemory(event.target.checked);
-      setSelectedMemoryIds([]);
-      setMemoryPickerOpen(false);
-      setMemoryChoices([]);
-      setAutoMemoryResult(null);
-     }}/>
-    <span><strong>Buscar memórias relevantes automaticamente nesta sessão.</strong>
-     <small>Desligado por padrão; não fica salvo. Pode ser desativado a qualquer momento. Até 3 memórias aprovadas poderão ser enviadas ao Gemini em cada pergunta.</small>
+    <input type="checkbox" checked={autoMemory} disabled={busy||loadingMemory||memoryPreferenceBusy||!memoryPreferenceReady}
+     onChange={event=>{void setPersistentMemory(event.target.checked);}}/>
+    <span><strong>Lembrar automaticamente nas próximas conversas</strong>
+     <small>{memoryPreferenceBusy?'Salvando preferência…':!memoryPreferenceReady?'Consultando preferência da conta…':autoMemory?'Ligado e salvo na sua conta. Você pode desligar quando quiser.':'Desligado. Marque uma vez para permitir consultas contextuais nas próximas visitas.'}</small>
     </span>
    </label>
-   <button type="button" disabled={busy||loadingMemory||autoMemory}
+   {memoryPreferenceError&&<p className="lab-error" role="alert">{memoryPreferenceError}</p>}
+   <button type="button" disabled={busy||loadingMemory||autoMemory||memoryPreferenceBusy}
     onClick={()=>memoryPickerOpen?(setMemoryPickerOpen(false),setSelectedMemoryIds([]),setMemoryChoices([])):void refreshMemoryChoices()}>
-    {loadingMemory?'Consultando…':autoMemory?'Busca contextual ativa nesta sessão':memoryPickerOpen?'Fechar seleção de memórias':'Escolher memórias para esta pergunta'}
+    {loadingMemory?'Consultando…':autoMemory?'Consulta automática ativa na sua conta':memoryPickerOpen?'Fechar seleção de memórias':'Escolher memórias para esta pergunta'}
    </button>
    {memoryPickerOpen&&<div>
     <button type="button" disabled={busy||loadingMemory} onClick={()=>void refreshMemoryChoices()}>Atualizar memórias</button>

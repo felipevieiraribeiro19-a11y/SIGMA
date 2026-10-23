@@ -12,6 +12,7 @@ export const SIGMA_MODULES=[
  {id:'calendar',name:'Google Calendar — leitura de compromissos',state:'ready-for-credentials',needs:['Google OAuth com calendar.events.readonly']},
  {id:'drive',name:'Google Drive — metadados e localização',state:'ready-for-credentials',needs:['Google OAuth com drive.metadata.readonly']},
  {id:'notion',name:'Notion — buscar páginas e consultar blocos',state:'ready-for-credentials',needs:['NOTION_API_KEY e compartilhamento das páginas']},
+ {id:'documents',name:'Catálogo de documentos: metadados, diferenças e pesquisa',state:'ready-for-credentials',needs:['Google OAuth Drive, segredo Notion e flag LAB_DOCUMENTS_ENABLED']},
  {id:'actions',name:'Criar eventos, pastas e páginas com aprovação individual',state:'ready-for-credentials',needs:['OAuth Google de escrita, Notion e flag LAB_ACTIONS_ENABLED']},
  {id:'automations',name:'Monitoramento e execução agendada',state:'planned',needs:['Agendador persistente e preferências de alertas']},
  {id:'semantic',name:'Busca semântica e indexação de documentos',state:'planned',needs:['Modelo de embeddings e base vetorial']}

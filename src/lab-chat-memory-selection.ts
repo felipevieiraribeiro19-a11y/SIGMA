@@ -15,10 +15,15 @@ export function readMemoryChoices(result:unknown):SharedMemoryChoice[]{
  });
 }
 /** Never bundle memory text into chat body, only explicitly checked IDs. */
-export function approvedChatRequest(messages:LabChatMessage[],ids:string[],auto=false){
+export function approvedChatRequest(messages:LabChatMessage[],ids:string[],auto=false,connectors:string[]=[]){
  if(ids.length>3||new Set(ids).size!==ids.length||ids.some(id=>!UUID.test(id)))
   throw Error('Selecione no máximo três memórias diferentes.');
  if(auto&&ids.length)throw Error('Escolha seleção manual ou busca contextual, não ambas.');
- return auto?{messages,memoryMode:'relevant' as const}:
-  ids.length?{messages,memoryIds:ids.slice()}:{messages};
+ const unique=new Set(connectors);
+ if(unique.size!==connectors.length||connectors.length>3||
+  connectors.some(x=>!['calendar','drive','notion'].includes(x)))
+  throw Error('Integrações selecionadas inválidas.');
+ const memory=auto?{memoryMode:'relevant' as const}:
+  ids.length?{memoryIds:ids.slice()}:{};
+ return connectors.length?{messages,...memory,connectors:connectors.slice()}:{messages,...memory};
 }

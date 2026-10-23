@@ -1,6 +1,7 @@
 /** Isolated account-owned operational records for the SIGMA ecosystem LAB. */
 import {HttpError} from './validation';
 import {buildDailyBriefing} from './core/workspace-briefing';
+import {parseCycleSubjects,summarizeStudyCycle,type StudyCycleConfig} from './core/study-cycle';
 export type EntryKind='study'|'daily'|'task'|'finance';
 export type WorkspaceEntry={id:string;kind:EntryKind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;updatedAt:string;dueDate?:string;priority?:'low'|'normal'|'high';subject?:string;questionsTotal?:number;questionsCorrect?:number};
 export function entryPayload(value:unknown):Omit<WorkspaceEntry,'id'|'createdAt'|'updatedAt'>{
@@ -51,9 +52,48 @@ export class LabWorkspaceStore{
  async fetch(request:Request):Promise<Response>{
   const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
   const {pathname}=new URL(request.url);
-  if(!/^\/entries(?:\/briefing|\/[0-9a-f-]{36})?$/.test(pathname))return json({error:'Rota inexistente.'},404);
+  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset)|\/[0-9a-f-]{36})?$/.test(pathname))return json({error:'Rota inexistente.'},404);
   const id=pathname.startsWith('/entries/')?pathname.slice(9):null;
   try{
+   if(pathname==='/entries/cycle'&&request.method==='GET'){
+    const response=await this.state.storage.transaction(async tx=>{
+     const config=(await tx.get<StudyCycleConfig>('study-cycle'))||null;
+     const entries=(await tx.get<WorkspaceEntry[]>('entries'))||[];
+     return {config,summary:summarizeStudyCycle(config,entries)};
+    });
+    return json(response);
+   }
+   if(pathname==='/entries/cycle'&&request.method==='PUT'){
+    const payload=await request.json() as unknown;
+    if(!payload||typeof payload!=='object'||Array.isArray(payload)||
+      Object.keys(payload).some(x=>x!=='subjects'))
+     throw new HttpError(400,'Configuração do ciclo inválida.');
+    const subjects=parseCycleSubjects((payload as Record<string,unknown>).subjects);
+    const config=await this.state.storage.transaction(async tx=>{
+     const previous=await tx.get<StudyCycleConfig>('study-cycle');
+     const now=new Date().toISOString();
+     const next:StudyCycleConfig={subjects,startedAt:previous?.startedAt||now,updatedAt:now};
+     await tx.put('study-cycle',next);
+     return next;
+    });
+    return json({config,saved:true});
+   }
+   if(pathname==='/entries/cycle/reset'&&request.method==='POST'){
+    const payload=await request.json() as unknown;
+    if(!payload||typeof payload!=='object'||Array.isArray(payload)||
+      Object.keys(payload).length!==1||(payload as Record<string,unknown>).confirm!==true)
+     throw new HttpError(400,'Confirmação explícita necessária para reiniciar o ciclo.');
+    const config=await this.state.storage.transaction(async tx=>{
+     const current=await tx.get<StudyCycleConfig>('study-cycle');
+     if(!current)throw new HttpError(404,'Configure o ciclo antes de reiniciar.');
+     const now=new Date().toISOString();
+     const next:StudyCycleConfig={...current,startedAt:now,updatedAt:now};
+     await tx.put('study-cycle',next);
+     return next;
+    });
+    return json({config,reset:true,historyPreserved:true});
+   }
+   if(pathname.startsWith('/entries/cycle'))throw new HttpError(405,'Método não permitido.');
    if(pathname==='/entries/briefing'&&request.method==='GET'){
     const entries=await this.state.storage.transaction(async tx=>(await tx.get<WorkspaceEntry[]>('entries'))||[]);
     return json(buildDailyBriefing(entries));

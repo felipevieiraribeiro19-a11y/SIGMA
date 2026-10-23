@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {connectLabDocumentGoogle} from './jarvis-lab-auth';
 import {validLabApiBase} from './jarvis-chat-protocol';
@@ -7,6 +7,8 @@ type Source='drive'|'notion';
 type DocumentRow={key:string;source:Source;title:string;updatedAt:string;url:string;contentStatus:'indexed'|'metadata-only';textLength:number};
 type SearchHit={key:string;source:Source;title:string;url:string;excerpt:string;score:number;contentStatus:'indexed'|'metadata-only'};
 type Changes={added:number;updated:number;unchanged:number;removed:number;total:number};
+type Scan={id:string;source:Source;page:number;scanned:number;includeContent:boolean};
+type ScanResult={completed:boolean;scan:Scan|null;changes?:Changes|null};
 export function LabDocumentsPanel({user}:{user:User|null}){
  const [source,setSource]=useState<Source>('drive');
  const [googleToken,setGoogleToken]=useState<string|null>(null);
@@ -16,8 +18,10 @@ export function LabDocumentsPanel({user}:{user:User|null}){
  const [query,setQuery]=useState('');
  const [hits,setHits]=useState<SearchHit[]>([]);
  const [busy,setBusy]=useState(false);
+ const [scan,setScan]=useState<Scan|null>(null);
+ const cancelRequested=useRef(false);
  const [error,setError]=useState(''),[notice,setNotice]=useState('');
- useEffect(()=>{setGoogleToken(null);setContentPermission(false);setIncludeContent(false);setRows([]);setHits([]);setError('');},[user?.uid]);
+ useEffect(()=>{setGoogleToken(null);setContentPermission(false);setIncludeContent(false);setRows([]);setHits([]);setScan(null);setError('');},[user?.uid]);
  async function access(readContent:boolean){
   if(!user||busy)return;
   setBusy(true);setError('');setNotice('');
@@ -50,21 +54,72 @@ export function LabDocumentsPanel({user}:{user:User|null}){
   }catch(e){setError(e instanceof Error?e.message:'Falha na consulta.');}
   finally{setBusy(false);}
  }
+ async function updateCatalog(){
+  const list=await call('');
+  setRows(Array.isArray(list.documents)?list.documents:[]);
+  setHits([]);
+ }
+ async function continuePages(id:string){
+  cancelRequested.current=false;
+  // At most 20 requests; each step fetches one remote provider page.
+  for(let step=0;step<20;step++){
+   if(cancelRequested.current){
+    await call('/sync','POST',{source,action:'cancel',scanId:id});
+    setScan(null);setNotice('Sincronização cancelada. Índice anterior preservado.');
+    return;
+   }
+   const result:ScanResult=await call('/sync','POST',
+    {source,action:'continue',scanId:id},source==='drive'?googleToken:null);
+   setScan(result.scan);
+   if(result.completed){
+    await updateCatalog();
+    const c=result.changes;
+    setNotice(c?'Índice atualizado: '+c.added+' novos, '+c.updated+' alterados, '+c.removed+
+     ' removidos do índice e '+c.unchanged+' sem alteração. Documentos originais intactos.':
+     'Sincronização concluída.');
+    return;
+   }
+   setNotice('Sincronização em etapas: '+(result.scan?.scanned||0)+' documentos verificados. O índice anterior continua disponível.');
+  }
+  throw Error('Limite de páginas desta sessão atingido. Índice anterior preservado.');
+ }
  async function sync(){
   if(busy||!user)return;
   if(source==='drive'&&!googleToken){setError('Autorize o Google Drive antes de sincronizar.');return;}
   setBusy(true);setError('');setNotice('');
   try{
-   const result:{changes:Changes}=await call('/sync','POST',
-    {source,includeContent:includeContent&&(source==='notion'||contentPermission)},
+   const started:ScanResult=await call('/sync','POST',
+    {source,action:'start',includeContent:includeContent&&(source==='notion'||contentPermission)},
     source==='drive'?googleToken:null);
-   const list=await call('');
-   setRows(Array.isArray(list.documents)?list.documents:[]);
-   setHits([]);
-   const c=result.changes;
-   setNotice('Índice atualizado: '+c.added+' novos, '+c.updated+' modificados, '+c.removed+
-    ' removidos do índice, '+c.unchanged+' sem alteração. Os arquivos originais não foram modificados.');
-  }catch(e){setError(e instanceof Error?e.message:'Sincronização indisponível.');}
+   if(!started.scan)throw Error('Não foi possível iniciar a sincronização.');
+   setScan(started.scan);
+   await continuePages(started.scan.id);
+  }catch(e){setError(e instanceof Error?e.message:'Sincronização interrompida. Use Retomar.');}
+  finally{setBusy(false);}
+ }
+ async function resume(){
+  if(busy||!user)return;
+  if(source==='drive'&&!googleToken){setError('Reautorize o Google Drive para continuar.');return;}
+  setBusy(true);setError('');setNotice('');
+  try{
+   const current:{scan:Scan|null}=await call('/scan?source='+source);
+   setScan(current.scan);
+   if(!current.scan)throw Error('Não há sincronização ativa desta origem.');
+   await continuePages(current.scan.id);
+  }catch(e){setError(e instanceof Error?e.message:'Falha ao retomar.');}
+  finally{setBusy(false);}
+ }
+ async function cancel(){
+  if(busy){cancelRequested.current=true;setNotice('Cancelamento solicitado: aguardando a página atual terminar.');return;}
+  setBusy(true);setError('');
+  try{
+   const current:{scan:Scan|null}=await call('/scan?source='+source);
+   if(current.scan){
+    await call('/sync','POST',{source,action:'cancel',scanId:current.scan.id});
+    setNotice('Sincronização cancelada; índice anterior preservado.');
+   }else setNotice('Nenhuma sincronização ativa.');
+   setScan(null);
+  }catch(e){setError(e instanceof Error?e.message:'Falha ao cancelar.');}
   finally{setBusy(false);}
  }
  async function search(){
@@ -84,7 +139,7 @@ export function LabDocumentsPanel({user}:{user:User|null}){
   try{
    const r=await call('?source='+source+'&confirm=APAGAR-INDICE-LOCAL','DELETE');
    const current=await call('');
-   setRows(current.documents||[]);setHits([]);
+   setRows(current.documents||[]);setHits([]);setScan(null);
    setNotice('Removidos '+r.removed+' registros do índice do SIGMA. Nada foi apagado no '+source+'.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível limpar o índice.');}
   finally{setBusy(false);}
@@ -92,7 +147,7 @@ export function LabDocumentsPanel({user}:{user:User|null}){
  const indexed=rows.filter(x=>x.contentStatus==='indexed').length;
  return <div className="lab-documents">
   <p>Sincronização <strong>sob seu comando</strong>: o SIGMA detecta arquivos novos, alterados e ausentes, indexa títulos e pode guardar trechos de texto para pesquisa. Não modifica arquivos nas suas contas.</p>
-  <p>Os textos indexados permanecem em um banco isolado do Cloudflare LAB até você apagá-los. Limite de 180 documentos; a atualização é cancelada quando a listagem não está completa.</p>
+  <p>Os textos indexados permanecem em um banco isolado do Cloudflare LAB até você apagá-los. Até 1.000 documentos por origem, em etapas de no máximo 100 arquivos por consulta. O índice anterior só muda quando todas as páginas são verificadas.</p>
   <div className="lab-workspace-stats">
    <span>Documentos no índice: <strong>{rows.length}</strong></span>
    <span>Com conteúdo textual: <strong>{indexed}</strong></span>
@@ -121,6 +176,13 @@ export function LabDocumentsPanel({user}:{user:User|null}){
    </label>
    <button type="button" disabled={busy||!user||(source==='drive'&&!googleToken)} onClick={()=>void sync()}>
     Sincronizar {source==='drive'?'Drive':'Notion'} agora
+   </button>
+   {scan&&scan.source===source&&<p role="status">Sincronização iniciada: {scan.scanned} documentos em {scan.page} página(s). Os dados anteriores estão preservados.</p>}
+   <button type="button" disabled={busy||!user||(source==='drive'&&!googleToken)} onClick={()=>void resume()}>
+    Retomar sincronização desta origem
+   </button>
+   <button type="button" disabled={!user} onClick={()=>void cancel()}>
+    {busy?'Solicitar cancelamento após página atual':'Cancelar sincronização pendente'}
    </button>
    <button type="button" disabled={busy||!user} onClick={()=>void clear()}>
     Apagar somente este índice local

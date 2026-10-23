@@ -37,7 +37,7 @@ export async function loginLab():Promise<void>{
 }
 /** Minimum-scope, explicit Google consent for read-only integrations.
  * The access token is returned to the caller's React memory only.
- * It is never put in a URL, localStorage, Firebase database or GitHub.
+ * It is never put in a URL, browser application storage, Firebase database or GitHub.
  */
 export async function connectLabGoogleRead():Promise<string>{
  if(!auth)throw Error('Entre com Google no SIGMA antes de conectar serviços.');

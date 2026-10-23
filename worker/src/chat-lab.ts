@@ -235,6 +235,12 @@ export function makeLabChatWorker(deps:Dependencies={}){
       throw new HttpError(503,'Espaço de trabalho ainda desativado neste laboratório.');
      if(!['GET','POST','PATCH','DELETE'].includes(request.method))
       throw new HttpError(405,'Método não permitido.');
+     if(path==='/api/lab/workspace/briefing'){
+      if(request.method!=='GET')throw new HttpError(405,'Resumo diário disponível somente para consulta.');
+      const response=await env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid))
+       .fetch('https://lab-workspace.internal/entries/briefing',{method:'GET'});
+      return reply(await response.json(),response.status);
+     }
      const suffix=path.slice('/api/lab/workspace'.length);
      if(suffix&&!/^\/[0-9a-f-]{36}$/i.test(suffix))
       throw new HttpError(404,'Rota do espaço de trabalho inválida.');

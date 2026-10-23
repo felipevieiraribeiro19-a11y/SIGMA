@@ -1,5 +1,6 @@
 /** Pure, low-cost morning overview from already approved manual records, no model or external API. */
 import type {WorkspaceEntry} from '../lab-workspace';
+import {buildStudyPerformance,type StudyPerformance} from './study-performance';
 
 export type TaskGroup='overdue'|'today'|'week'|'later'|'undated';
 export type BriefingTask={
@@ -8,6 +9,7 @@ export type BriefingTask={
 export type DayBriefing={
  date:string;timeZone:'America/Sao_Paulo';
  studyMinutesToday:number;studySessionsToday:number;
+ studyPerformance:StudyPerformance;
  financeNetToday:number;financeEntriesToday:number;
  entriesToday:number;tasksCompletedToday:number;
  openTasks:number;overdueTasks:number;dueToday:number;dueNext7Days:number;undatedTasks:number;
@@ -52,6 +54,7 @@ export function buildDailyBriefing(entries:readonly WorkspaceEntry[],now=new Dat
  const result:DayBriefing={
   date:today,timeZone:'America/Sao_Paulo',
   studyMinutesToday:studies.reduce((sum,x)=>sum+x.minutes,0),studySessionsToday:studies.length,
+  studyPerformance:buildStudyPerformance(entries,today,localDay),
   financeNetToday:centavos(finances.reduce((sum,x)=>sum+x.amount,0)),
   financeEntriesToday:finances.length,entriesToday:todays.length,
   tasksCompletedToday:entries.filter(x=>x.kind==='task'&&x.done&&safeDay(x.updatedAt)===today).length,

@@ -61,6 +61,7 @@ export async function fetchNotionDocumentSnapshot(key:string,transport:Transport
  const headers={Authorization:'Bearer '+key,'Notion-Version':NOTION_VERSION,'Content-Type':'application/json'};
  const rows:Record<string,unknown>[]=[];
  let cursor:string|undefined;
+ const seenCursors=new Set<string>();
  while(true){
   const request={page_size:75,sort:{direction:'descending',timestamp:'last_edited_time'},
    filter:{property:'object',value:'page'},...(cursor?{start_cursor:cursor}:{})};
@@ -69,11 +70,13 @@ export async function fetchNotionDocumentSnapshot(key:string,transport:Transport
   });
   const result=await apiJson(response,'notion');
   if(!Array.isArray(result.results))throw new HttpError(502,'Busca Notion retornou itens inválidos.');
+  if(typeof result.has_more!=='boolean')throw new HttpError(502,'Paginação Notion sem indicador válido: índice preservado.');
   rows.push(...result.results as Record<string,unknown>[]);
   if(rows.length>DOCUMENT_LIMIT)throw new HttpError(409,'Mais de 180 páginas: restrinja o acesso da integração Notion antes de sincronizar.');
   if(!result.has_more)break;
-  if(typeof result.next_cursor!=='string'||!result.next_cursor||result.next_cursor===cursor)
+  if(typeof result.next_cursor!=='string'||!result.next_cursor||result.next_cursor===cursor||seenCursors.has(result.next_cursor))
    throw new HttpError(502,'Paginação Notion inconsistente: índice preservado.');
+  seenCursors.add(result.next_cursor);
   cursor=result.next_cursor;
  }
  let remaining=includeContent?8:0;
@@ -111,10 +114,11 @@ export async function fetchDriveDocumentSnapshot(
  const headers={Authorization:'Bearer '+token,Accept:'application/json'};
  const rows:Record<string,unknown>[]=[];
  let pageToken:string|undefined;
+ const seenPageTokens=new Set<string>();
  while(true){
   const args=new URLSearchParams({
    q:"trashed = false and (mimeType = 'application/pdf' or mimeType = 'application/vnd.google-apps.document' or mimeType = 'text/plain')",
-   fields:'nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink,version,md5Checksum)',
+   fields:'nextPageToken,incompleteSearch,files(id,name,mimeType,modifiedTime,webViewLink,version,md5Checksum)',
    pageSize:'100',orderBy:'modifiedTime desc'
   });
   if(pageToken)args.set('pageToken',pageToken);
@@ -123,11 +127,15 @@ export async function fetchDriveDocumentSnapshot(
   });
   const result=await apiJson(response,'drive');
   if(!Array.isArray(result.files))throw new HttpError(502,'Listagem Drive inválida.');
+  // Drive can return HTTP 200 with incompleteSearch=true; never treat that as a complete inventory.
+  if(result.incompleteSearch!==undefined&&result.incompleteSearch!==false)
+   throw new HttpError(502,'Listagem Drive incompleta: índice anterior preservado.');
   rows.push(...result.files as Record<string,unknown>[]);
   if(rows.length>DOCUMENT_LIMIT)throw new HttpError(409,'Mais de 180 documentos: índice preservado; não ocorreu exclusão parcial.');
   if(!result.nextPageToken)break;
-  if(typeof result.nextPageToken!=='string'||result.nextPageToken===pageToken)
+  if(typeof result.nextPageToken!=='string'||result.nextPageToken===pageToken||seenPageTokens.has(result.nextPageToken))
    throw new HttpError(502,'Paginação Drive inconsistente: índice preservado.');
+  seenPageTokens.add(result.nextPageToken);
   pageToken=result.nextPageToken;
  }
  let remaining=includeContent?8:0;

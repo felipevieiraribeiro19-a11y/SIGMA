@@ -17,6 +17,8 @@ import {executeApprovedExternalAction} from './core/sigma-action-executors';
 import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,type Provider} from './core/sigma-connectors';
 import {proposeContinuousLearning} from './core/continuous-learning';
 import {SIGMA_MODULES} from './core/ecosystem-manifest';
+import {LabDocumentIndex} from './lab-documents';
+import {handleLabDocumentApi} from './lab-document-api';
 // O laboratório possui identidade própria e não herda afirmações sobre
 // histórico persistido do SIGMA principal.
 const LAB_SYSTEM_IDENTITY = [
@@ -55,6 +57,8 @@ export interface LabChatEnv {
  LAB_CONNECTORS_ENABLED?:string;
  LAB_ACTIONS_ENABLED?:string;
  LAB_ACTIONS?:DurableObjectNamespace;
+ LAB_DOCUMENTS?:DurableObjectNamespace;
+ LAB_DOCUMENTS_ENABLED?:string;
  NOTION_API_KEY?:string;
 }
 type Dependencies={
@@ -103,21 +107,26 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const integrationPath=path.startsWith('/api/lab/integrations/');
    const catalogPath=path==='/api/lab/modules';
    const actionPath=path==='/api/lab/actions/prepare'||path.startsWith('/api/lab/actions/');
-   if(path!=='/api/lab/chat'&&!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath)
+   const documentPath=path.startsWith('/api/lab/documents/');
+   if(path!=='/api/lab/chat'&&!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&!documentPath)
     throw new HttpError(404,'Rota inexistente.');
    if(request.method==='OPTIONS'){
     return new Response(null,{status:204,headers:{
-     ...headers,'Access-Control-Allow-Methods':(memoryPath||workspacePath||integrationPath||catalogPath||actionPath)?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
+     ...headers,'Access-Control-Allow-Methods':(memoryPath||workspacePath||integrationPath||catalogPath||actionPath||documentPath)?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
      'Access-Control-Allow-Headers':'Authorization, Content-Type, X-Google-Token',
      'Access-Control-Max-Age':'600'
     }});
    }
-   if(!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&request.method!=='POST')
+   if(!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&!documentPath&&request.method!=='POST')
     throw new HttpError(405,'Método não permitido.');
    // Internal ecosystem APIs are NEVER available to unauthenticated browsers.
-   if(catalogPath||workspacePath||integrationPath||actionPath){
+   if(catalogPath||workspacePath||integrationPath||actionPath||documentPath){
     const uid=await(deps.verify||verifyLabUser)(request,env);
     if(uid!==env.ALLOWED_UID)throw new HttpError(403,'Conta não autorizada.');
+    if(documentPath){
+     const output=await handleLabDocumentApi(request,env,uid,deps.fetch||fetch);
+     return reply(output.data,output.status);
+    }
     if(catalogPath){
      if(request.method!=='GET')throw new HttpError(405,'Método não permitido.');
      return reply({modules:SIGMA_MODULES});
@@ -426,5 +435,5 @@ export class LabChatQuota {
   return new Response(null,{status:allowed?204:429});
  }
 }
-export {LabMemoryStore,LabWorkspaceStore,LabExternalActionStore};
+export {LabMemoryStore,LabWorkspaceStore,LabExternalActionStore,LabDocumentIndex};
 export default makeLabChatWorker();

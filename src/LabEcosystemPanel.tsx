@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {validLabApiBase} from './jarvis-chat-protocol';
+import {LabStudyCyclePanel} from './LabStudyCyclePanel';
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
 type Kind='study'|'daily'|'task'|'finance';
 type Entry={id:string;kind:Kind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;dueDate?:string;priority?:'low'|'normal'|'high';subject?:string;questionsTotal?:number;questionsCorrect?:number};
@@ -135,6 +136,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
    </>}
    <small>{briefing.studyPerformance.disclaimer}</small>
   </section>}
+  <LabStudyCyclePanel user={user}/>
   <div className="lab-workspace-form">
    <label>Categoria<select value={kind} onChange={e=>setKind(e.target.value as Kind)}>{Object.entries(labels).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label>
    <label>Assunto ou título<input maxLength={160} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: Contabilidade — revisão de exercícios"/></label>

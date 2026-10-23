@@ -39,9 +39,12 @@ export async function decryptRefresh(cipher:Cipher,key:CryptoKey,uid:string):Pro
 export class LabGoogleOAuthVault{
  private readonly storage:Store;
  private readonly env:Env;
+ private readonly transport:typeof fetch;
  private refreshing=new Map<ScopePreset,Promise<{accessToken:string;expiresAt:number}>>();
  private cached=new Map<ScopePreset,{accessToken:string;expiresAt:number}>();
- constructor(state:{storage:Store},env:Env){this.storage=state.storage;this.env=env;}
+ constructor(state:{storage:Store},env:Env,transport:typeof fetch=fetch){
+  this.storage=state.storage;this.env=env;this.transport=transport;
+ }
  async fetch(request:Request):Promise<Response>{
   const path=new URL(request.url).pathname;
   try{
@@ -135,7 +138,7 @@ export class LabGoogleOAuthVault{
   if(!this.env.GOOGLE_OAUTH_CLIENT_ID||!this.env.GOOGLE_OAUTH_CLIENT_SECRET)
    throw new HttpError(503,'Cliente OAuth não configurado.');
   let result:Response;
-  try{result=await fetch('https://oauth2.googleapis.com/token',{
+  try{result=await this.transport('https://oauth2.googleapis.com/token',{
    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
    body:new URLSearchParams({client_id:this.env.GOOGLE_OAUTH_CLIENT_ID,
     client_secret:this.env.GOOGLE_OAUTH_CLIENT_SECRET,refresh_token:token,

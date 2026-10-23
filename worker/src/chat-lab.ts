@@ -21,6 +21,7 @@ import {executeApprovedExternalAction} from './core/sigma-action-executors';
 import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,type Provider} from './core/sigma-connectors';
 import {proposeContinuousLearning} from './core/continuous-learning';
 import {SIGMA_MODULES} from './core/ecosystem-manifest';
+import {PROJECT_TOOL_DECLARATION,projectToolInstruction,readProjectProposal,projectPreviewText} from './core/project-proposal-tool';
 // O laboratório possui identidade própria e não herda afirmações sobre
 // histórico persistido do SIGMA principal.
 const LAB_SYSTEM_IDENTITY = [
@@ -56,6 +57,7 @@ export interface LabChatEnv {
  LAB_MEMORY?:DurableObjectNamespace;
  LAB_WORKSPACE?:DurableObjectNamespace;
  LAB_WORKSPACE_ENABLED?:string;
+ LAB_BRAIN_ENABLED?:string;
  LAB_CONNECTORS_ENABLED?:string;
  LAB_ACTIONS_ENABLED?:string;
  LAB_ACTIONS?:DurableObjectNamespace;
@@ -534,23 +536,32 @@ export function makeLabChatWorker(deps:Dependencies={}){
       ' | '+source.url+' | Data: '+(source.publishedDate||'não informada')+
       ' | Trecho: '+source.excerpt).join('\\n')
     :intent.needed?'Nenhuma fonte atual foi obtida. Não apresente informação como se fosse verificada em tempo real.':'';
+   const projectProposalEnabled=env.LAB_BRAIN_ENABLED==='true'&&
+    env.LAB_WORKSPACE_ENABLED==='true'&&!!env.LAB_WORKSPACE;
    const model=buildGeminiRequest(env.GEMINI_MODEL,env.GEMINI_API_KEY,{
-    systemInstruction:{parts:[{text:LAB_SYSTEM_IDENTITY}]},
+    systemInstruction:{parts:[{text:LAB_SYSTEM_IDENTITY+
+     (projectProposalEnabled?' '+projectToolInstruction():'')}]},
     contents:messages.map((m,i)=>({
      role:m.role==='assistant'?'model':'user',
      parts:[{text:m.text},...(i===messages.length-1&&approvedMemoryContext?[{text:approvedMemoryContext}]:[]),...(i===messages.length-1&&onlineContext?[{text:onlineContext}]:[]),...(i===messages.length-1&&connectorContext?[{text:connectorContext}]:[]),...(i===messages.length-1&&libraryContext?[{text:libraryContext}]:[])]
     })),
-    generationConfig:{maxOutputTokens:1100}
+    generationConfig:{maxOutputTokens:1100},
+    ...(projectProposalEnabled?{tools:[PROJECT_TOOL_DECLARATION]}:{})
    },25000);
    const result=await(deps.fetch||fetch)(model.url,model.init);
    if(result.status===429)throw new HttpError(429,'Cota do Gemini esgotada no momento.');
    if(!result.ok)throw new HttpError(502,'Gemini indisponível neste teste.');
-   const response=await result.json() as {candidates?:{content?:{parts?:{text?:string;thought?:boolean}[]}}[]};
-   const answer=response.candidates?.[0]?.content?.parts?.filter(p=>!p.thought)
-    .map(p=>p.text||'').join('').trim();
+   const response=await result.json() as {candidates?:{content?:{
+    parts?:{text?:string;thought?:boolean;functionCall?:unknown}[]
+   }}[]};
+   const parts=response.candidates?.[0]?.content?.parts||[];
+   const projectProposal=projectProposalEnabled?readProjectProposal(parts):null;
+   const answer=projectProposal?projectPreviewText(projectProposal):
+    parts.filter(p=>!p.thought).map(p=>p.text||'').join('').trim();
    if(!answer)throw new HttpError(502,'Gemini não retornou uma resposta em texto.');
    if(answer.length>12000)throw new HttpError(502,'Resposta grande demais.');
    return reply({text:answer,persisted:false,executed:false,provider:'gemini',
+    ...(projectProposal?{projectProposal}:{}),
     ...(sources.length?{web:{searched:true,sources:sources.map(x=>({title:x.title,url:x.url,publishedDate:x.publishedDate}))}}:{}),
     ...(autoMemory?{memory:{consulted:usedMemoryCount>0,count:usedMemoryCount,mode:'auto'}}:
       usedMemoryCount?{memory:{consulted:true,count:usedMemoryCount}}:{}),

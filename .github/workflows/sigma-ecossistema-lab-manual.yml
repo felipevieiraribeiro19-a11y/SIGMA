@@ -63,13 +63,13 @@ jobs:
       - name: Baixar somente o commit validado do laboratorio
         uses: actions/checkout@v4
         with:
-          ref: 980207fa80dda10e37656b1cd53e547518b453a4
+          ref: 447986db91994cf63ee45d2656fce6502b34651e
           persist-credentials: false
 
       - name: Conferir commit do laboratorio
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "980207fa80dda10e37656b1cd53e547518b453a4"
+          test "$(git rev-parse HEAD)" = "447986db91994cf63ee45d2656fce6502b34651e"
 
       - uses: actions/setup-node@v4
         with:

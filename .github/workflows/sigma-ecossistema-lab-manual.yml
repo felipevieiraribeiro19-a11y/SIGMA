@@ -1,0 +1,446 @@
+name: SIGMA - ecossistema LAB publicar tudo uma vez
+
+# Registered on the default branch so workflow_dispatch is available.
+# Never deploys on push, pull_request or any automatic event.
+# Compiles the previously verified Jarvis commit, not the production branch.
+on:
+  workflow_dispatch:
+    inputs:
+      publish_ack:
+        description: "Digite PUBLICAR-ECOSSISTEMA-LAB para confirmar a publicacao temporaria"
+        required: true
+        type: string
+      connect_lab_chat:
+        description: "Ativar CHAT REAL Gemini somente no Worker LAB e conectar interface? (limite de testes; sem Firestore)"
+        required: false
+        type: boolean
+        default: true
+      connect_lab_web:
+        description: "Ativar pesquisa Tavily somente no Worker de laboratorio?"
+        required: false
+        type: boolean
+        default: true
+      connect_lab_memory:
+        description: "Habilitar memoria manual e persistente no Worker LAB? Somente testes com dados ficticios."
+        required: false
+        type: boolean
+        default: true
+      connect_lab_memory_auto:
+        description: "Habilitar busca contextual opcional das memórias na sessão? Exige chat e memória."
+        required: false
+        type: boolean
+        default: true
+      connect_lab_workspace:
+        description: "Ativar registro de estudos, diario, tarefas e financas no LAB?"
+        required: false
+        type: boolean
+        default: true
+      connect_lab_connectors:
+        description: "Habilitar Google Calendar, Drive e Notion apos configurar segredos e OAuth?"
+        required: false
+        type: boolean
+        default: true
+      connect_lab_actions:
+        description: "Habilitar CRIACOES REAIS em Google/Notion somente com confirmacao dupla?"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: sigma-ecossistema-lab-manual-preview
+  cancel-in-progress: false
+
+jobs:
+  publish-only-lab:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.actor == 'felipevieiraribeiro19-a11y' && inputs.publish_ack == 'PUBLICAR-ECOSSISTEMA-LAB' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar somente o commit validado do laboratorio
+        uses: actions/checkout@v4
+        with:
+          ref: 980207fa80dda10e37656b1cd53e547518b453a4
+          persist-credentials: false
+
+      - name: Conferir commit do laboratorio
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "980207fa80dda10e37656b1cd53e547518b453a4"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validar build isolada antes de autenticar
+        env:
+          VITE_JARVIS_LAB_API: ${{ inputs.connect_lab_chat && 'https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev' || '' }}
+        run: |
+          npm ci
+          npm run build:lab
+          npm test
+          npm run check:worker
+          node tests/verify-jarvis-lab-build.mjs
+          test -f firebase.lab.json
+          test -f dist-jarvis-lab/index.html
+          test ! -e dist-jarvis-lab/config.json
+          test ! -e dist-jarvis-lab/sw.js
+
+      - name: Proteger selecao opcional de memoria
+        if: ${{ inputs.connect_lab_memory }}
+        env:
+          CHAT_SELECTED: ${{ inputs.connect_lab_chat }}
+        shell: bash
+        run: |
+          if [ "$CHAT_SELECTED" != "true" ]; then
+            echo "A memoria depende do Worker LAB habilitado"
+            exit 1
+          fi
+          echo "MEMORIA_LAB_EXPLICITAMENTE_SELECIONADA"
+
+      - name: Proteger consulta contextual de memoria LAB
+        if: ${{ inputs.connect_lab_memory_auto }}
+        env:
+          CHAT_SELECTED: ${{ inputs.connect_lab_chat }}
+          MEMORY_SELECTED: ${{ inputs.connect_lab_memory }}
+        shell: bash
+        run: |
+          if [ "$CHAT_SELECTED" != "true" ] || [ "$MEMORY_SELECTED" != "true" ]; then
+            echo "Busca contextual exige chat e memoria LAB ativados."
+            exit 1
+          fi
+          echo "BUSCA_CONTEXTUAL_LAB_EXPLICITAMENTE_SELECIONADA"
+
+      # Optional and explicitly gated: no Worker deploy on normal UI-only preview.
+      # Gemini credentials remain Cloudflare secrets; no key is read or written by GitHub.
+      - name: Verificar prerequisitos do Tavily no laboratorio
+        if: ${{ inputs.connect_lab_web }}
+        env:
+          CHAT_SELECTED: ${{ inputs.connect_lab_chat }}
+          CLOUDFLARE_TOKEN_FOR_CHECK: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          if(process.env.CHAT_SELECTED!=='true')throw Error('A pesquisa requer chat LAB ativo.');
+          if(!process.env.CLOUDFLARE_TOKEN_FOR_CHECK)throw Error('Token Cloudflare indisponivel.');
+          const base='https://api.cloudflare.com/client/v4';
+          const url=base+'/accounts/ffbf8770e586438ce53536e3bf0f5d65/workers/scripts/sigma-jarvis-cerebro-lab/secrets';
+          const resp=await fetch(url,{headers:{
+            Authorization:'Bearer '+process.env.CLOUDFLARE_TOKEN_FOR_CHECK
+          },signal:AbortSignal.timeout(10000)});
+          if(!resp.ok)throw Error('Conferencia dos segredos do LAB indisponivel.');
+          const data=await resp.json();
+          if(data.success!==true||!Array.isArray(data.result)||
+            !data.result.some(v=>v.name==='TAVILY_API_KEY'))
+            throw Error('TAVILY_API_KEY nao foi cadastrada no Worker LAB.');
+          console.log('SEGREDO_TAVILY_LAB_PRESENTE');
+          NODE
+
+      - name: Verificar segredo Notion, sem expor valor
+        if: ${{ inputs.connect_lab_connectors }}
+        env:
+          CLOUDFLARE_TOKEN_FOR_CHECK: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const token=process.env.CLOUDFLARE_TOKEN_FOR_CHECK;
+          if(!token)throw Error('Token Cloudflare do GitHub indisponivel.');
+          const url='https://api.cloudflare.com/client/v4/accounts/ffbf8770e586438ce53536e3bf0f5d65/workers/scripts/sigma-jarvis-cerebro-lab/secrets';
+          const r=await fetch(url,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(12000)});
+          if(!r.ok)throw Error('Nao foi possivel conferir segredos Notion.');
+          const data=await r.json();
+          if(data.success!==true||!Array.isArray(data.result)||!data.result.some(x=>x.name==='NOTION_API_KEY'))
+            throw Error('Falta NOTION_API_KEY no Worker LAB. Cadastre antes de publicar.');
+          console.log('SEGREDO_NOTION_CONFIGURADO_NO_WORKER_LAB');
+          NODE
+
+      - name: Proteger flags integradas de acao
+        if: ${{ inputs.connect_lab_actions }}
+        env:
+          CONNECTORS: ${{ inputs.connect_lab_connectors }}
+          CHAT: ${{ inputs.connect_lab_chat }}
+        shell: bash
+        run: |
+          test "$CONNECTORS" = "true"
+          test "$CHAT" = "true"
+          echo "ACOES_REAIS_SOMENTE_APOS_CONFIRMACAO_DUPLA"
+
+      - name: Conferir destino isolado e gerar config temporaria com chat ativo
+        if: ${{ inputs.connect_lab_chat }}
+        env:
+          ENABLE_WEB_LAB: ${{ inputs.connect_lab_web }}
+          ENABLE_MEMORY_LAB: ${{ inputs.connect_lab_memory }}
+          ENABLE_MEMORY_AUTO_LAB: ${{ inputs.connect_lab_memory_auto }}
+          ENABLE_WORKSPACE_LAB: ${{ inputs.connect_lab_workspace }}
+          ENABLE_CONNECTORS_LAB: ${{ inputs.connect_lab_connectors }}
+          ENABLE_ACTIONS_LAB: ${{ inputs.connect_lab_actions }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          const path='worker/wrangler.chat-lab.toml';
+          const original=readFileSync(path,'utf8');
+          for(const guard of [
+            'name = "sigma-jarvis-cerebro-lab"',
+            'main = "src/chat-lab.ts"',
+            'LAB_CHAT_ENABLED = "false"',
+            'LAB_WEB_ENABLED = "false"',
+            'LAB_MEMORY_ENABLED = "false"',
+            'LAB_MEMORY_AUTO_ENABLED = "false"',
+            'LAB_WORKSPACE_ENABLED = "false"',
+            'LAB_CONNECTORS_ENABLED = "false"',
+            'LAB_ACTIONS_ENABLED = "false"',
+            'class_name = "LabWorkspaceStore"',
+            'class_name = "LabExternalActionStore"',
+            'FIREBASE_PROJECT_ID = "sigma-61328"',
+            'ALLOWED_ORIGIN = "https://sigma-61328--jarvis-lab-pw5dmfbc.web.app"',
+            'name = "LAB_QUOTA"',
+            'class_name = "LabChatQuota"'
+          ])if(!original.includes(guard))throw Error('Configuracao insegura; chat nao sera ativado');
+          if(original.includes('name = "sigma-cerebro"'))throw Error('Worker de producao proibido');
+          if((original.match(/LAB_CHAT_ENABLED = "false"/g)||[]).length!==1)
+            throw Error('Flag de laboratorio inesperada');
+          let enabled=original.replace('LAB_CHAT_ENABLED = "false"','LAB_CHAT_ENABLED = "true"');
+          if(process.env.ENABLE_WEB_LAB==='true'){
+            enabled=enabled.replace('LAB_WEB_ENABLED = "false"','LAB_WEB_ENABLED = "true"');
+            if(!enabled.includes('LAB_WEB_ENABLED = "true"'))throw Error('Flag Tavily nao habilitada.');
+          }
+          if(process.env.ENABLE_MEMORY_LAB==='true'){
+            enabled=enabled.replace('LAB_MEMORY_ENABLED = "false"','LAB_MEMORY_ENABLED = "true"');
+            if(!enabled.includes('LAB_MEMORY_ENABLED = "true"'))throw Error('Flag memoria nao habilitada.');
+            if(!enabled.includes('name = "LAB_MEMORY"')||
+               !enabled.includes('class_name = "LabMemoryStore"'))
+              throw Error('Binding memoria isolada ausente.');
+          }
+          if(process.env.ENABLE_MEMORY_AUTO_LAB==='true'){
+            if(process.env.ENABLE_MEMORY_LAB!=='true')throw Error('Memoria do LAB precisa estar ativa.');
+            enabled=enabled.replace('LAB_MEMORY_AUTO_ENABLED = "false"','LAB_MEMORY_AUTO_ENABLED = "true"');
+            if(!enabled.includes('LAB_MEMORY_AUTO_ENABLED = "true"'))throw Error('Flag contextual ausente.');
+          }
+          for(const [selected,flag] of [
+            [process.env.ENABLE_WORKSPACE_LAB,'LAB_WORKSPACE_ENABLED'],
+            [process.env.ENABLE_CONNECTORS_LAB,'LAB_CONNECTORS_ENABLED'],
+            [process.env.ENABLE_ACTIONS_LAB,'LAB_ACTIONS_ENABLED']
+          ]){
+            if(selected==='true'){
+              enabled=enabled.replace(flag+' = "false"',flag+' = "true"');
+              if(!enabled.includes(flag+' = "true"'))throw Error('Falha ao ligar '+flag);
+            }
+          }
+          if(process.env.ENABLE_ACTIONS_LAB==='true'&&process.env.ENABLE_CONNECTORS_LAB!=='true')
+            throw Error('Acoes requerem conectores.');
+          if(!enabled.includes('LAB_CHAT_ENABLED = "true"'))throw Error('Falha ao habilitar somente LAB');
+          // The file exists only on ephemeral GitHub runner, never committed.
+          writeFileSync('worker/wrangler.chat-lab.enabled.toml',enabled);
+          console.log('SOMENTE_WORKER_LAB_CONFIRMED');
+          NODE
+
+      - name: Ativar somente Worker Jarvis LAB, preservando segredos existentes
+        if: ${{ inputs.connect_lab_chat }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ffbf8770e586438ce53536e3bf0f5d65
+          wranglerVersion: "4.45.0"
+          workingDirectory: worker
+          command: deploy --config wrangler.chat-lab.enabled.toml --keep-vars
+
+      - name: Testar CORS e bloqueio de tokens invalidos sem consumir Gemini
+        if: ${{ inputs.connect_lab_chat }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const endpoint='https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev/api/lab/chat';
+          const origin='https://sigma-61328--jarvis-lab-pw5dmfbc.web.app';
+          const response=await fetch(endpoint,{
+            method:'OPTIONS',headers:{Origin:origin},
+            signal:AbortSignal.timeout(12000)
+          });
+          if(response.status!==204||response.headers.get('access-control-allow-origin')!==origin)
+            throw Error('CORS do laboratorio nao autorizado. Parando antes do Hosting.');
+          const unauthorized=await fetch(endpoint,{
+            method:'POST',headers:{
+              Origin:origin,Authorization:'Bearer token-ficticio-invalido',
+              'Content-Type':'application/json'
+            },
+            body:JSON.stringify({messages:[{role:'user',text:'Teste sem credencial; não chamar Gemini'}]}),
+            signal:AbortSignal.timeout(12000)
+          });
+          if(unauthorized.status!==401)
+            throw Error('Worker nao rejeitou token invalido ou chat nao ativou: HTTP '+unauthorized.status);
+          const other=await fetch(endpoint,{
+            method:'OPTIONS',headers:{Origin:'https://sigma-61328.web.app'},
+            signal:AbortSignal.timeout(12000)
+          });
+          if(other.status!==403||other.headers.get('access-control-allow-origin')!==null)
+            throw Error('Worker nao bloqueou origem de producao.');
+          console.log('CHAT_LAB_AUTH_AND_CORS_GUARDS_OK');
+          NODE
+
+      # Existing keyless WIF provider and service account; no new credentials.
+      # If the provider rejects workflows on main, this fails closed.
+      - name: Autenticar pelo WIF ja existente, sem chave privada
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/428047765465/locations/global/workloadIdentityPools/sigma-github/providers/github
+          service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
+          token_format: access_token
+          create_credentials_file: true
+          export_environment_variables: true
+
+      # A primeira criacao do canal no Firebase CLI exige uma checagem de
+      # Service Usage nao necessaria para atualizar um canal ja existente.
+      # Tentar criar somente o canal autorizado via Firebase Hosting REST API,
+      # com o mesmo WIF; nao elevar permissoes nem alterar o site live.
+      - name: Garantir canal novo jarvis-lab pela API Hosting (sem IAM novo)
+        shell: bash
+        env:
+          LAB_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          node --input-type=module <<'NODE'
+          const site='sigma-61328';
+          const id='jarvis-lab';
+          const base='https://firebasehosting.googleapis.com/v1beta1/sites/'+site+'/channels';
+          const token=process.env.LAB_ACCESS_TOKEN;
+          if(!token) throw Error('Token WIF ausente; nao publicar');
+          const headers={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+          const get=await fetch(base+'/'+id,{headers});
+          if(get.status===200){
+            const channel=await get.json();
+            if(!channel.name?.endsWith('/channels/'+id)) throw Error('Canal inesperado');
+            // Renew only this preview channel; never update the live channel.
+            const renewed=await fetch(base+'/'+id+'?updateMask=ttl',{
+              method:'PATCH',headers,body:JSON.stringify({ttl:'604800s'})
+            });
+            if(!renewed.ok)throw Error('Nao foi possivel renovar o canal jarvis-lab.');
+            console.log('CANAL_LAB_RENOVADO');
+          } else if(get.status===404){
+            const created=await fetch(base+'?channelId='+id,{
+              method:'POST',headers,body:JSON.stringify({ttl:'172800s'})
+            });
+            if(!created.ok) throw Error('Criacao do canal jarvis-lab negada: HTTP '+created.status);
+            const channel=await created.json();
+            if(!channel.name?.endsWith('/channels/'+id)) throw Error('Criacao de canal inesperado');
+            console.log('CANAL_LAB_CRIADO');
+          } else {
+            throw Error('Consulta do canal jarvis-lab negada: HTTP '+get.status);
+          }
+          NODE
+
+      - name: Publicar HTML e assets SOMENTE via Firebase Hosting REST no canal jarvis-lab
+        shell: bash
+        env:
+          LAB_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,readdirSync} from 'node:fs';
+          import {resolve,join} from 'node:path';
+          import {gzipSync} from 'node:zlib';
+          import {createHash} from 'node:crypto';
+
+          // The service account can manage Hosting channels, but the Firebase CLI
+          // requires serviceusage.services.get. Use the documented Hosting REST API.
+          const site='sigma-61328';
+          const channelId='jarvis-lab';
+          const host='https://firebasehosting.googleapis.com/v1beta1';
+          const token=process.env.LAB_ACCESS_TOKEN;
+          if(!token) throw Error('Sem token WIF; publicacao bloqueada');
+
+          const cfg=JSON.parse(readFileSync('firebase.lab.json','utf8')).hosting;
+          if(cfg.public!=='dist-jarvis-lab' ||
+             cfg.rewrites?.length!==1 ||
+             cfg.rewrites[0].source!=='**' ||
+             cfg.rewrites[0].destination!=='/index.html' ||
+             cfg.headers?.length!==1 ||
+             cfg.headers[0].source!=='**') {
+            throw Error('Configuracao do laboratorio inesperada');
+          }
+          const headers=Object.fromEntries(cfg.headers[0].headers.map(h=>[h.key,h.value]));
+          if(headers['Cache-Control']!=='no-store' ||
+             !headers['Content-Security-Policy']?.includes("default-src 'none'") ||
+             headers['X-Robots-Tag']!=='noindex, nofollow, noarchive') {
+            throw Error('Cabecalhos de seguranca ausentes');
+          }
+
+          const dir=resolve(cfg.public);
+          const entries=[
+            ...readdirSync(dir,{withFileTypes:true}).filter(e=>e.isFile()).map(e=>e.name),
+            ...readdirSync(join(dir,'assets'),{withFileTypes:true}).filter(e=>e.isFile()).map(e=>'assets/'+e.name)
+          ].sort();
+          if(entries.length!==3 || !entries.includes('index.html') ||
+             entries.filter(x=>/^assets\/[\w.-]+\.js$/.test(x)).length!==1 ||
+             entries.filter(x=>/^assets\/[\w.-]+\.css$/.test(x)).length!==1) {
+            throw Error('Build nao contem apenas index.html, JS e CSS do laboratorio');
+          }
+          const fileHashes={};
+          const zipped=new Map();
+          for(const file of entries) {
+            const compressed=gzipSync(readFileSync(join(dir,file)));
+            const hash=createHash('sha256').update(compressed).digest('hex');
+            fileHashes['/'+file]=hash;
+            zipped.set(hash,compressed);
+          }
+
+          const authHeaders={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+          async function api(url,method='GET',body) {
+            if(!url.startsWith(host+'/sites/'+site+'/')) throw Error('API fora do site permitido');
+            const r=await fetch(url,{
+              method,headers:authHeaders,
+              ...(body===undefined?{}:{body:JSON.stringify(body)})
+            });
+            if(!r.ok) throw Error('Firebase Hosting API '+method+' retornou HTTP '+r.status);
+            return await r.json();
+          }
+
+          const channelName='sites/'+site+'/channels/'+channelId;
+          const channel=await api(host+'/'+channelName);
+          if(channel.name!==channelName ||
+             !channel.url?.startsWith('https://') ||
+             !channel.url.endsWith('.web.app')) {
+            throw Error('Canal ou URL inesperados, publicacao bloqueada');
+          }
+          const version=await api(host+'/sites/'+site+'/versions','POST',{
+            config:{
+              rewrites:[{glob:'**',path:'/index.html'}],
+              headers:[{glob:'**',headers}]
+            }
+          });
+          if(!/^sites\/sigma-61328\/versions\/[A-Za-z0-9_-]+$/.test(version.name||'')) {
+            throw Error('Versao retornada fora do site autorizado');
+          }
+          const url=host+'/'+version.name;
+          const populated=await api(url+':populateFiles','POST',{files:fileHashes});
+          const expectedUpload='https://upload-firebasehosting.googleapis.com/upload/'+version.name+'/files';
+          if(populated.uploadUrl!==expectedUpload ||
+             !Array.isArray(populated.uploadRequiredHashes)) {
+            throw Error('Destino de upload inesperado');
+          }
+          for(const hash of populated.uploadRequiredHashes) {
+            if(!zipped.has(hash)) throw Error('Hash requerido desconhecido');
+            const response=await fetch(populated.uploadUrl+'/'+hash,{
+              method:'POST',
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/octet-stream'},
+              body:zipped.get(hash)
+            });
+            if(!response.ok) throw Error('Upload de asset negado: HTTP '+response.status);
+          }
+          const finalized=await api(url+'?update_mask=status','PATCH',{status:'FINALIZED'});
+          if(finalized.status!=='FINALIZED') throw Error('Versao nao finalizada');
+
+          // Only releases for the named preview channel; never /sites/{id}/releases.
+          const release=await api(host+'/'+channelName+'/releases?versionName='+encodeURIComponent(version.name),'POST',{});
+          if(!release.name?.startsWith(channelName+'/releases/') ||
+             release.version?.name!==version.name) {
+            throw Error('Resposta de release nao confirma canal e versao');
+          }
+          const confirmed=await api(host+'/'+channelName);
+          if(confirmed.url!==channel.url) throw Error('URL do canal mudou inesperadamente');
+          console.log('JARVIS_LAB_RELEASE_CONFIRMED');
+          console.log('JARVIS_LAB_URL='+confirmed.url);
+          console.log('JARVIS_LAB_EXPIRES='+String(confirmed.expireTime||'nao informado'));
+          NODE

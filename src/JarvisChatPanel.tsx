@@ -128,7 +128,8 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    if(controller.signal.aborted)return;
    const response=await fetch(api+'/api/lab/chat',{
     method:'POST',
-    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',
+     ...(googleToken&&selectedSources.some(p=>p==='calendar'||p==='drive')?{'X-Google-Token':googleToken}:{})},
     body:JSON.stringify(payload),signal:controller.signal,cache:'no-store'
    });
    const result:unknown=await response.json().catch(()=>null);

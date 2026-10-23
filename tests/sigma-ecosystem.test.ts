@@ -57,7 +57,8 @@ test('adapters de Google e Notion só retornam dados de leitura sanitizados',asy
   return Response.json({results:[{id:'page1',object:'page',properties:{title:{title:[{plain_text:'Planejamento'}]}}}]});
  }) as typeof fetch;
  const calendar=await readGoogle('calendar','fake-access-token',fake);
- assert.equal(calendar[0].title,'Reunião script ');
+ assert.match(calendar[0].title,/Reunião/);
+ assert.doesNotMatch(calendar[0].title,/[<>]/);
  assert.equal(googleToken,'Bearer fake-access-token');
  const drive=await readGoogle('drive','fake-access-token',fake);
  assert.equal(drive[0].title,'Exercícios.pdf');

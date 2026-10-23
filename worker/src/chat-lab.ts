@@ -12,6 +12,8 @@ import {LabMemoryStore} from './lab-memory';
 import {selectedMemoryIds,readSelectedMemory,userApprovedMemoryContext,autoMemoryRequested} from './core/lab-memory-chat';
 import {relevantLabMemory} from './core/lab-memory-relevance';
 import {LabWorkspaceStore} from './lab-workspace';
+import {LabExternalActionStore} from './lab-external-actions';
+import {executeApprovedExternalAction} from './core/sigma-action-executors';
 import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,type Provider} from './core/sigma-connectors';
 import {proposeContinuousLearning} from './core/continuous-learning';
 import {SIGMA_MODULES} from './core/ecosystem-manifest';
@@ -51,6 +53,8 @@ export interface LabChatEnv {
  LAB_WORKSPACE?:DurableObjectNamespace;
  LAB_WORKSPACE_ENABLED?:string;
  LAB_CONNECTORS_ENABLED?:string;
+ LAB_ACTIONS_ENABLED?:string;
+ LAB_ACTIONS?:DurableObjectNamespace;
  NOTION_API_KEY?:string;
 }
 type Dependencies={
@@ -98,19 +102,20 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const workspacePath=path==='/api/lab/workspace'||path.startsWith('/api/lab/workspace/');
    const integrationPath=path.startsWith('/api/lab/integrations/');
    const catalogPath=path==='/api/lab/modules';
-   if(path!=='/api/lab/chat'&&!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath)
+   const actionPath=path==='/api/lab/actions/prepare'||path.startsWith('/api/lab/actions/');
+   if(path!=='/api/lab/chat'&&!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath)
     throw new HttpError(404,'Rota inexistente.');
    if(request.method==='OPTIONS'){
     return new Response(null,{status:204,headers:{
-     ...headers,'Access-Control-Allow-Methods':(memoryPath||workspacePath||integrationPath||catalogPath)?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
+     ...headers,'Access-Control-Allow-Methods':(memoryPath||workspacePath||integrationPath||catalogPath||actionPath)?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
      'Access-Control-Allow-Headers':'Authorization, Content-Type, X-Google-Token',
      'Access-Control-Max-Age':'600'
     }});
    }
-   if(!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&request.method!=='POST')
+   if(!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&request.method!=='POST')
     throw new HttpError(405,'Método não permitido.');
    // Internal ecosystem APIs are NEVER available to unauthenticated browsers.
-   if(catalogPath||workspacePath||integrationPath){
+   if(catalogPath||workspacePath||integrationPath||actionPath){
     const uid=await(deps.verify||verifyLabUser)(request,env);
     if(uid!==env.ALLOWED_UID)throw new HttpError(403,'Conta não autorizada.');
     if(catalogPath){
@@ -138,6 +143,53 @@ export function makeLabChatWorker(deps:Dependencies={}){
      });
      const response=await env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid)).fetch(internal);
      return reply(await response.json(),response.status);
+    }
+    if(actionPath){
+     if(env.LAB_ACTIONS_ENABLED!=='true'||env.LAB_CONNECTORS_ENABLED!=='true'||!env.LAB_ACTIONS)
+      throw new HttpError(503,'Execução de ações externas ainda desabilitada.');
+     const stub=env.LAB_ACTIONS.get(env.LAB_ACTIONS.idFromName(uid));
+     if(path==='/api/lab/actions/prepare'&&request.method==='POST'){
+      if(!request.headers.get('Content-Type')?.startsWith('application/json'))
+       throw new HttpError(415,'Envie a proposta JSON.');
+      const raw=await request.text();
+      if(raw.length>1200)throw new HttpError(413,'Ação grande demais.');
+      let body:unknown;try{body=JSON.parse(raw);}catch{throw new HttpError(400,'JSON inválido.');}
+      const response=await stub.fetch('https://lab-action.internal/propose',{method:'POST',body:JSON.stringify(body)});
+      return reply(await response.json(),response.status);
+     }
+     const action=path.slice('/api/lab/actions/'.length);
+     const match=/^(confirm|status)\/([0-9a-f-]{36})$/i.exec(action);
+     if(!match)throw new HttpError(404,'Operação de ação desconhecida.');
+     const [,verb,id]=match;
+     const statusResponse=await stub.fetch('https://lab-action.internal/status/'+id,{method:'GET'});
+     const statusResult=await statusResponse.json() as {action?:import('./lab-external-actions').LabAction;error?:string};
+     if(!statusResponse.ok)return reply(statusResult,statusResponse.status);
+     if(verb==='status'&&request.method==='GET')return reply(statusResult);
+     if(verb!=='confirm'||request.method!=='POST')throw new HttpError(405,'Método não permitido.');
+     if(!request.headers.get('Content-Type')?.startsWith('application/json'))
+      throw new HttpError(415,'Confirmação JSON obrigatória.');
+     const confirmBody=await request.text();
+     if(confirmBody.length>80)throw new HttpError(413,'Confirmação inválida.');
+     if(confirmBody!=='{"confirmed":true}')throw new HttpError(400,'Confirme exatamente esta ação.');
+     const row=statusResult.action!;
+     const google= row.data.operation==='notion.page.create' ? null :
+      validGoogleToken(request.headers.get('X-Google-Token'));
+     if(row.data.operation==='notion.page.create'&&!(env.NOTION_API_KEY||'').trim())
+      throw new HttpError(503,'Configure o segredo da integração Notion.');
+     const quota=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))
+      .fetch('https://lab-quota.internal/consume',{method:'POST'});
+     if(!quota.ok)throw new HttpError(quota.status===429?429:503,'Limite de ações do laboratório atingido.');
+     const claim=await stub.fetch('https://lab-action.internal/claim/'+id,{
+      method:'POST',body:'{"confirmed":true}'
+     });
+     const claimed=await claim.json() as {action?:import('./lab-external-actions').LabAction;error?:string};
+     if(!claim.ok)return reply(claimed,claim.status);
+     const executed=await executeApprovedExternalAction(claimed.action!,google,env.NOTION_API_KEY,deps.fetch||fetch);
+     const finished=await stub.fetch('https://lab-action.internal/finish/'+id,{
+      method:'POST',body:JSON.stringify(executed)
+     });
+     if(!finished.ok)throw new HttpError(503,'Ação executada; resultado pendente de reconciliação. Confira no serviço antes de repetir.');
+     return reply(await finished.json());
     }
     if(integrationPath){
      if(request.method!=='GET')throw new HttpError(405,'Integrações disponíveis somente para consulta.');
@@ -374,5 +426,5 @@ export class LabChatQuota {
   return new Response(null,{status:allowed?204:429});
  }
 }
-export {LabMemoryStore,LabWorkspaceStore};
+export {LabMemoryStore,LabWorkspaceStore,LabExternalActionStore};
 export default makeLabChatWorker();

@@ -2,7 +2,7 @@ name: SIGMA - laboratorio Cloudflare offline
 
 on:
   push:
-    branches: [sigma-ecossistema-integracoes]
+    branches: [sigma-ecossistema-integracoes, sigma-documentos-sincronizacao]
   workflow_dispatch:
   pull_request:
     branches: [sigma-work-integracao]
@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   real-local-cloudflare-runtime:
-    if: github.head_ref == 'sigma-jarvis-arquitetura' || github.ref == 'refs/heads/sigma-ecossistema-integracoes'
+    if: github.head_ref == 'sigma-jarvis-arquitetura' || (github.ref == 'refs/heads/sigma-ecossistema-integracoes' || github.ref == 'refs/heads/sigma-documentos-sincronizacao')
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -51,7 +51,7 @@ jobs:
 
 
   chat-lab-http:
-    if: github.head_ref == 'sigma-jarvis-arquitetura' || github.ref == 'refs/heads/sigma-ecossistema-integracoes'
+    if: github.head_ref == 'sigma-jarvis-arquitetura' || (github.ref == 'refs/heads/sigma-ecossistema-integracoes' || github.ref == 'refs/heads/sigma-documentos-sincronizacao')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:

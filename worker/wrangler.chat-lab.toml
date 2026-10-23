@@ -16,6 +16,11 @@ LAB_WEB_ENABLED = "false"
 LAB_MEMORY_ENABLED = "false"
 # 16C: recall is optional and only under per-session user consent.
 LAB_MEMORY_AUTO_ENABLED = "false"
+# Ecosystem LAB: no production Firestore, secrets only on Cloudflare.
+LAB_WORKSPACE_ENABLED = "false"
+LAB_CONNECTORS_ENABLED = "false"
+LAB_ACTIONS_ENABLED = "false"
+
 # ALLOWED_UID e GEMINI_API_KEY devem ser segredos do Worker de laboratório.
 # Nunca colocar os valores neste arquivo nem no GitHub.
 [[durable_objects.bindings]]
@@ -34,11 +39,6 @@ class_name = "LabMemoryStore"
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["LabMemoryStore"]
-
-# Ecosystem LAB: no production Firestore, secrets only on Cloudflare.
-LAB_WORKSPACE_ENABLED = "false"
-LAB_CONNECTORS_ENABLED = "false"
-LAB_ACTIONS_ENABLED = "false"
 
 [[durable_objects.bindings]]
 name = "LAB_WORKSPACE"

@@ -21,6 +21,8 @@ LAB_WORKSPACE_ENABLED = "false"
 LAB_CONNECTORS_ENABLED = "false"
 LAB_ACTIONS_ENABLED = "false"
 LAB_DOCUMENTS_ENABLED = "false"
+# Conexão OAuth persistente permanece desativada até configuração manual.
+GOOGLE_OAUTH_ENABLED = "false"
 
 # ALLOWED_UID e GEMINI_API_KEY devem ser segredos do Worker de laboratório.
 # Nunca colocar os valores neste arquivo nem no GitHub.
@@ -64,3 +66,15 @@ class_name = "LabDocumentIndex"
 [[migrations]]
 tag = "v5"
 new_sqlite_classes = ["LabDocumentIndex"]
+
+# Isolado por Firebase UID. Configurar secrets somente no LAB:
+# GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET,
+# GOOGLE_OAUTH_ENCRYPTION_KEY (base64 de 32 bytes),
+# GOOGLE_OAUTH_REDIRECT_URI (URL HTTPS exata do callback do Worker LAB).
+[[durable_objects.bindings]]
+name = "GOOGLE_OAUTH_VAULT"
+class_name = "LabGoogleOAuthVault"
+
+[[migrations]]
+tag = "v6"
+new_sqlite_classes = ["LabGoogleOAuthVault"]

@@ -6,12 +6,18 @@ import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,type La
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
 
-export function JarvisChatPanel({user}:{user:User|null}){
+export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:string|null}){
  const [history,setHistory]=useState<LabChatMessage[]>([]);
  const [draft,setDraft]=useState('');
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [webSources,setWebSources]=useState<LabWebSource[]>([]);
+ const [selectedSources,setSelectedSources]=useState<string[]>([]);
+ const [integrationReceipt,setIntegrationReceipt]=useState<Record<string,number>|null>(null);
+ const [proposalText,setProposalText]=useState('');
+ const [proposalApproved,setProposalApproved]=useState(false);
+ const [savingProposal,setSavingProposal]=useState(false);
+ const [proposalNotice,setProposalNotice]=useState('');
  const [memoryChoices,setMemoryChoices]=useState<SharedMemoryChoice[]>([]);
  const [selectedMemoryIds,setSelectedMemoryIds]=useState<string[]>([]);
  const [memoryPickerOpen,setMemoryPickerOpen]=useState(false);
@@ -24,7 +30,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
  const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -58,7 +64,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
    const token=await user.getIdToken();
    const result=await fetch(api+'/api/lab/memory/settings',{
     method:'PATCH',cache:'no-store',
-    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...(selectedSources.some(s=>s==='calendar'||s==='drive')&&googleToken?{'X-Google-Token':googleToken}:{})},
     body:JSON.stringify({recallEnabled:next})
    });
    const data:unknown=await result.json().catch(()=>null);
@@ -107,11 +113,14 @@ export function JarvisChatPanel({user}:{user:User|null}){
   let messages:LabChatMessage[];
   try{messages=nextLabMessages(history,draft);}
   catch(e){setError(e instanceof Error?e.message:'Mensagem inválida.');return;}
+  if(selectedSources.some(p=>p==='calendar'||p==='drive')&&!googleToken){
+   setError('Conecte primeiro a leitura Google na seção 7.');return;
+  }
   let payload:ReturnType<typeof approvedChatRequest>;
-  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory);}
+  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);
+  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setProposalNotice('');
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -127,6 +136,12 @@ export function JarvisChatPanel({user}:{user:User|null}){
    }
    const answer=assertLabReply(result);
    const sources=readLabWebSources(result);
+   const structured=result as {integrations?:unknown;learningProposal?:unknown}|null;
+   const rawReceipt=structured?.integrations;
+   const newReceipt=rawReceipt&&typeof rawReceipt==='object'&&!Array.isArray(rawReceipt)?rawReceipt as Record<string,number>:null;
+   const rawSuggestion=(structured?.learningProposal as {text?:unknown;requiresApproval?:unknown}|null);
+   const nextSuggestion=rawSuggestion?.requiresApproval===true&&typeof rawSuggestion.text==='string'
+    ?rawSuggestion.text.slice(0,500):'';
    const memoryData=(result as {memory?:{consulted?:unknown;count?:unknown;mode?:unknown}}|null)?.memory;
    const consulted=memoryData?.consulted===true&&
     typeof memoryData.count==='number'&&
@@ -137,7 +152,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
      ?'none':null;
    if(!controller.signal.aborted){
     setHistory([...messages,{role:'assistant',text:answer}]);
-    setWebSources(sources);setConsultedMemoryCount(consulted);
+    setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setProposalText(nextSuggestion);setProposalApproved(false);
     setAutoMemoryResult(autoResult);
     setDraft('');setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
    }
@@ -146,6 +161,24 @@ export function JarvisChatPanel({user}:{user:User|null}){
   }finally{
    if(pending.current===controller){pending.current=null;setBusy(false);}
   }
+ }
+ async function saveApprovedProposal(){
+  if(!user||!api||savingProposal||!proposalApproved)return;
+  setSavingProposal(true);setProposalNotice('');
+  try{
+   const token=await user.getIdToken();
+   const response=await fetch(api+'/api/lab/memory',{method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({text:proposalText.trim()}),cache:'no-store'});
+   const body:any=await response.json().catch(()=>null);
+   if(!response.ok)throw Error(body?.error||'Não foi possível salvar a memória.');
+   setProposalText('');setProposalApproved(false);
+   setProposalNotice('Memória aprovada e salva na sua conta.');
+  }catch(e){setProposalNotice(e instanceof Error?e.message:'Falha ao salvar.');}
+  finally{setSavingProposal(false);}
+ }
+ function toggleSource(value:string){
+  setSelectedSources(old=>old.includes(value)?old.filter(x=>x!==value):[...old,value]);
  }
  return <div className="lab-chat">
   <h3>Conversa com Gemini + pesquisa + memória opcional</h3>
@@ -162,6 +195,16 @@ export function JarvisChatPanel({user}:{user:User|null}){
   {consultedMemoryCount>0&&<p className="lab-memory-used" role="status">
    <strong>Memória:</strong> {consultedMemoryCount} registro(s) {autoMemoryResult==='found'?'relevante(s) encontrado(s) com sua autorização':'escolhido(s) por você'} foram usados nesta resposta.
   </p>}
+  {integrationReceipt&&<p className="lab-memory-used" role="status">Integrações consultadas nesta resposta: {Object.entries(integrationReceipt).map(([key,n])=>key+': '+n+' item(ns)').join(' · ')}.</p>}
+  {proposalText&&<div className="lab-learning-proposal">
+   <strong>Aprendizado contínuo — sugestão, não salva</strong>
+   <p>O SIGMA identificou uma informação que talvez valha guardar. Revise, corrija ou descarte.</p>
+   <textarea maxLength={500} rows={3} value={proposalText} onChange={e=>{setProposalText(e.target.value);setProposalApproved(false);}}/>
+   <label><input type="checkbox" checked={proposalApproved} onChange={e=>setProposalApproved(e.target.checked)}/> Aprovo salvar exatamente este texto na memória permanente.</label>
+   <button type="button" disabled={!proposalApproved||savingProposal||proposalText.trim().length<3} onClick={()=>void saveApprovedProposal()}>Confirmar e salvar</button>
+   <button type="button" onClick={()=>{setProposalText('');setProposalApproved(false);}}>Descartar</button>
+  </div>}
+  {proposalNotice&&<p role="status">{proposalNotice}</p>}
   {webSources.length>0&&<div className="lab-chat-sources" aria-label="Links encontrados na última pesquisa">
     <strong>Fontes encontradas na pesquisa</strong>
     <p>Resultados de busca podem estar desatualizados. Confira dados importantes diretamente na fonte oficial correspondente.</p>
@@ -200,6 +243,16 @@ export function JarvisChatPanel({user}:{user:User|null}){
     </div>}
    </div>}
   </div>}
+  <div className="lab-chat-memory">
+   <strong>Consultar integrações nesta pergunta (opcional)</strong>
+   <p>Você decide quando compartilhar resultados de Agenda, Drive ou Notion com o Gemini. Os tokens nunca entram no texto enviado ao modelo.</p>
+   {(['calendar','drive','notion'] as const).map(provider=><label key={provider} className="lab-source-option">
+    <input type="checkbox" checked={selectedSources.includes(provider)} disabled={busy}
+     onChange={()=>toggleSource(provider)}/>
+    {provider==='calendar'?'Agenda Google':provider==='drive'?'Google Drive':'Notion'}
+   </label>)}
+   {selectedSources.some(x=>x==='drive'||x==='calendar')&&!googleToken&&<small>Conecte o Google na seção 7 antes de consultar esses serviços.</small>}
+  </div>
   <label htmlFor="lab-chat-input">Mensagem de teste</label>
   <textarea id="lab-chat-input" rows={3} maxLength={2000}
    placeholder="Exemplo fictício: Sigma, explique o que você consegue fazer."
@@ -209,7 +262,7 @@ export function JarvisChatPanel({user}:{user:User|null}){
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

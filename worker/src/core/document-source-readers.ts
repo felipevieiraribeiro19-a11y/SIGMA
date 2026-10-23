@@ -32,7 +32,7 @@ async function limitedPlainText(response:Response,maxBytes=15000):Promise<string
  }finally{reader.releaseLock();}
  const combined=new Uint8Array(count);let offset=0;
  for(const item of chunks){combined.set(item,offset);offset+=item.byteLength;}
- const decoded=new TextDecoder('utf-8',{fatal:false}).decode(combined);
+ const decoded=new TextDecoder('utf-8').decode(combined);
  return decoded.length<=12000?decoded:undefined;
 }
 const str=(value:unknown,max=200)=>typeof value==='string'?value.replace(/[\x00-\x1f]/g,' ').trim().slice(0,max):'';

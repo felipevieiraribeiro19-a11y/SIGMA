@@ -169,6 +169,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
    let approvedMemoryContext='';
    let usedMemoryCount=0;
    let autoMemory=false;
+   if(requestedAuto&&env.LAB_MEMORY_AUTO_ENABLED!=='true')
+    throw new HttpError(503,'Consulta contextual de memórias não habilitada no laboratório.');
    // Preferência persistente é sempre verificada no servidor por UID.
    // Nenhum parâmetro do navegador habilita memória sem consentimento gravado.
    if(!approvedIds.length&&env.LAB_MEMORY_AUTO_ENABLED==='true'&&

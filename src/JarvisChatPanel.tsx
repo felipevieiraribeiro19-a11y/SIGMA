@@ -13,6 +13,8 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [error,setError]=useState('');
  const [webSources,setWebSources]=useState<LabWebSource[]>([]);
  const [selectedSources,setSelectedSources]=useState<string[]>([]);
+ const [useLibrary,setUseLibrary]=useState(false);
+ const [librarySources,setLibrarySources]=useState<{key:string;title:string;source:string;url:string;contentStatus:string}[]|null>(null);
  const [integrationReceipt,setIntegrationReceipt]=useState<Record<string,number>|null>(null);
  const [proposalText,setProposalText]=useState('');
  const [proposalApproved,setProposalApproved]=useState(false);
@@ -30,7 +32,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setLibrarySources(null);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -117,10 +119,10 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    setError('Conecte primeiro a leitura Google na seção 7.');return;
   }
   let payload:ReturnType<typeof approvedChatRequest>;
-  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources);}
+  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setProposalNotice('');
+  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProposalNotice('');
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -137,6 +139,11 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    const answer=assertLabReply(result);
    const sources=readLabWebSources(result);
    const structured=result as {integrations?:unknown;learningProposal?:unknown}|null;
+   const library=(result as {library?:{consulted?:unknown;sources?:unknown}}|null)?.library;
+   const docRefs=library?.consulted===true&&Array.isArray(library.sources)?
+    library.sources.filter((x):x is {key:string;title:string;source:string;url:string;contentStatus:string}=>
+     !!x&&typeof x.key==='string'&&typeof x.title==='string'&&typeof x.url==='string'&&
+      typeof x.source==='string'&&typeof x.contentStatus==='string').slice(0,3):null;
    const rawReceipt=structured?.integrations;
    const newReceipt=rawReceipt&&typeof rawReceipt==='object'&&!Array.isArray(rawReceipt)?rawReceipt as Record<string,number>:null;
    const rawSuggestion=(structured?.learningProposal as {text?:unknown;requiresApproval?:unknown}|null);
@@ -152,7 +159,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
      ?'none':null;
    if(!controller.signal.aborted){
     setHistory([...messages,{role:'assistant',text:answer}]);
-    setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setProposalText(nextSuggestion);setProposalApproved(false);
+    setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);
     setAutoMemoryResult(autoResult);
     setDraft('');setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
    }
@@ -195,6 +202,14 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   {consultedMemoryCount>0&&<p className="lab-memory-used" role="status">
    <strong>Memória:</strong> {consultedMemoryCount} registro(s) {autoMemoryResult==='found'?'relevante(s) encontrado(s) com sua autorização':'escolhido(s) por você'} foram usados nesta resposta.
   </p>}
+  {librarySources&&<div className="lab-learning-proposal" role="status">
+   <strong>Biblioteca pesquisada: {librarySources.length} referência(s)</strong>
+   {librarySources.length===0?<p>Nenhum documento foi encontrado para esta pergunta.</p>:
+    <ul>{librarySources.map((doc,i)=><li key={doc.key}>[D{i+1}] {doc.title}
+     {doc.contentStatus!=='indexed'?' (somente metadados)':''}
+     {doc.url&&<a href={doc.url} rel="noopener noreferrer" target="_blank"> Abrir fonte</a>}
+    </li>)}</ul>}
+  </div>}
   {integrationReceipt&&<p className="lab-memory-used" role="status">Integrações consultadas nesta resposta: {Object.entries(integrationReceipt).map(([key,n])=>key+': '+n+' item(ns)').join(' · ')}.</p>}
   {proposalText&&<div className="lab-learning-proposal">
    <strong>Aprendizado contínuo — sugestão, não salva</strong>
@@ -245,6 +260,10 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   </div>}
   <div className="lab-chat-memory">
    <strong>Consultar integrações nesta pergunta (opcional)</strong>
+   <label className="lab-source-option">
+    <input type="checkbox" checked={useLibrary} disabled={busy} onChange={e=>setUseLibrary(e.target.checked)}/>
+    Consultar minha biblioteca de documentos (com fontes)
+   </label>
    <p>Você decide quando compartilhar resultados de Agenda, Drive ou Notion com o Gemini. Os tokens nunca entram no texto enviado ao modelo.</p>
    {(['calendar','drive','notion'] as const).map(provider=><label key={provider} className="lab-source-option">
     <input type="checkbox" checked={selectedSources.includes(provider)} disabled={busy}

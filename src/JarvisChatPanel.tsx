@@ -13,6 +13,8 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [webSources,setWebSources]=useState<LabWebSource[]>([]);
  const [selectedSources,setSelectedSources]=useState<string[]>([]);
  const [useLibrary,setUseLibrary]=useState(false);
+ const [useProjects,setUseProjects]=useState(false);
+ const [projectsReceipt,setProjectsReceipt]=useState<{shared:number;available:number;truncated:boolean}|null>(null);
  const [librarySources,setLibrarySources]=useState<{key:string;title:string;source:string;url:string;contentStatus:string}[]|null>(null);
  const [integrationReceipt,setIntegrationReceipt]=useState<Record<string,number>|null>(null);
  const [proposalText,setProposalText]=useState('');
@@ -35,7 +37,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setLibrarySources(null);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -122,10 +124,10 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    setError('Conecte primeiro a leitura Google na seção 7.');return;
   }
   let payload:ReturnType<typeof approvedChatRequest>;
-  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary);}
+  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');
+  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -142,12 +144,23 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    }
    const answer=assertLabReply(result);
    const sources=readLabWebSources(result);
-   const structured=result as {integrations?:unknown;learningProposal?:unknown;projectProposal?:unknown}|null;
+   const structured=result as {integrations?:unknown;learningProposal?:unknown;projectProposal?:unknown;projects?:unknown}|null;
    const library=(result as {library?:{consulted?:unknown;sources?:unknown}}|null)?.library;
    const docRefs=library?.consulted===true&&Array.isArray(library.sources)?
     library.sources.filter((x):x is {key:string;title:string;source:string;url:string;contentStatus:string}=>
      !!x&&typeof x.key==='string'&&typeof x.title==='string'&&typeof x.url==='string'&&
       typeof x.source==='string'&&typeof x.contentStatus==='string').slice(0,3):null;
+   const rawProjects=structured?.projects;
+   const safeProjectReceipt=rawProjects&&typeof rawProjects==='object'&&!Array.isArray(rawProjects)?
+    rawProjects as Record<string,unknown>:null;
+   const nextProjects=safeProjectReceipt?.consulted===true&&
+    Number.isInteger(safeProjectReceipt.shared)&&Number.isInteger(safeProjectReceipt.available)&&
+    Number(safeProjectReceipt.shared)>=0&&Number(safeProjectReceipt.shared)<=8&&
+    Number(safeProjectReceipt.available)>=Number(safeProjectReceipt.shared)&&
+    Number(safeProjectReceipt.available)<=50&&
+    typeof safeProjectReceipt.truncated==='boolean'?
+     {shared:Number(safeProjectReceipt.shared),available:Number(safeProjectReceipt.available),
+      truncated:safeProjectReceipt.truncated}:null;
    const rawReceipt=structured?.integrations;
    const newReceipt=rawReceipt&&typeof rawReceipt==='object'&&!Array.isArray(rawReceipt)?rawReceipt as Record<string,number>:null;
    const rawSuggestion=(structured?.learningProposal as {text?:unknown;requiresApproval?:unknown}|null);
@@ -164,6 +177,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    if(!controller.signal.aborted){
     setProjectProposal(readLabProjectProposal(result));setProjectConfirmed(false);
     setHistory([...messages,{role:'assistant',text:answer}]);
+    setProjectsReceipt(nextProjects);
     setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);
     setAutoMemoryResult(autoResult);
     setDraft('');setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
@@ -229,6 +243,11 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   {autoMemoryResult==='none'&&<p className="lab-memory-used" role="status">Nenhuma memória relevante foi encontrada nesta pergunta. Nada foi compartilhado da sua base com o Gemini.</p>}
   {consultedMemoryCount>0&&<p className="lab-memory-used" role="status">
    <strong>Memória:</strong> {consultedMemoryCount} registro(s) {autoMemoryResult==='found'?'relevante(s) encontrado(s) com sua autorização':'escolhido(s) por você'} foram usados nesta resposta.
+  </p>}
+  {projectsReceipt&&<p className="lab-memory-used" role="status">
+   <strong>Projetos consultados com sua autorização:</strong> {projectsReceipt.shared} de {projectsReceipt.available} projeto(s).
+   {projectsReceipt.truncated?' Para manter o contexto enxuto, alguns projetos não foram enviados ao Gemini.':''}
+   {' '}Notas privadas, clientes, finanças e registros detalhados não foram compartilhados.
   </p>}
   {librarySources&&<div className="lab-learning-proposal" role="status">
    <strong>Biblioteca pesquisada: {librarySources.length} referência(s)</strong>
@@ -306,7 +325,13 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    </div>}
   </div>}
   <div className="lab-chat-memory">
-   <strong>Consultar integrações nesta pergunta (opcional)</strong>
+   <strong>Consultar meus dados nesta pergunta (opcional)</strong>
+   <label className="lab-source-option">
+    <input type="checkbox" checked={useProjects} disabled={busy}
+     onChange={e=>setUseProjects(e.target.checked)}/>
+    Compartilhar apenas nomes, objetivos e estados dos meus projetos com o Gemini nesta pergunta
+   </label>
+   <small>Desligado por padrão. Não envia observações, registros de clientes ou valores financeiros. Você pode desmarcar quando quiser.</small>
    <label className="lab-source-option">
     <input type="checkbox" checked={useLibrary} disabled={busy} onChange={e=>setUseLibrary(e.target.checked)}/>
     Consultar minha biblioteca de documentos (com fontes)
@@ -328,7 +353,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

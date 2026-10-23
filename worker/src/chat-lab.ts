@@ -12,6 +12,8 @@ import {LabMemoryStore} from './lab-memory';
 import {selectedMemoryIds,readSelectedMemory,userApprovedMemoryContext,autoMemoryRequested} from './core/lab-memory-chat';
 import {relevantLabMemory} from './core/lab-memory-relevance';
 import {LabWorkspaceStore} from './lab-workspace';
+import {LabDocumentIndex} from './lab-document-index';
+import {fetchDriveDocumentSnapshot,fetchNotionDocumentSnapshot} from './core/document-source-readers';
 import {LabExternalActionStore} from './lab-external-actions';
 import {executeApprovedExternalAction} from './core/sigma-action-executors';
 import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,type Provider} from './core/sigma-connectors';
@@ -55,6 +57,8 @@ export interface LabChatEnv {
  LAB_CONNECTORS_ENABLED?:string;
  LAB_ACTIONS_ENABLED?:string;
  LAB_ACTIONS?:DurableObjectNamespace;
+ LAB_DOCUMENTS_ENABLED?:string;
+ LAB_DOCUMENT_INDEX?:DurableObjectNamespace;
  NOTION_API_KEY?:string;
 }
 type Dependencies={
@@ -102,25 +106,76 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const workspacePath=path==='/api/lab/workspace'||path.startsWith('/api/lab/workspace/');
    const integrationPath=path.startsWith('/api/lab/integrations/');
    const catalogPath=path==='/api/lab/modules';
+   const documentPath=path==='/api/lab/documents'||path.startsWith('/api/lab/documents/');
    const actionPath=path==='/api/lab/actions/prepare'||path.startsWith('/api/lab/actions/');
-   if(path!=='/api/lab/chat'&&!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath)
+   if(path!=='/api/lab/chat'&&!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&!documentPath)
     throw new HttpError(404,'Rota inexistente.');
    if(request.method==='OPTIONS'){
     return new Response(null,{status:204,headers:{
-     ...headers,'Access-Control-Allow-Methods':(memoryPath||workspacePath||integrationPath||catalogPath||actionPath)?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
+     ...headers,'Access-Control-Allow-Methods':(memoryPath||workspacePath||integrationPath||catalogPath||actionPath||documentPath)?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
      'Access-Control-Allow-Headers':'Authorization, Content-Type, X-Google-Token',
      'Access-Control-Max-Age':'600'
     }});
    }
-   if(!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&request.method!=='POST')
+   if(!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&!documentPath&&request.method!=='POST')
     throw new HttpError(405,'Método não permitido.');
    // Internal ecosystem APIs are NEVER available to unauthenticated browsers.
-   if(catalogPath||workspacePath||integrationPath||actionPath){
+   if(catalogPath||workspacePath||integrationPath||actionPath||documentPath){
     const uid=await(deps.verify||verifyLabUser)(request,env);
     if(uid!==env.ALLOWED_UID)throw new HttpError(403,'Conta não autorizada.');
     if(catalogPath){
      if(request.method!=='GET')throw new HttpError(405,'Método não permitido.');
      return reply({modules:SIGMA_MODULES});
+    }
+    if(documentPath){
+     if(env.LAB_DOCUMENTS_ENABLED!=='true'||!env.LAB_DOCUMENT_INDEX)
+      throw new HttpError(503,'Índice de documentos ainda desativado no laboratório.');
+     const url=new URL(request.url),catalog=env.LAB_DOCUMENT_INDEX.get(env.LAB_DOCUMENT_INDEX.idFromName(uid));
+     if(path==='/api/lab/documents'&&request.method==='GET'){
+      const response=await catalog.fetch('https://lab-documents.internal/documents',{method:'GET'});
+      return reply(await response.json(),response.status);
+     }
+     if(path==='/api/lab/documents/search'&&request.method==='GET'){
+      const query=url.searchParams.get('q')||'';
+      if(query.length>180)throw new HttpError(400,'Pesquisa muito longa.');
+      const response=await catalog.fetch('https://lab-documents.internal/search?q='+encodeURIComponent(query),{method:'GET'});
+      return reply(await response.json(),response.status);
+     }
+     if(path==='/api/lab/documents'&&request.method==='DELETE'){
+      if(url.searchParams.get('confirm')!=='APAGAR-INDICE-LOCAL')
+       throw new HttpError(400,'Confirme a exclusão do índice local. Os documentos originais não serão apagados.');
+      const source=url.searchParams.get('source')||'';
+      const response=await catalog.fetch('https://lab-documents.internal/clear?source='+encodeURIComponent(source),{method:'DELETE'});
+      return reply(await response.json(),response.status);
+     }
+     if(path==='/api/lab/documents/sync'&&request.method==='POST'){
+      if(env.LAB_CONNECTORS_ENABLED!=='true')throw new HttpError(503,'Conectores externos ainda desligados.');
+      if(!request.headers.get('Content-Type')?.startsWith('application/json'))
+       throw new HttpError(415,'Envie JSON.');
+      const raw=await request.text();
+      if(raw.length>150)throw new HttpError(413,'Pedido de sincronização inválido.');
+      let payload:unknown;
+      try{payload=JSON.parse(raw);}catch{throw new HttpError(400,'Pedido JSON inválido.');}
+      if(!payload||typeof payload!=='object'||Array.isArray(payload))
+       throw new HttpError(400,'Seleção de sincronização inválida.');
+      const selection=payload as Record<string,unknown>;
+      if(Object.keys(selection).some(key=>!['source','includeContent'].includes(key))||
+       (selection.source!=='drive'&&selection.source!=='notion')||
+       (selection.includeContent!==undefined&&typeof selection.includeContent!=='boolean'))
+       throw new HttpError(400,'Fonte ou opção de sincronização inválida.');
+      const quota=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))
+       .fetch('https://lab-quota.internal/documents-sync',{method:'POST'});
+      if(!quota.ok)throw new HttpError(quota.status===429?429:503,'Limite de sincronização atingido. Tente em outro momento.');
+      const snapshot=selection.source==='drive'?
+       await fetchDriveDocumentSnapshot(validGoogleToken(request.headers.get('X-Google-Token')),deps.fetch||fetch,selection.includeContent===true):
+       await fetchNotionDocumentSnapshot(env.NOTION_API_KEY||'',deps.fetch||fetch,selection.includeContent===true);
+      // Only after EVERY metadata page loaded successfully will this one atomic index update run.
+      const response=await catalog.fetch('https://lab-documents.internal/sync',{
+       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(snapshot)
+      });
+      return reply(await response.json(),response.status);
+     }
+     throw new HttpError(405,'Método ou rota de documentos não permitido.');
     }
     if(workspacePath){
      if(env.LAB_WORKSPACE_ENABLED!=='true'||!env.LAB_WORKSPACE)
@@ -395,8 +450,21 @@ export class LabChatQuota {
  constructor(private readonly state:DurableObjectState){}
  async fetch(request:Request):Promise<Response>{
   const path=new URL(request.url).pathname;
-  if(request.method!=='POST'||!['/consume','/web-search'].includes(path))
+  if(request.method!=='POST'||!['/consume','/web-search','/documents-sync'].includes(path))
    return new Response(null,{status:404});
+  if(path==='/documents-sync'){
+   const now=new Date(),day=now.toISOString().slice(0,10),month=now.toISOString().slice(0,7);
+   const granted=await this.state.storage.transaction(async tx=>{
+    const key='docs-sync-'+month;
+    const previous=await tx.get<{monthCount:number;day:string;dayCount:number;lastAt:number}>(key);
+    const state=previous||{monthCount:0,day,dayCount:0,lastAt:0};
+    if(state.day!==day){state.day=day;state.dayCount=0;}
+    if(state.monthCount>=45||state.dayCount>=5||now.getTime()-state.lastAt<60000)return false;
+    state.monthCount++;state.dayCount++;state.lastAt=now.getTime();
+    await tx.put(key,state);return true;
+   });
+   return new Response(null,{status:granted?204:429});
+  }
   if(path==='/web-search'){
    const now=new Date();
    const month=now.toISOString().slice(0,7);
@@ -426,5 +494,5 @@ export class LabChatQuota {
   return new Response(null,{status:allowed?204:429});
  }
 }
-export {LabMemoryStore,LabWorkspaceStore,LabExternalActionStore};
+export {LabMemoryStore,LabWorkspaceStore,LabExternalActionStore,LabDocumentIndex};
 export default makeLabChatWorker();

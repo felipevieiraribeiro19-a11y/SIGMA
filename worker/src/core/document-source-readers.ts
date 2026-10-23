@@ -165,3 +165,106 @@ export async function fetchDriveDocumentSnapshot(
  }
  return {source:'drive',complete:true,documents};
 }
+
+
+/** One provider page per Worker request: staged by Durable Object, committed only after the final page. */
+export type PagedDocuments={documents:SourceDocument[];nextCursor:string|null;textReads:number};
+const safePageCursor=(cursor:string|null):string|null=>{
+ if(cursor===null)return null;
+ if(typeof cursor!=='string'||!cursor||cursor.length>2048||/[\x00-\x1f]/.test(cursor))
+  throw new HttpError(400,'Cursor remoto inválido.');
+ return cursor;
+};
+const pageBudget=(limit:number):number=>{
+ if(!Number.isSafeInteger(limit)||limit<0||limit>8)throw new HttpError(400,'Limite de leitura inválido.');
+ return limit;
+};
+/** Google Drive: read-only, bounded to 100 rows and at most 8 text reads per entire scan. */
+export async function fetchDriveDocumentPage(
+ token:string,cursor:string|null,remainingTextReads=0,transport:Transport=fetch
+):Promise<PagedDocuments>{
+ validGoogleToken(token);safePageCursor(cursor);pageBudget(remainingTextReads);
+ const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+ const args=new URLSearchParams({
+  q:"trashed = false and (mimeType = 'application/pdf' or mimeType = 'application/vnd.google-apps.document' or mimeType = 'text/plain')",
+  fields:'nextPageToken,incompleteSearch,files(id,name,mimeType,modifiedTime,webViewLink,version,md5Checksum)',
+  pageSize:'100',orderBy:'modifiedTime desc'
+ });
+ if(cursor)args.set('pageToken',cursor);
+ const response=await transport(DRIVE+'/drive/v3/files?'+args,{headers,signal:AbortSignal.timeout(12000)});
+ const result=await apiJson(response,'drive');
+ if(result.incompleteSearch!==undefined&&result.incompleteSearch!==false)
+  throw new HttpError(502,'Listagem Drive incompleta: índice anterior preservado.');
+ if(!Array.isArray(result.files)||result.files.length>100)
+  throw new HttpError(502,'Página Drive inválida: índice anterior preservado.');
+ const nextCursor=safePageCursor(result.nextPageToken===undefined?null:result.nextPageToken as string|null);
+ const documents:SourceDocument[]=[];let textReads=0;
+ for(const value of result.files){
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new HttpError(502,'Arquivo Drive inválido.');
+  const row=value as Record<string,unknown>;
+  const id=str(row.id,128),updatedAt=str(row.modifiedTime,40),mimeType=str(row.mimeType,128);
+  if(!id||!updatedAt||!mimeType)throw new HttpError(502,'Documento Drive sem identificação.');
+  let text:string|undefined;
+  if(textReads<remainingTextReads&&(mimeType==='application/vnd.google-apps.document'||mimeType==='text/plain')){
+   textReads++;
+   const path=mimeType==='application/vnd.google-apps.document'?
+    DRIVE+'/drive/v3/files/'+encodeURIComponent(id)+'/export?mimeType=text%2Fplain':
+    DRIVE+'/drive/v3/files/'+encodeURIComponent(id)+'?alt=media';
+   try{
+    const content=await transport(path,{headers,signal:AbortSignal.timeout(9000)});
+    if(content.ok&&Number(content.headers.get('Content-Length')||'0')<=15000)
+     text=await limitedPlainText(content);
+   }catch{/* metadata remains safe and searchable */}
+  }
+  const link=str(row.webViewLink,550);
+  documents.push({source:'drive',sourceId:id,title:str(row.name,200)||'Sem título',
+   version:str(row.version||row.md5Checksum||updatedAt,140),updatedAt,
+   url:link.startsWith('https://')?link:'',mimeType,
+   ...(text===undefined?{}:{text})});
+ }
+ return {documents,nextCursor,textReads};
+}
+/** Notion: read-only, search pages only, limit content to first 8 accessible pages per scan. */
+export async function fetchNotionDocumentPage(
+ key:string,cursor:string|null,remainingTextReads=0,transport:Transport=fetch
+):Promise<PagedDocuments>{
+ if(typeof key!=='string'||key.length<10||key.length>500||/[\r\n]/.test(key))
+  throw new HttpError(503,'Configure NOTION_API_KEY no Worker LAB.');
+ safePageCursor(cursor);pageBudget(remainingTextReads);
+ const headers={Authorization:'Bearer '+key,'Notion-Version':NOTION_VERSION,'Content-Type':'application/json'};
+ const payload={page_size:75,sort:{direction:'descending',timestamp:'last_edited_time'},
+  filter:{property:'object',value:'page'},...(cursor?{start_cursor:cursor}:{})};
+ const response=await transport(NOTION+'/search',{
+  method:'POST',headers,body:JSON.stringify(payload),signal:AbortSignal.timeout(12000)
+ });
+ const result=await apiJson(response,'notion');
+ if(!Array.isArray(result.results)||result.results.length>75||typeof result.has_more!=='boolean')
+  throw new HttpError(502,'Paginação Notion inválida: índice anterior preservado.');
+ const nextCursor=result.has_more?safePageCursor(result.next_cursor as string|null):null;
+ if(result.has_more&&!nextCursor)throw new HttpError(502,'Notion não retornou cursor.');
+ const documents:SourceDocument[]=[];let textReads=0;
+ for(const value of result.results){
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new HttpError(502,'Página Notion inválida.');
+  const row=value as Record<string,unknown>;
+  const id=str(row.id,128),updatedAt=str(row.last_edited_time,40);
+  if(!id||!updatedAt)throw new HttpError(502,'Página Notion sem identificação.');
+  let text:string|undefined;
+  if(textReads<remainingTextReads){
+   textReads++;
+   try{
+    const content=await transport(NOTION+'/blocks/'+encodeURIComponent(id)+'/children?page_size=100',{
+     method:'GET',headers,signal:AbortSignal.timeout(10000)
+    });
+    const data=await apiJson(content,'notion');
+    if(Array.isArray(data.results)){
+     const extracted=(data.results as Record<string,unknown>[]).map(notionBlockText).filter(Boolean).join('\n');
+     if(extracted)text=extracted.slice(0,12000);
+    }
+   }catch{/* metadata remains safe and searchable */}
+  }
+  documents.push({source:'notion',sourceId:id.replace(/-/g,''),title:notionTitle(row).slice(0,200),
+   version:updatedAt,updatedAt,url:str(row.url,550),mimeType:'application/vnd.notion.page',
+   ...(text===undefined?{}:{text})});
+ }
+ return {documents,nextCursor,textReads};
+}

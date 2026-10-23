@@ -233,12 +233,32 @@ export function makeLabChatWorker(deps:Dependencies={}){
     if(workspacePath){
      if(env.LAB_WORKSPACE_ENABLED!=='true'||!env.LAB_WORKSPACE)
       throw new HttpError(503,'Espaço de trabalho ainda desativado neste laboratório.');
-     if(!['GET','POST','PATCH','DELETE'].includes(request.method))
+     if(!['GET','POST','PUT','PATCH','DELETE'].includes(request.method))
       throw new HttpError(405,'Método não permitido.');
      if(path==='/api/lab/workspace/briefing'){
       if(request.method!=='GET')throw new HttpError(405,'Resumo diário disponível somente para consulta.');
       const response=await env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid))
        .fetch('https://lab-workspace.internal/entries/briefing',{method:'GET'});
+      return reply(await response.json(),response.status);
+     }
+     if(path==='/api/lab/workspace/cycle'||path==='/api/lab/workspace/cycle/reset'){
+      if(path==='/api/lab/workspace/cycle'&&!['GET','PUT'].includes(request.method)||
+       path==='/api/lab/workspace/cycle/reset'&&request.method!=='POST')
+       throw new HttpError(405,'Método do ciclo não permitido.');
+      let body:unknown;
+      if(request.method==='PUT'||request.method==='POST'){
+       if(!request.headers.get('Content-Type')?.startsWith('application/json'))
+        throw new HttpError(415,'Envie JSON para configurar o ciclo.');
+       const raw=await request.text();
+       if(raw.length>2400)throw new HttpError(413,'Configuração de ciclo grande demais.');
+       try{body=JSON.parse(raw);}catch{throw new HttpError(400,'Configuração JSON inválida.');}
+      }
+      const response=await env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid)).fetch(
+       new Request('https://lab-workspace.internal/entries'+path.slice('/api/lab/workspace'.length),{
+        method:request.method,...(body===undefined?{}:{
+         headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+        })
+       }));
       return reply(await response.json(),response.status);
      }
      const suffix=path.slice('/api/lab/workspace'.length);

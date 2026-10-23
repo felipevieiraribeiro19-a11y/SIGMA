@@ -129,3 +129,14 @@ button:disabled{cursor:not-allowed;opacity:.48}button:focus-visible,select:focus
 .lab-learning-proposal input[type="checkbox"]{width:20px;height:20px}
 .lab-chat-memory .lab-source-option{display:flex;align-items:center;gap:10px;padding:7px 0}
 .lab-chat-memory .lab-source-option input[type="checkbox"]{width:20px;height:20px}
+
+/* Read-only document sync controls, responsive on iPhone. */
+.lab-documents{display:grid;gap:10px;min-width:0}
+.lab-documents>label,.lab-doc-search>label{display:grid;gap:8px}
+.lab-doc-search{display:grid;gap:10px;margin-top:12px;padding:12px;border:1px solid #345f77;border-radius:10px}
+.lab-doc-search input[type="checkbox"]{width:20px;height:20px;margin-right:8px}
+.lab-documents select,.lab-documents input:not([type="checkbox"]){width:100%;box-sizing:border-box;min-width:0;padding:12px;background:#071c2b;color:#eff7ff;border:1px solid #547d97;border-radius:9px;font:inherit}
+.lab-doc-list{list-style:none;padding:0;display:grid;gap:10px}
+.lab-doc-list li{padding:12px;border:1px solid #315a70;border-radius:9px;overflow-wrap:anywhere}
+.lab-doc-list li strong{display:block}
+.lab-doc-list li a{color:#9bdfff}

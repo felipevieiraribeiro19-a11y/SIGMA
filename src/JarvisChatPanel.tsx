@@ -5,6 +5,18 @@ import {approvedChatRequest,readMemoryChoices,type SharedMemoryChoice} from './l
 import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,type LabWebSource,type LabChatMessage} from './jarvis-chat-protocol';
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
+type ProjectProposal={kind:'project.create';source:'gemini';requiresApproval:true;
+ title:string;goal:string;notes:string};
+const safeProjectProposal=(value:unknown):ProjectProposal|null=>{
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const v=value as Record<string,unknown>;
+ if(v.kind!=='project.create'||v.source!=='gemini'||v.requiresApproval!==true||
+  typeof v.title!=='string'||typeof v.goal!=='string'||typeof v.notes!=='string'||
+  v.title.length<2||v.title.length>120||v.goal.length<2||v.goal.length>1000||
+  v.notes.length>2000)return null;
+ return {kind:'project.create',source:'gemini',requiresApproval:true,
+  title:v.title,goal:v.goal,notes:v.notes};
+};
 
 export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:string|null}){
  const [history,setHistory]=useState<LabChatMessage[]>([]);
@@ -20,6 +32,10 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [proposalApproved,setProposalApproved]=useState(false);
  const [savingProposal,setSavingProposal]=useState(false);
  const [proposalNotice,setProposalNotice]=useState('');
+ const [projectProposal,setProjectProposal]=useState<ProjectProposal|null>(null);
+ const [projectConfirmed,setProjectConfirmed]=useState(false);
+ const [projectSaving,setProjectSaving]=useState(false);
+ const [projectNotice,setProjectNotice]=useState('');
  const [memoryChoices,setMemoryChoices]=useState<SharedMemoryChoice[]>([]);
  const [selectedMemoryIds,setSelectedMemoryIds]=useState<string[]>([]);
  const [memoryPickerOpen,setMemoryPickerOpen]=useState(false);
@@ -32,7 +48,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setLibrarySources(null);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setLibrarySources(null);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -122,7 +138,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProposalNotice('');
+  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -139,7 +155,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    }
    const answer=assertLabReply(result);
    const sources=readLabWebSources(result);
-   const structured=result as {integrations?:unknown;learningProposal?:unknown}|null;
+   const structured=result as {integrations?:unknown;learningProposal?:unknown;projectProposal?:unknown}|null;
    const library=(result as {library?:{consulted?:unknown;sources?:unknown}}|null)?.library;
    const docRefs=library?.consulted===true&&Array.isArray(library.sources)?
     library.sources.filter((x):x is {key:string;title:string;source:string;url:string;contentStatus:string}=>
@@ -159,6 +175,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
      ?'found':memoryData?.mode==='auto'&&memoryData?.consulted===false&&memoryData?.count===0
      ?'none':null;
    if(!controller.signal.aborted){
+    setProjectProposal(safeProjectProposal(structured?.projectProposal));setProjectConfirmed(false);
     setHistory([...messages,{role:'assistant',text:answer}]);
     setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);
     setAutoMemoryResult(autoResult);
@@ -169,6 +186,29 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   }finally{
    if(pending.current===controller){pending.current=null;setBusy(false);}
   }
+ }
+ async function createApprovedProject(){
+  if(!user||!api||!projectProposal||!projectConfirmed||projectSaving||busy)return;
+  setProjectSaving(true);setProjectNotice('');
+  try{
+   const token=await user.getIdToken();
+   const response=await fetch(api+'/api/lab/workspace/projects',{
+    method:'POST',cache:'no-store',headers:{
+     Authorization:'Bearer '+token,'Content-Type':'application/json'
+    },body:JSON.stringify({title:projectProposal.title,
+     goal:projectProposal.goal,notes:projectProposal.notes})
+   });
+   const body:unknown=await response.json().catch(()=>null);
+   if(!response.ok)throw Error((body as {error?:string}|null)?.error||
+    'A criação do projeto não foi confirmada pelo servidor.');
+   const saved=(body as {project?:{id?:unknown;title?:unknown}}|null)?.project;
+   if(typeof saved?.id!=='string'||typeof saved?.title!=='string')
+    throw Error('Resposta incompleta. Confira seus projetos antes de tentar novamente.');
+   setProjectNotice('Projeto "'+saved.title+'" criado e confirmado pelo SIGMA. '+
+    'Consulte-o na seção Gestão integrada.');
+   setProjectProposal(null);setProjectConfirmed(false);
+  }catch(e){setProjectNotice(e instanceof Error?e.message:'Não foi possível criar o projeto.');}
+  finally{setProjectSaving(false);}
  }
  async function saveApprovedProposal(){
   if(!user||!api||savingProposal||!proposalApproved)return;
@@ -190,7 +230,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  }
  return <div className="lab-chat">
   <h3>Conversa com Gemini + pesquisa + memória opcional</h3>
-  <p>Conversa temporária: não fica salva, não lê Agenda ou Drive e não executa ações. Pesquisa na web apenas quando necessário, se habilitada. Consultas podem ser enviadas à Tavily. Use exemplos fictícios e evite dados pessoais.</p>
+  <p>Conversa temporária: não fica salva e não acessa Agenda ou Drive sem autorização. Quando o recurso de projetos estiver habilitado no laboratório, o Gemini poderá apenas propor um projeto; a criação exige revisão e confirmação separadas. Pesquisa na web somente quando habilitada. Use exemplos fictícios e evite dados pessoais.</p>
   {!api&&<p className="lab-chat-notice" role="status">Integração em preparação: o Worker isolado ainda não foi publicado e validado.</p>}
   {api&&!user&&<p className="lab-chat-notice" role="status">Faça login Google acima para habilitar os testes de conversa.</p>}
   {history.length>0&&<div className="lab-chat-dialog" aria-label="Mensagens desta sessão">
@@ -212,6 +252,25 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
     </li>)}</ul>}
   </div>}
   {integrationReceipt&&<p className="lab-memory-used" role="status">Integrações consultadas nesta resposta: {Object.entries(integrationReceipt).map(([key,n])=>key+': '+n+' item(ns)').join(' · ')}.</p>}
+  {projectProposal&&<div className="lab-learning-proposal" aria-label="Proposta de projeto criada pelo Gemini">
+   <strong>Proposta de projeto — nada salvo ainda</strong>
+   <p>O Gemini preparou um rascunho. Você pode corrigir os dados. Apenas sua confirmação criará este projeto no SIGMA.</p>
+   <label>Nome do projeto<input maxLength={120} value={projectProposal.title}
+    onChange={e=>{setProjectProposal({...projectProposal,title:e.target.value});setProjectConfirmed(false);}}/></label>
+   <label>Objetivo<textarea rows={3} maxLength={1000} value={projectProposal.goal}
+    onChange={e=>{setProjectProposal({...projectProposal,goal:e.target.value});setProjectConfirmed(false);}}/></label>
+   <label>Observações<textarea rows={3} maxLength={2000} value={projectProposal.notes}
+    onChange={e=>{setProjectProposal({...projectProposal,notes:e.target.value});setProjectConfirmed(false);}}/></label>
+   <label><input type="checkbox" checked={projectConfirmed} onChange={e=>setProjectConfirmed(e.target.checked)}/>
+    Revisei e autorizo criar exatamente este projeto no meu SIGMA.</label>
+   <button type="button" disabled={busy||projectSaving||!projectConfirmed||
+    projectProposal.title.trim().length<2||projectProposal.goal.trim().length<2}
+    onClick={()=>void createApprovedProject()}>{projectSaving?'Registrando…':'Confirmar e criar projeto'}</button>
+   <button type="button" disabled={busy||projectSaving} onClick={()=>{
+    setProjectProposal(null);setProjectConfirmed(false);
+   }}>Descartar proposta</button>
+  </div>}
+  {projectNotice&&<p role="status">{projectNotice}</p>}
   {proposalText&&<div className="lab-learning-proposal">
    <strong>Aprendizado contínuo — sugestão, não salva</strong>
    <p>O SIGMA identificou uma informação que talvez valha guardar. Revise, corrija ou descarte.</p>
@@ -282,7 +341,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

@@ -18,6 +18,7 @@ export function LabDocumentsPanel({user}:{user:User|null}){
  const [query,setQuery]=useState('');
  const [hits,setHits]=useState<SearchHit[]>([]);
  const [busy,setBusy]=useState(false);
+ const [oauthConnections,setOAuthConnections]=useState<Record<string,{connected?:boolean;needsReauthorization?:boolean}>>({});
  const [scan,setScan]=useState<Scan|null>(null);
  const cancelRequested=useRef(false);
  const [error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -44,6 +45,51 @@ export function LabDocumentsPanel({user}:{user:User|null}){
   const response:any=await r.json().catch(()=>null);
   if(!r.ok)throw Error(response?.error||'Não foi possível acessar o índice.');
   return response;
+ }
+ async function oauthRequest(path:string,body?:unknown):Promise<any>{
+  if(!user||!api)throw Error('Entre no laboratório publicado com sua conta Google.');
+  const idToken=await user.getIdToken();
+  const response=await fetch(api+'/api/lab/oauth/'+path,{
+   method:body===undefined?'GET':'POST',cache:'no-store',
+   headers:{Authorization:'Bearer '+idToken,...(body===undefined?{}:{'Content-Type':'application/json'})},
+   ...(body===undefined?{}:{body:JSON.stringify(body)})
+  });
+  const data:any=await response.json().catch(()=>null);
+  if(!response.ok)throw Error(data?.error||'Conexão permanente Google indisponível.');
+  return data;
+ }
+ async function oauthStatus(){
+  if(busy)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   const data=await oauthRequest('status');
+   setOAuthConnections(data.connections||{});
+   setNotice('Estado da conexão permanente consultado. Nenhum token é exibido.');
+  }catch(e){setError(e instanceof Error?e.message:'OAuth indisponível.');}
+  finally{setBusy(false);}
+ }
+ async function oauthConnect(preset:'calendar'|'drive_metadata'|'drive_content'){
+  if(busy)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   const data:{authorizationUrl?:string}=await oauthRequest('start',{preset});
+   if(!data.authorizationUrl||new URL(data.authorizationUrl).origin!=='https://accounts.google.com')
+    throw Error('URL de autorização recusada.');
+   // Same-tab redirect is compatible with Safari on iPhone.
+   window.location.assign(data.authorizationUrl);
+  }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar autorização.');setBusy(false);}
+ }
+ async function oauthDisconnect(preset:'calendar'|'drive_metadata'|'drive_content'){
+  if(!window.confirm('Apagar a autorização Google armazenada pelo SIGMA para esta permissão?'))return;
+  if(busy)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   await oauthRequest('disconnect',{preset});
+   const data=await oauthRequest('status');
+   setOAuthConnections(data.connections||{});
+   setNotice('Credencial excluída do SIGMA. Para revogar também no Google, use sua Conta Google → Apps de terceiros.');
+  }catch(e){setError(e instanceof Error?e.message:'Não foi possível desconectar.');}
+  finally{setBusy(false);}
  }
  async function refresh(){
   if(busy)return;
@@ -148,6 +194,16 @@ export function LabDocumentsPanel({user}:{user:User|null}){
  return <div className="lab-documents">
   <p>Sincronização <strong>sob seu comando</strong>: o SIGMA detecta arquivos novos, alterados e ausentes, indexa títulos e pode guardar trechos de texto para pesquisa. Não modifica arquivos nas suas contas.</p>
   <p>Os textos indexados permanecem em um banco isolado do Cloudflare LAB até você apagá-los. Até 1.000 documentos por origem, em etapas de no máximo 100 arquivos por consulta. O índice anterior só muda quando todas as páginas são verificadas.</p>
+  <div className="lab-workspace-form">
+   <h3>Conexão Google permanente — laboratório</h3>
+   <p>OAuth com renovação segura: os refresh tokens ficam criptografados no Cloudflare e nunca são entregues ao navegador. A conexão precisa ser configurada pelo proprietário no Google Cloud antes de funcionar. Ela ainda não substitui as autorizações temporárias das integrações acima.</p>
+   <button type="button" disabled={busy||!user} onClick={()=>void oauthStatus()}>Consultar conexões permanentes</button>
+   {(['calendar','drive_metadata','drive_content'] as const).map(preset=><div key={preset}>
+    <small>{preset==='calendar'?'Agenda (leitura)':preset==='drive_metadata'?'Drive (nomes e datas)':'Drive (leitura de conteúdo)'}: {oauthConnections[preset]?.needsReauthorization?'Precisa reconectar':oauthConnections[preset]?.connected?'Conectado':'Não conectado'}</small>
+    <button type="button" disabled={busy||!user} onClick={()=>void oauthConnect(preset)}>Conectar permissão</button>
+    {oauthConnections[preset]?.connected&&<button type="button" disabled={busy||!user} onClick={()=>void oauthDisconnect(preset)}>Desconectar localmente</button>}
+   </div>)}
+  </div>
   <div className="lab-workspace-stats">
    <span>Documentos no índice: <strong>{rows.length}</strong></span>
    <span>Com conteúdo textual: <strong>{indexed}</strong></span>

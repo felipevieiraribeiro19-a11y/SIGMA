@@ -3,7 +3,7 @@ import type {User} from 'firebase/auth';
 import {validLabApiBase} from './jarvis-chat-protocol';
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
 type Kind='study'|'daily'|'task'|'finance';
-type Entry={id:string;kind:Kind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;dueDate?:string;priority?:'low'|'normal'|'high'};
+type Entry={id:string;kind:Kind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;dueDate?:string;priority?:'low'|'normal'|'high';subject?:string;questionsTotal?:number;questionsCorrect?:number};
 type SubjectPerformance={subject:string;sessions:number;studiedMinutes:number;questionsTotal:number;questionsCorrect:number;questionsWrong:number;accuracyPercent:number|null};
 type StudyPerformance={overall:SubjectPerformance;today:SubjectPerformance;subjects:SubjectPerformance[];unclassifiedSessions:number;disclaimer:string};
 type DayBriefing={studyPerformance:StudyPerformance;date:string;studyMinutesToday:number;studySessionsToday:number;financeNetToday:number;financeEntriesToday:number;tasksCompletedToday:number;openTasks:number;overdueTasks:number;dueToday:number;dueNext7Days:number;undatedTasks:number;highlightedTasks:{id:string;title:string;dueDate:string|null;priority:string;group:string}[];latestDiary:{title:string;date:string}|null;guidance:string[];limitation:string};

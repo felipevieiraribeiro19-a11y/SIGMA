@@ -35,6 +35,20 @@ export async function loginLab():Promise<void>{
  // Reuse the existing Google session; no forced account chooser.
  await signInWithPopup(auth,provider);
 }
+/** Minimum-scope, explicit Google consent for read-only integrations.
+ * The access token is returned to the caller's React memory only.
+ * It is never put in a URL, localStorage, Firebase database or GitHub.
+ */
+export async function connectLabGoogleRead():Promise<string>{
+ if(!auth)throw Error('Entre com Google no SIGMA antes de conectar serviços.');
+ const provider=new GoogleAuthProvider();
+ provider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
+ provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
+ const result=await signInWithPopup(auth,provider);
+ const token=GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+ if(!token||token.length>4096)throw Error('O Google não retornou o token para os serviços solicitados.');
+ return token;
+}
 export async function logoutLab():Promise<void>{
  if(auth)await signOut(auth);
 }

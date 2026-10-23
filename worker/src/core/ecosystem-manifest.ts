@@ -4,6 +4,7 @@ export const SIGMA_MODULES=[
  {id:'assistant',name:'Conversa com Gemini',state:'implemented-lab',needs:[]},
  {id:'memory',name:'Memória contextual controlada',state:'implemented-lab',needs:[]},
  {id:'learning',name:'Sugestão de aprendizado contínuo com aprovação',state:'implemented-lab',needs:[]},
+ {id:'projects',name:'Projetos universais — criar, pausar, arquivar e relacionar registros',state:'implemented-lab',needs:['LAB_WORKSPACE_ENABLED']},
  {id:'study',name:'Diário de estudos, horas e matérias',state:'implemented-lab',needs:[]},
  {id:'daily',name:'Diário e rotina pessoal',state:'implemented-lab',needs:[]},
  {id:'tasks',name:'Tarefas e acompanhamento',state:'implemented-lab',needs:[]},

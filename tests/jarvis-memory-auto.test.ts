@@ -72,6 +72,13 @@ async function save(store:LabMemoryStore,text:string){
  assert.equal(r.status,201);
  return (await r.json()).entry.id as string;
 }
+async function consent(store:LabMemoryStore,enabled=true){
+ const response=await store.fetch(new Request('https://lab-memory.internal/settings',{
+  method:'PATCH',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({recallEnabled:enabled})
+ }));
+ assert.equal(response.status,200);
+}
 const req=(question:string,rest:Record<string,unknown>={},site=origin)=>
  new Request('https://lab.test/api/lab/chat',{method:'POST',
   headers:{Origin:site,Authorization:'Bearer fake','Content-Type':'application/json'},
@@ -88,10 +95,12 @@ test('sem autorização, chat não lê a memória; com autorização, seleciona 
  }) as typeof fetch;
  const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:mockFetch});
  const without=await worker.fetch(req('Qual era meu projeto de teste?'),env);
- assert.equal(without.status,200);assert.equal(reads(),0);
+ assert.equal(without.status,200);assert.equal(reads(),1); // preference checked, but no memory accessed
  assert.doesNotMatch(JSON.stringify(prompt),/Projeto Alfa/);
- const withMemory=await worker.fetch(req('Qual era meu projeto de teste?',{memoryMode:'relevant'}),env);
- assert.equal(withMemory.status,200);assert.equal(reads(),1);
+ await consent(store);
+ // No per-message flag: the stored preference is sufficient on the next request.
+ const withMemory=await worker.fetch(req('Qual era meu projeto de teste?'),env);
+ assert.equal(withMemory.status,200);assert.equal(reads(),3);
  assert.match(JSON.stringify(prompt),/Projeto Alfa/);
  assert.doesNotMatch(JSON.stringify(prompt),/bicicletas/);
  assert.deepEqual((await withMemory.json()).memory,{consulted:true,count:1,mode:'auto'});
@@ -99,6 +108,7 @@ test('sem autorização, chat não lê a memória; com autorização, seleciona 
 test('sem correspondência, Gemini não recebe memórias e responde com recibo vazio',async()=>{
  const {store,env}=fixture();
  await save(store,'Projeto Alfa foi salvo como teste.');
+ await consent(store);
  let prompt:unknown;
  const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:async (_url:string,init:RequestInit)=>{
   prompt=JSON.parse(String(init.body));
@@ -112,6 +122,7 @@ test('sem correspondência, Gemini não recebe memórias e responde com recibo v
 test('a configuração do servidor barra busca automática e acessos de outro usuário',async()=>{
  const {store,env,reads}=fixture();
  await save(store,'Projeto Alfa de teste.');
+ await consent(store);
  let external=0;
  const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:async()=>{external++;return new Response()}});
  assert.equal((await worker.fetch(req('Meu projeto?',{memoryMode:'relevant'}),{...env,LAB_MEMORY_AUTO_ENABLED:'false'})).status,503);

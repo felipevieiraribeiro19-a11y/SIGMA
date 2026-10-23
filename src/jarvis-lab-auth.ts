@@ -1,7 +1,8 @@
 import {initializeApp,getApps,getApp} from 'firebase/app';
 import {
  initializeAuth,browserPopupRedirectResolver,GoogleAuthProvider,signInWithPopup,
- signOut,onAuthStateChanged,inMemoryPersistence,type Auth,type User
+ signOut,onAuthStateChanged,browserLocalPersistence,browserSessionPersistence,
+ inMemoryPersistence,type Auth,type User
 } from 'firebase/auth';
 
 /**
@@ -18,12 +19,11 @@ const labFirebaseWebConfig={
 let auth:Auth|undefined;
 export async function prepareLabAuth(onUser:(user:User|null)=>void):Promise<()=>void>{
  const app=getApps().length?getApp():initializeApp(labFirebaseWebConfig);
- // Avoid default Auth bootstrap: that eagerly initializes IndexedDB/browser
- // persistence which can fail on iOS Safari.
- // This isolated lab intentionally loses login state when the page reloads.
- // Firebase's popup helper remains available via browserPopupRedirectResolver.
+ // Persist Firebase Auth only (never the chat or memory content) across
+ // browser visits. Safari private modes may require a weaker fallback.
+ // The ordered array lets Firebase choose the first supported persistence.
  const instance=initializeAuth(app,{
-  persistence:inMemoryPersistence,
+  persistence:[browserLocalPersistence,browserSessionPersistence,inMemoryPersistence],
   popupRedirectResolver:browserPopupRedirectResolver
  });
  auth=instance;
@@ -32,7 +32,7 @@ export async function prepareLabAuth(onUser:(user:User|null)=>void):Promise<()=>
 export async function loginLab():Promise<void>{
  if(!auth)throw Error('A autenticação do laboratório ainda não está pronta.');
  const provider=new GoogleAuthProvider();
- provider.setCustomParameters({prompt:'select_account'});
+ // Reuse the existing Google session; no forced account chooser.
  await signInWithPopup(auth,provider);
 }
 export async function logoutLab():Promise<void>{

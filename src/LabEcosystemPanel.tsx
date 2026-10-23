@@ -180,7 +180,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
   {error&&<p className="lab-error" role="alert">{error}</p>}
   {entries.length>0&&<ul className="lab-workspace-list">{entries.filter(e=>!selectedProjectId||e.projectId===selectedProjectId).map(e=><li key={e.id}>
    <strong>{labels[e.kind]} — {e.title}</strong>
-   {e.projectId&&<small>Projeto: {projects.find(p=>p.id===e.projectId)?.title||'Projeto não localizado'}</small>
+   {e.projectId&&<small>Projeto: {projects.find(p=>p.id===e.projectId)?.title||'Projeto não localizado'}</small>}
    <small>{new Date(e.createdAt).toLocaleDateString('pt-BR')}{e.kind==='study'?' · '+e.minutes+' min':''}{e.kind==='study'&&e.subject?' · '+e.subject:''}{e.kind==='study'&&e.questionsTotal!==undefined?' · '+e.questionsCorrect+'/'+e.questionsTotal+' questões certas':''}{e.kind==='finance'?' · '+e.amount.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):''}{e.kind==='task'&&e.dueDate?' · Prazo '+e.dueDate.split('-').reverse().join('/'):''}{e.kind==='task'&&e.priority==='high'?' · Prioridade alta':''}</small>
    {e.notes&&<p>{e.notes}</p>}
    {e.kind==='task'&&<button type="button" disabled={busy} onClick={()=>void mutate(e)}>{e.done?'Marcar pendente':'Marcar concluída'}</button>}

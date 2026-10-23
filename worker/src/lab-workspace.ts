@@ -2,12 +2,12 @@
 import {HttpError} from './validation';
 import {buildDailyBriefing} from './core/workspace-briefing';
 export type EntryKind='study'|'daily'|'task'|'finance';
-export type WorkspaceEntry={id:string;kind:EntryKind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;updatedAt:string;dueDate?:string;priority?:'low'|'normal'|'high'};
+export type WorkspaceEntry={id:string;kind:EntryKind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;updatedAt:string;dueDate?:string;priority?:'low'|'normal'|'high';subject?:string;questionsTotal?:number;questionsCorrect?:number};
 export function entryPayload(value:unknown):Omit<WorkspaceEntry,'id'|'createdAt'|'updatedAt'>{
  if(!value||typeof value!=='object'||Array.isArray(value))throw new HttpError(400,'Registro inválido.');
  const obj=value as Record<string,unknown>;
- if(Object.keys(obj).some(x=>!['kind','title','notes','minutes','amount','done','dueDate','priority'].includes(x)))throw new HttpError(400,'Campos inesperados.');
- const {kind,title,notes='',minutes=0,amount=0,done=false,dueDate,priority}=obj;
+ if(Object.keys(obj).some(x=>!['kind','title','notes','minutes','amount','done','dueDate','priority','subject','questionsTotal','questionsCorrect'].includes(x)))throw new HttpError(400,'Campos inesperados.');
+ const {kind,title,notes='',minutes=0,amount=0,done=false,dueDate,priority,subject,questionsTotal,questionsCorrect}=obj;
  if(!['study','daily','task','finance'].includes(String(kind)))throw new HttpError(400,'Categoria inválida.');
  if(typeof title!=='string'||title.trim().length<2||title.trim().length>160)throw new HttpError(400,'Título inválido.');
  if(typeof notes!=='string'||notes.length>1500||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(notes))throw new HttpError(400,'Observações inválidas.');
@@ -24,10 +24,25 @@ export function entryPayload(value:unknown):Omit<WorkspaceEntry,'id'|'createdAt'
  }
  if(priority!==undefined&&!['low','normal','high'].includes(String(priority)))
   throw new HttpError(400,'Prioridade inválida.');
+ if((subject!==undefined||questionsTotal!==undefined||questionsCorrect!==undefined)&&kind!=='study')
+  throw new HttpError(400,'Matéria e questões só podem ser usadas em registros de estudo.');
+ if(subject!==undefined&&(typeof subject!=='string'||subject.trim().length<2||
+  subject.trim().length>80||/[\x00-\x1f]/.test(subject)))
+  throw new HttpError(400,'Matéria inválida.');
+ if((questionsTotal===undefined)!==(questionsCorrect===undefined))
+  throw new HttpError(400,'Informe juntas as quantidades de questões e de acertos.');
+ if(questionsTotal!==undefined&&(
+  !Number.isSafeInteger(questionsTotal)||Number(questionsTotal)<0||Number(questionsTotal)>5000||
+  !Number.isSafeInteger(questionsCorrect)||Number(questionsCorrect)<0||
+  Number(questionsCorrect)>Number(questionsTotal)))
+  throw new HttpError(400,'Quantidade de questões ou acertos inválida.');
  return {kind:kind as EntryKind,title:title.trim(),notes:notes.trim(),minutes:minutes as number,
   amount:Math.round((amount as number)*100)/100,done,
   ...(dueDate===undefined?{}:{dueDate:dueDate as string}),
-  ...(priority===undefined?{}:{priority:priority as 'low'|'normal'|'high'})};
+  ...(priority===undefined?{}:{priority:priority as 'low'|'normal'|'high'}),
+  ...(subject===undefined?{}:{subject:(subject as string).trim().replace(/\s+/g,' ')}),
+  ...(questionsTotal===undefined?{}:{
+   questionsTotal:questionsTotal as number,questionsCorrect:questionsCorrect as number})};
 }
 type Tx={get:<V>(key:string)=>Promise<V|undefined>;put:(key:string,value:unknown)=>Promise<unknown>};
 type Storage={transaction:<T>(fn:(tx:Tx)=>Promise<T>)=>Promise<T>};

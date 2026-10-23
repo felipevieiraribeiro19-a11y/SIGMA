@@ -14,5 +14,6 @@ export const SIGMA_MODULES=[
  {id:'notion',name:'Notion — buscar páginas e consultar blocos',state:'ready-for-credentials',needs:['NOTION_API_KEY e compartilhamento das páginas']},
  {id:'actions',name:'Criar eventos, pastas e páginas com aprovação individual',state:'ready-for-credentials',needs:['OAuth Google de escrita, Notion e flag LAB_ACTIONS_ENABLED']},
  {id:'automations',name:'Monitoramento e execução agendada',state:'planned',needs:['Agendador persistente e preferências de alertas']},
- {id:'semantic',name:'Busca semântica e indexação de documentos',state:'planned',needs:['Modelo de embeddings e base vetorial']}
+ {id:'documents',name:'Sincronização manual incremental de Drive/Notion com índice e busca textual',state:'ready-for-credentials',needs:['Google OAuth, Notion, LAB_DOCUMENTS_ENABLED']},
+ {id:'semantic',name:'Busca semântica e extração avançada de PDFs',state:'planned',needs:['Extrator PDF, embeddings e base vetorial']}
 ] as const;

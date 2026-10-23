@@ -2,13 +2,14 @@
 import {HttpError} from './validation';
 import {buildDailyBriefing} from './core/workspace-briefing';
 import {parseCycleSubjects,summarizeStudyCycle,type StudyCycleConfig} from './core/study-cycle';
+import {PROJECT_LIMIT,projectCreatePayload,projectPatchPayload,projectOverview,type Project} from './core/universal-projects';
 export type EntryKind='study'|'daily'|'task'|'finance';
-export type WorkspaceEntry={id:string;kind:EntryKind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;updatedAt:string;dueDate?:string;priority?:'low'|'normal'|'high';subject?:string;questionsTotal?:number;questionsCorrect?:number};
+export type WorkspaceEntry={id:string;kind:EntryKind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;updatedAt:string;dueDate?:string;priority?:'low'|'normal'|'high';subject?:string;questionsTotal?:number;questionsCorrect?:number;projectId?:string};
 export function entryPayload(value:unknown):Omit<WorkspaceEntry,'id'|'createdAt'|'updatedAt'>{
  if(!value||typeof value!=='object'||Array.isArray(value))throw new HttpError(400,'Registro inválido.');
  const obj=value as Record<string,unknown>;
- if(Object.keys(obj).some(x=>!['kind','title','notes','minutes','amount','done','dueDate','priority','subject','questionsTotal','questionsCorrect'].includes(x)))throw new HttpError(400,'Campos inesperados.');
- const {kind,title,notes='',minutes=0,amount=0,done=false,dueDate,priority,subject,questionsTotal,questionsCorrect}=obj;
+ if(Object.keys(obj).some(x=>!['kind','title','notes','minutes','amount','done','dueDate','priority','subject','questionsTotal','questionsCorrect','projectId'].includes(x)))throw new HttpError(400,'Campos inesperados.');
+ const {kind,title,notes='',minutes=0,amount=0,done=false,dueDate,priority,subject,questionsTotal,questionsCorrect,projectId}=obj;
  if(!['study','daily','task','finance'].includes(String(kind)))throw new HttpError(400,'Categoria inválida.');
  if(typeof title!=='string'||title.trim().length<2||title.trim().length>160)throw new HttpError(400,'Título inválido.');
  if(typeof notes!=='string'||notes.length>1500||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(notes))throw new HttpError(400,'Observações inválidas.');
@@ -25,6 +26,9 @@ export function entryPayload(value:unknown):Omit<WorkspaceEntry,'id'|'createdAt'
  }
  if(priority!==undefined&&!['low','normal','high'].includes(String(priority)))
   throw new HttpError(400,'Prioridade inválida.');
+ if(projectId!==undefined&&(typeof projectId!=='string'||
+   !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId)))
+  throw new HttpError(400,'Identificador de projeto inválido.');
  if((subject!==undefined||questionsTotal!==undefined||questionsCorrect!==undefined)&&kind!=='study')
   throw new HttpError(400,'Matéria e questões só podem ser usadas em registros de estudo.');
  if(subject!==undefined&&(typeof subject!=='string'||subject.trim().length<2||
@@ -43,7 +47,8 @@ export function entryPayload(value:unknown):Omit<WorkspaceEntry,'id'|'createdAt'
   ...(priority===undefined?{}:{priority:priority as 'low'|'normal'|'high'}),
   ...(subject===undefined?{}:{subject:(subject as string).trim().replace(/\s+/g,' ')}),
   ...(questionsTotal===undefined?{}:{
-   questionsTotal:questionsTotal as number,questionsCorrect:questionsCorrect as number})};
+   questionsTotal:questionsTotal as number,questionsCorrect:questionsCorrect as number}),
+  ...(projectId===undefined?{}:{projectId:projectId as string})};
 }
 type Tx={get:<V>(key:string)=>Promise<V|undefined>;put:(key:string,value:unknown)=>Promise<unknown>};
 type Storage={transaction:<T>(fn:(tx:Tx)=>Promise<T>)=>Promise<T>};
@@ -52,9 +57,62 @@ export class LabWorkspaceStore{
  async fetch(request:Request):Promise<Response>{
   const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
   const {pathname}=new URL(request.url);
-  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset)|\/[0-9a-f-]{36})?$/.test(pathname))return json({error:'Rota inexistente.'},404);
+  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset)|\/[0-9a-f-]{36})?$/.test(pathname)&&
+   !/^\/projects(?:\/[0-9a-f-]{36})?$/.test(pathname))return json({error:'Rota inexistente.'},404);
   const id=pathname.startsWith('/entries/')?pathname.slice(9):null;
   try{
+   if(pathname==='/projects'&&request.method==='GET'){
+    const result=await this.state.storage.transaction(async tx=>{
+     const projects=(await tx.get<Project[]>('projects'))||[];
+     const entries=(await tx.get<WorkspaceEntry[]>('entries'))||[];
+     return {projects:projectOverview(projects,entries)};
+    });
+    return json(result);
+   }
+   if(pathname==='/projects'&&request.method==='POST'){
+    const payload=projectCreatePayload(await request.json());
+    const project=await this.state.storage.transaction(async tx=>{
+     const projects=(await tx.get<Project[]>('projects'))||[];
+     if(projects.length>=PROJECT_LIMIT)
+      throw new HttpError(409,'Limite de 50 projetos atingido. Nenhum projeto foi apagado.');
+     const at=new Date().toISOString();
+     const row:Project={...payload,id:crypto.randomUUID(),status:'active',
+      createdAt:at,updatedAt:at};
+     await tx.put('projects',[...projects,row]);
+     return row;
+    });
+    return json({project},201);
+   }
+   if(pathname.startsWith('/projects/')){
+    const projectId=pathname.slice('/projects/'.length);
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(projectId))
+     throw new HttpError(400,'Identificador de projeto inválido.');
+    if(request.method==='GET'){
+     const result=await this.state.storage.transaction(async tx=>{
+      const projects=(await tx.get<Project[]>('projects'))||[];
+      const entry=projects.find(p=>p.id===projectId);
+      if(!entry)throw new HttpError(404,'Projeto não encontrado.');
+      const records=(await tx.get<WorkspaceEntry[]>('entries'))||[];
+      return {project:entry,entries:records.filter(x=>x.projectId===projectId)};
+     });
+     return json(result);
+    }
+    if(request.method==='PATCH'){
+     const patch=projectPatchPayload(await request.json());
+     const updated=await this.state.storage.transaction(async tx=>{
+      const projects=(await tx.get<Project[]>('projects'))||[];
+      if(!projects.some(p=>p.id===projectId))
+       throw new HttpError(404,'Projeto não encontrado.');
+      const next=projects.map(p=>p.id===projectId?
+       {...p,...patch,updatedAt:new Date().toISOString()}:p);
+      await tx.put('projects',next);
+      return next.find(p=>p.id===projectId)!;
+     });
+     return json({project:updated});
+    }
+    throw new HttpError(405,'Projeto: somente consulta e alteração permitidas.');
+   }
+   if(pathname==='/projects')throw new HttpError(405,'Projetos: somente consulta e criação.');
    if(pathname==='/entries/cycle'&&request.method==='GET'){
     const response=await this.state.storage.transaction(async tx=>{
      const config=(await tx.get<StudyCycleConfig>('study-cycle'))||null;
@@ -112,6 +170,12 @@ export class LabWorkspaceStore{
     const entry=await this.state.storage.transaction(async tx=>{
      const list=(await tx.get<WorkspaceEntry[]>('entries'))||[];
      if(list.length>=250)throw new HttpError(409,'Limite de 250 registros no laboratório.');
+     if(data.projectId){
+      const projects=(await tx.get<Project[]>('projects'))||[];
+      const project=projects.find(p=>p.id===data.projectId);
+      if(!project||project.status==='archived')
+       throw new HttpError(409,'Projeto inexistente ou arquivado. Selecione outro.');
+     }
      const at=new Date().toISOString(),row={...data,id:crypto.randomUUID(),createdAt:at,updatedAt:at};
      await tx.put('entries',[...list,row]);return row;
     });
@@ -124,7 +188,14 @@ export class LabWorkspaceStore{
     const data=entryPayload(await request.json());
     const entry=await this.state.storage.transaction(async tx=>{
      const list=(await tx.get<WorkspaceEntry[]>('entries'))||[];
-     if(!list.some(x=>x.id===id))throw new HttpError(404,'Registro não encontrado.');
+     const original=list.find(x=>x.id===id);
+     if(!original)throw new HttpError(404,'Registro não encontrado.');
+     if(data.projectId&&data.projectId!==original.projectId){
+      const projects=(await tx.get<Project[]>('projects'))||[];
+      const project=projects.find(p=>p.id===data.projectId);
+      if(!project||project.status==='archived')
+       throw new HttpError(409,'Projeto de destino inexistente ou arquivado.');
+     }
      const changed=list.map(x=>x.id===id?{...x,...data,updatedAt:new Date().toISOString()}:x);
      await tx.put('entries',changed);return changed.find(x=>x.id===id)!;
     });

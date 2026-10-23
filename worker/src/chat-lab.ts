@@ -13,6 +13,8 @@ import {selectedMemoryIds,readSelectedMemory,userApprovedMemoryContext,autoMemor
 import {relevantLabMemory} from './core/lab-memory-relevance';
 import {LabWorkspaceStore} from './lab-workspace';
 import {LabDocumentIndex} from './lab-document-index';
+import {LabGoogleOAuthVault} from './lab-google-oauth';
+import {handleAuthenticatedGoogleOAuth,handleGoogleOAuthCallback} from './core/google-oauth-api';
 import {fetchDriveDocumentPage,fetchNotionDocumentPage} from './core/document-source-readers';
 import {LabExternalActionStore} from './lab-external-actions';
 import {executeApprovedExternalAction} from './core/sigma-action-executors';
@@ -60,6 +62,12 @@ export interface LabChatEnv {
  LAB_DOCUMENTS_ENABLED?:string;
  LAB_DOCUMENT_INDEX?:DurableObjectNamespace;
  NOTION_API_KEY?:string;
+ GOOGLE_OAUTH_ENABLED?:string;
+ GOOGLE_OAUTH_CLIENT_ID?:string;
+ GOOGLE_OAUTH_CLIENT_SECRET?:string;
+ GOOGLE_OAUTH_ENCRYPTION_KEY?:string;
+ GOOGLE_OAUTH_REDIRECT_URI?:string;
+ GOOGLE_OAUTH_VAULT?:DurableObjectNamespace;
 }
 type Dependencies={
  verify?:(request:Request,env:LabChatEnv)=>Promise<string>;
@@ -88,6 +96,8 @@ export async function verifyLabUser(request:Request,env:LabChatEnv):Promise<stri
 
 export function makeLabChatWorker(deps:Dependencies={}){
  return {async fetch(request:Request,env:LabChatEnv):Promise<Response>{
+  if(new URL(request.url).pathname==='/api/lab/oauth/callback')
+   return handleGoogleOAuthCallback(request,env,deps.fetch||fetch);
   const requestId=crypto.randomUUID();
   const origin=request.headers.get('Origin');
   const headers:Record<string,string>={
@@ -107,22 +117,24 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const integrationPath=path.startsWith('/api/lab/integrations/');
    const catalogPath=path==='/api/lab/modules';
    const documentPath=path==='/api/lab/documents'||path.startsWith('/api/lab/documents/');
+   const oauthPath=path.startsWith('/api/lab/oauth/');
    const actionPath=path==='/api/lab/actions/prepare'||path.startsWith('/api/lab/actions/');
-   if(path!=='/api/lab/chat'&&!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&!documentPath)
+   if(path!=='/api/lab/chat'&&!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&!documentPath&&!oauthPath)
     throw new HttpError(404,'Rota inexistente.');
    if(request.method==='OPTIONS'){
     return new Response(null,{status:204,headers:{
-     ...headers,'Access-Control-Allow-Methods':(memoryPath||workspacePath||integrationPath||catalogPath||actionPath||documentPath)?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
+     ...headers,'Access-Control-Allow-Methods':(memoryPath||workspacePath||integrationPath||catalogPath||actionPath||documentPath||oauthPath)?'GET, POST, PATCH, DELETE, OPTIONS':'POST, OPTIONS',
      'Access-Control-Allow-Headers':'Authorization, Content-Type, X-Google-Token',
      'Access-Control-Max-Age':'600'
     }});
    }
-   if(!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&!documentPath&&request.method!=='POST')
+   if(!memoryPath&&!workspacePath&&!integrationPath&&!catalogPath&&!actionPath&&!documentPath&&!oauthPath&&request.method!=='POST')
     throw new HttpError(405,'Método não permitido.');
    // Internal ecosystem APIs are NEVER available to unauthenticated browsers.
-   if(catalogPath||workspacePath||integrationPath||actionPath||documentPath){
+   if(catalogPath||workspacePath||integrationPath||actionPath||documentPath||oauthPath){
     const uid=await(deps.verify||verifyLabUser)(request,env);
     if(uid!==env.ALLOWED_UID)throw new HttpError(403,'Conta não autorizada.');
+    if(oauthPath)return handleAuthenticatedGoogleOAuth(request,env,uid);
     if(catalogPath){
      if(request.method!=='GET')throw new HttpError(405,'Método não permitido.');
      return reply({modules:SIGMA_MODULES});
@@ -558,5 +570,5 @@ export class LabChatQuota {
   return new Response(null,{status:allowed?204:429});
  }
 }
-export {LabMemoryStore,LabWorkspaceStore,LabExternalActionStore,LabDocumentIndex};
+export {LabMemoryStore,LabWorkspaceStore,LabExternalActionStore,LabDocumentIndex,LabGoogleOAuthVault};
 export default makeLabChatWorker();

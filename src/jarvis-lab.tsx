@@ -7,6 +7,7 @@ import {JarvisChatPanel} from './JarvisChatPanel';
 import {LabEcosystemPanel} from './LabEcosystemPanel';
 import {LabIntegrationsPanel} from './LabIntegrationsPanel';
 import {LabActionCenter} from './LabActionCenter';
+import {LabDocumentsPanel} from './LabDocumentsPanel';
 import {ActionReviewCenter} from './ActionReviewCenter';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
 import type {ActionPreviewRequest,ActionPreviewResult} from './services';
@@ -116,6 +117,10 @@ export function JarvisLab(){
    <section className="lab-panel" aria-label="Ações externas aprovadas">
     <h2>8. Ações externas — revisão e confirmação</h2>
     <LabActionCenter user={user}/>
+   </section>
+   <section className="lab-panel" aria-label="Biblioteca inteligente de documentos">
+    <h2>9. Biblioteca de documentos — sincronizar e pesquisar</h2>
+    <LabDocumentsPanel user={user}/>
    </section>
    <p className="lab-footer">As demonstrações permanecem fictícias. O módulo experimental de memória é opcional e não grava conversas automaticamente. Não utilize informações sensíveis nos testes.</p>
   </main>

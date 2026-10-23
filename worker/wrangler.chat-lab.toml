@@ -20,6 +20,7 @@ LAB_MEMORY_AUTO_ENABLED = "false"
 LAB_WORKSPACE_ENABLED = "false"
 LAB_CONNECTORS_ENABLED = "false"
 LAB_ACTIONS_ENABLED = "false"
+LAB_DOCUMENTS_ENABLED = "false"
 
 # ALLOWED_UID e GEMINI_API_KEY devem ser segredos do Worker de laboratório.
 # Nunca colocar os valores neste arquivo nem no GitHub.
@@ -55,3 +56,11 @@ class_name = "LabExternalActionStore"
 [[migrations]]
 tag = "v4"
 new_sqlite_classes = ["LabExternalActionStore"]
+
+[[durable_objects.bindings]]
+name = "LAB_DOCUMENT_INDEX"
+class_name = "LabDocumentIndex"
+
+[[migrations]]
+tag = "v5"
+new_sqlite_classes = ["LabDocumentIndex"]

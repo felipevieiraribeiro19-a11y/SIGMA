@@ -73,7 +73,7 @@ export async function readNotion(key:string,transport:typeof fetch=fetch,pageId?
  const endpoint=pageId?'https://api.notion.com/v1/blocks/'+pageId+'/children?page_size=20':'https://api.notion.com/v1/search';
  const response=await transport(endpoint,{
   method:pageId?'GET':'POST',headers:{
-   Authorization:'Bearer '+key,'Notion-Version':'2022-06-28',
+   Authorization:'Bearer '+key,'Notion-Version':'2026-03-11',
    'Content-Type':'application/json'
   },
   ...(!pageId?{body:JSON.stringify({page_size:20,sort:{direction:'descending',timestamp:'last_edited_time'}})}:{}),

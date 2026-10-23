@@ -6,6 +6,7 @@ import {LabRealMemory} from './LabRealMemory';
 import {JarvisChatPanel} from './JarvisChatPanel';
 import {LabEcosystemPanel} from './LabEcosystemPanel';
 import {LabIntegrationsPanel} from './LabIntegrationsPanel';
+import {LabActionCenter} from './LabActionCenter';
 import {ActionReviewCenter} from './ActionReviewCenter';
 import {buildReadOnlyActionPreview} from '../worker/src/core/review-api';
 import type {ActionPreviewRequest,ActionPreviewResult} from './services';
@@ -111,6 +112,10 @@ export function JarvisLab(){
    <section className="lab-panel" aria-label="Serviços Google e Notion">
     <h2>7. Integrações — Google Calendar, Drive e Notion</h2>
     <LabIntegrationsPanel user={user} googleToken={googleReadToken} onGoogleToken={setGoogleReadToken}/>
+   </section>
+   <section className="lab-panel" aria-label="Ações externas aprovadas">
+    <h2>8. Ações externas — revisão e confirmação</h2>
+    <LabActionCenter user={user}/>
    </section>
    <p className="lab-footer">As demonstrações permanecem fictícias. O módulo experimental de memória é opcional e não grava conversas automaticamente. Não utilize informações sensíveis nos testes.</p>
   </main>

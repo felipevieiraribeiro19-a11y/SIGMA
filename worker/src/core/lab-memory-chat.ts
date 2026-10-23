@@ -55,7 +55,7 @@ export function userApprovedMemoryContext(entries:LabMemoryEntry[],mode:'manual'
   entries.map((entry,index)=>'Memória '+(index+1)+': '+JSON.stringify(entry.text)).join('\n');
 }
 
-/** Auto retrieval requires an explicit, ephemeral client choice. */
+/** Legacy request metadata cannot override server-stored owner consent. */
 export function autoMemoryRequested(body:unknown):boolean{
  if(!body||typeof body!=='object'||Array.isArray(body))throw new HttpError(400,'Formato de mensagem inválido.');
  const obj=body as Record<string,unknown>;

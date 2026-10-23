@@ -9,7 +9,9 @@ export type IndexedDocument={
 export type SourceDocument=Omit<IndexedDocument,'key'|'indexedAt'|'contentStatus'|'text'> &{text?:string};
 export type DocumentSnapshot={source:DocumentSource;complete:true;documents:SourceDocument[]};
 export type DocumentChanges={added:number;updated:number;unchanged:number;removed:number;total:number};
-export const DOCUMENT_LIMIT=180;
+// Inventário de até 1.000 itens por origem; 2.000 no índice combinado.
+export const MAX_DOCUMENTS_PER_SOURCE=1000;
+export const DOCUMENT_LIMIT=2*MAX_DOCUMENTS_PER_SOURCE;
 const illegal=/[\x00-\x08\x0b\x0c\x0e-\x1f]/;
 const allowedUrl=/^https:\/\/(?:drive\.google\.com|docs\.google\.com|www\.notion\.so|notion\.so)(?:\/|$)/i;
 export function validateSnapshot(data:unknown):DocumentSnapshot{
@@ -17,7 +19,7 @@ export function validateSnapshot(data:unknown):DocumentSnapshot{
  const s=data as Record<string,unknown>;
  if(s.source!=='drive'&&s.source!=='notion')throw new HttpError(400,'Fonte de documento desconhecida.');
  if(s.complete!==true)throw new HttpError(409,'Listagem incompleta: o índice foi preservado.');
- if(!Array.isArray(s.documents)||s.documents.length>DOCUMENT_LIMIT)throw new HttpError(413,'Limite de documentos por sincronização excedido.');
+ if(!Array.isArray(s.documents)||s.documents.length>MAX_DOCUMENTS_PER_SOURCE)throw new HttpError(413,'Limite de documentos por sincronização excedido.');
  const source=s.source as DocumentSource;
  const keys=new Set<string>();
  const documents=s.documents.map((raw,i)=>{

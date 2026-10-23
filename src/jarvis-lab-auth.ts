@@ -49,6 +49,17 @@ export async function connectLabGoogleRead():Promise<string>{
  if(!token||token.length>4096)throw Error('O Google não retornou o token para os serviços solicitados.');
  return token;
 }
+/** Additional scopes are requested only on an explicit action by the owner. */
+export async function connectLabGoogleWrite():Promise<string>{
+ if(!auth)throw Error('Entre com Google no SIGMA antes de autorizar ações.');
+ const provider=new GoogleAuthProvider();
+ provider.addScope('https://www.googleapis.com/auth/calendar.events');
+ provider.addScope('https://www.googleapis.com/auth/drive.file');
+ const result=await signInWithPopup(auth,provider);
+ const token=GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+ if(!token||token.length>4096)throw Error('O Google não concedeu um token de escrita.');
+ return token;
+}
 export async function logoutLab():Promise<void>{
  if(auth)await signOut(auth);
 }

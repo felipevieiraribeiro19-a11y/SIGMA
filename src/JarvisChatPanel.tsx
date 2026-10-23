@@ -180,7 +180,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
     setProjectsReceipt(nextProjects);
     setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);
     setAutoMemoryResult(autoResult);
-    setDraft('');setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
+    setDraft('');setUseProjects(false);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
    }
   }catch(e){
    if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Erro de conexão.');

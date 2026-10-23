@@ -126,9 +126,11 @@ export function makeLabChatWorker(deps:Dependencies={}){
      catch{throw new HttpError(400,'JSON inválido.');}
     }
     const subpath=path.slice('/api/lab/memory'.length);
-    if(subpath&& !/^\/[0-9a-f-]{36}$/i.test(subpath))
+    if(subpath==='/settings'&&env.LAB_MEMORY_AUTO_ENABLED!=='true')
+     throw new HttpError(503,'Preferência de memória contextual não habilitada no laboratório.');
+    if(subpath&&subpath!=='/settings'&& !/^\/[0-9a-f-]{36}$/i.test(subpath))
      throw new HttpError(404,'Rota de memória inválida.');
-    const internal=new Request('https://lab-memory.internal/entries'+subpath,{
+    const internal=new Request(subpath==='/settings'?'https://lab-memory.internal/settings':'https://lab-memory.internal/entries'+subpath,{
      method:request.method,
      ...(payload===undefined?{}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     });

@@ -374,5 +374,5 @@ export class LabChatQuota {
   return new Response(null,{status:allowed?204:429});
  }
 }
-export {LabMemoryStore};
+export {LabMemoryStore,LabWorkspaceStore};
 export default makeLabChatWorker();

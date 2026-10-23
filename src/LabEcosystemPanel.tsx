@@ -4,7 +4,9 @@ import {validLabApiBase} from './jarvis-chat-protocol';
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
 type Kind='study'|'daily'|'task'|'finance';
 type Entry={id:string;kind:Kind;title:string;notes:string;minutes:number;amount:number;done:boolean;createdAt:string;dueDate?:string;priority?:'low'|'normal'|'high'};
-type DayBriefing={date:string;studyMinutesToday:number;studySessionsToday:number;financeNetToday:number;financeEntriesToday:number;tasksCompletedToday:number;openTasks:number;overdueTasks:number;dueToday:number;dueNext7Days:number;undatedTasks:number;highlightedTasks:{id:string;title:string;dueDate:string|null;priority:string;group:string}[];latestDiary:{title:string;date:string}|null;guidance:string[];limitation:string};
+type SubjectPerformance={subject:string;sessions:number;studiedMinutes:number;questionsTotal:number;questionsCorrect:number;questionsWrong:number;accuracyPercent:number|null};
+type StudyPerformance={overall:SubjectPerformance;today:SubjectPerformance;subjects:SubjectPerformance[];unclassifiedSessions:number;disclaimer:string};
+type DayBriefing={studyPerformance:StudyPerformance;date:string;studyMinutesToday:number;studySessionsToday:number;financeNetToday:number;financeEntriesToday:number;tasksCompletedToday:number;openTasks:number;overdueTasks:number;dueToday:number;dueNext7Days:number;undatedTasks:number;highlightedTasks:{id:string;title:string;dueDate:string|null;priority:string;group:string}[];latestDiary:{title:string;date:string}|null;guidance:string[];limitation:string};
 type Totals={studiedMinutes:number;financialBalance:number;tasksOpen:number;tasksDone:number};
 const labels:Record<Kind,string>={study:'Estudos',daily:'Diário e rotina',task:'Tarefas',finance:'Finanças'};
 export function LabEcosystemPanel({user}:{user:User|null}){
@@ -17,6 +19,9 @@ export function LabEcosystemPanel({user}:{user:User|null}){
  const [amount,setAmount]=useState('0');
  const [dueDate,setDueDate]=useState('');
  const [priority,setPriority]=useState<'low'|'normal'|'high'>('normal');
+ const [subject,setSubject]=useState('');
+ const [questionsTotal,setQuestionsTotal]=useState('');
+ const [questionsCorrect,setQuestionsCorrect]=useState('');
  const [briefing,setBriefing]=useState<DayBriefing|null>(null);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{setEntries([]);setTotals(null);setBriefing(null);setError('');setNotice('');},[user?.uid]);
@@ -47,10 +52,17 @@ export function LabEcosystemPanel({user}:{user:User|null}){
   if(!user||busy)return;
   setBusy(true);setError('');setNotice('');
   try{
+   if(kind==='study'&&(questionsTotal!==''||questionsCorrect!=='')&&
+      (questionsTotal===''||questionsCorrect===''))
+    throw Error('Preencha tanto o total de questões quanto a quantidade de acertos.');
    await call('','POST',{kind,title,notes,minutes:Number(minutes),amount:Number(amount),done:false,
-    ...(kind==='task'?{...(dueDate?{dueDate}:{}),priority}:{})});
+    ...(kind==='task'?{...(dueDate?{dueDate}:{}),priority}:{}),
+    ...(kind==='study'?{...(subject.trim()?{subject:subject.trim()}:{}),
+     ...(questionsTotal!==''&&questionsCorrect!==''?{
+      questionsTotal:Number(questionsTotal),questionsCorrect:Number(questionsCorrect)
+     }:{} )}:{})});
    await reload();
-   setTitle('');setNotes('');setMinutes('0');setAmount('0');setDueDate('');setPriority('normal');setNotice('Registro salvo na sua área experimental.');
+   setTitle('');setNotes('');setMinutes('0');setAmount('0');setDueDate('');setPriority('normal');setSubject('');setQuestionsTotal('');setQuestionsCorrect('');setNotice('Registro salvo na sua área experimental.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar.');}
   finally{setBusy(false);}
  }
@@ -62,7 +74,11 @@ export function LabEcosystemPanel({user}:{user:User|null}){
    await call('/'+entry.id,remove?'DELETE':'PATCH',remove?undefined:{
     kind:entry.kind,title:entry.title,notes:entry.notes,minutes:entry.minutes,
     amount:entry.amount,done:!entry.done,
-    ...(entry.kind==='task'?{...(entry.dueDate?{dueDate:entry.dueDate}:{}),priority:entry.priority||'normal'}:{})
+    ...(entry.kind==='task'?{...(entry.dueDate?{dueDate:entry.dueDate}:{}),priority:entry.priority||'normal'}:{}),
+    ...(entry.kind==='study'?{...(entry.subject?{subject:entry.subject}:{}),
+     ...(entry.questionsTotal!==undefined?{
+      questionsTotal:entry.questionsTotal,questionsCorrect:entry.questionsCorrect??0
+     }:{} )}:{})
    });
    await reload();
    setNotice(remove?'Registro excluído.':'Status da tarefa atualizado.');
@@ -99,11 +115,39 @@ export function LabEcosystemPanel({user}:{user:User|null}){
    </>}
    <small>{briefing.limitation}</small>
   </section>}
+  {briefing&&<section className="lab-workspace-form" aria-label="Desempenho nas questões">
+   <h3>Estudos — desempenho nas questões</h3>
+   <div className="lab-workspace-stats">
+    <span>Questões registradas hoje: <strong>{briefing.studyPerformance.today.questionsTotal}</strong></span>
+    <span>Acertos hoje: <strong>{briefing.studyPerformance.today.questionsCorrect}</strong></span>
+    <span>Aproveitamento hoje: <strong>{briefing.studyPerformance.today.accuracyPercent===null?'Sem questões':briefing.studyPerformance.today.accuracyPercent+'%'}</strong></span>
+    <span>Questões acumuladas: <strong>{briefing.studyPerformance.overall.questionsTotal}</strong></span>
+    <span>Aproveitamento geral: <strong>{briefing.studyPerformance.overall.accuracyPercent===null?'Sem questões':briefing.studyPerformance.overall.accuracyPercent+'%'}</strong></span>
+   </div>
+   {briefing.studyPerformance.subjects.length>0&&<>
+    <strong>Resultados por matéria</strong>
+    <ul className="lab-workspace-list">{briefing.studyPerformance.subjects.map(item=><li key={item.subject}>
+     <strong>{item.subject}</strong>
+     <small>{item.studiedMinutes} min · {item.questionsTotal} questão(ões)
+      {' · '}{item.questionsCorrect} acerto(s), {item.questionsWrong} erro(s)
+      {' · '}{item.accuracyPercent===null?'Sem questões para calcular a taxa':item.accuracyPercent+'% de acerto'}</small>
+    </li>)}</ul>
+   </>}
+   <small>{briefing.studyPerformance.disclaimer}</small>
+  </section>}
   <div className="lab-workspace-form">
    <label>Categoria<select value={kind} onChange={e=>setKind(e.target.value as Kind)}>{Object.entries(labels).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label>
    <label>Assunto ou título<input maxLength={160} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: Contabilidade — revisão de exercícios"/></label>
    <label>Observações<textarea rows={3} maxLength={1500} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Detalhes, progresso, próximos passos"/></label>
-   {kind==='study'&&<label>Minutos de estudo<input type="number" min="0" max="1440" step="1" value={minutes} onChange={e=>setMinutes(e.target.value)}/></label>}
+   {kind==='study'&&<>
+    <label>Minutos de estudo<input type="number" min="0" max="1440" step="1" value={minutes} onChange={e=>setMinutes(e.target.value)}/></label>
+    <label>Matéria (opcional)<input value={subject} maxLength={80} onChange={e=>setSubject(e.target.value)}
+     placeholder="Ex.: Contabilidade, Português, AFO"/></label>
+    <label>Questões resolvidas (opcional)<input type="number" min="0" max="5000" step="1" value={questionsTotal}
+     onChange={e=>setQuestionsTotal(e.target.value)} placeholder="Ex.: 20"/></label>
+    <label>Questões certas (opcional)<input type="number" min="0" max="5000" step="1" value={questionsCorrect}
+     onChange={e=>setQuestionsCorrect(e.target.value)} placeholder="Ex.: 15"/></label>
+   </>}
    {kind==='finance'&&<label>Valor em reais (despesa negativa)<input type="number" min="-1000000" max="1000000" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)}/></label>}
    {kind==='task'&&<>
     <label>Prazo da tarefa (opcional)<input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label>
@@ -117,7 +161,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
   {error&&<p className="lab-error" role="alert">{error}</p>}
   {entries.length>0&&<ul className="lab-workspace-list">{entries.map(e=><li key={e.id}>
    <strong>{labels[e.kind]} — {e.title}</strong>
-   <small>{new Date(e.createdAt).toLocaleDateString('pt-BR')}{e.kind==='study'?' · '+e.minutes+' min':''}{e.kind==='finance'?' · '+e.amount.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):''}{e.kind==='task'&&e.dueDate?' · Prazo '+e.dueDate.split('-').reverse().join('/'):''}{e.kind==='task'&&e.priority==='high'?' · Prioridade alta':''}</small>
+   <small>{new Date(e.createdAt).toLocaleDateString('pt-BR')}{e.kind==='study'?' · '+e.minutes+' min':''}{e.kind==='study'&&e.subject?' · '+e.subject:''}{e.kind==='study'&&e.questionsTotal!==undefined?' · '+e.questionsCorrect+'/'+e.questionsTotal+' questões certas':''}{e.kind==='finance'?' · '+e.amount.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):''}{e.kind==='task'&&e.dueDate?' · Prazo '+e.dueDate.split('-').reverse().join('/'):''}{e.kind==='task'&&e.priority==='high'?' · Prioridade alta':''}</small>
    {e.notes&&<p>{e.notes}</p>}
    {e.kind==='task'&&<button type="button" disabled={busy} onClick={()=>void mutate(e)}>{e.done?'Marcar pendente':'Marcar concluída'}</button>}
    <button type="button" disabled={busy} onClick={()=>void mutate(e,true)}>Excluir</button>

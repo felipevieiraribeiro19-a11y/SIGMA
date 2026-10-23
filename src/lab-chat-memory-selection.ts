@@ -15,7 +15,7 @@ export function readMemoryChoices(result:unknown):SharedMemoryChoice[]{
  });
 }
 /** Never bundle memory text into chat body, only explicitly checked IDs. */
-export function approvedChatRequest(messages:LabChatMessage[],ids:string[],auto=false,connectors:string[]=[],useLibrary=false){
+export function approvedChatRequest(messages:LabChatMessage[],ids:string[],auto=false,connectors:string[]=[],useLibrary=false,useProjects=false){
  if(ids.length>3||new Set(ids).size!==ids.length||ids.some(id=>!UUID.test(id)))
   throw Error('Selecione no máximo três memórias diferentes.');
  if(auto&&ids.length)throw Error('Escolha seleção manual ou busca contextual, não ambas.');
@@ -26,6 +26,7 @@ export function approvedChatRequest(messages:LabChatMessage[],ids:string[],auto=
  const memory=auto?{memoryMode:'relevant' as const}:
   ids.length?{memoryIds:ids.slice()}:{};
  if(typeof useLibrary!=='boolean')throw Error('Biblioteca inválida.');
- const base={messages,...memory,...(useLibrary?{useLibrary:true}:{})};
+ if(typeof useProjects!=='boolean')throw Error('Autorização de projetos inválida.');
+ const base={messages,...memory,...(useLibrary?{useLibrary:true}:{}),...(useProjects?{useProjects:true}:{})};
  return connectors.length?{...base,connectors:connectors.slice()}:base;
 }

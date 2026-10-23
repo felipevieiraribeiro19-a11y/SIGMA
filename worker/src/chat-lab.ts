@@ -13,7 +13,7 @@ import {selectedMemoryIds,readSelectedMemory,userApprovedMemoryContext,autoMemor
 import {relevantLabMemory} from './core/lab-memory-relevance';
 import {LabWorkspaceStore} from './lab-workspace';
 import {LabDocumentIndex} from './lab-document-index';
-import {fetchDriveDocumentSnapshot,fetchNotionDocumentSnapshot} from './core/document-source-readers';
+import {fetchDriveDocumentPage,fetchNotionDocumentPage} from './core/document-source-readers';
 import {LabExternalActionStore} from './lab-external-actions';
 import {executeApprovedExternalAction} from './core/sigma-action-executors';
 import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,type Provider} from './core/sigma-connectors';
@@ -148,32 +148,73 @@ export function makeLabChatWorker(deps:Dependencies={}){
       const response=await catalog.fetch('https://lab-documents.internal/clear?source='+encodeURIComponent(source),{method:'DELETE'});
       return reply(await response.json(),response.status);
      }
+     if(path==='/api/lab/documents/scan'&&request.method==='GET'){
+      const source=url.searchParams.get('source');
+      if(source!=='drive'&&source!=='notion')throw new HttpError(400,'Fonte documental inválida.');
+      const response=await catalog.fetch('https://lab-documents.internal/scan/status?source='+source);
+      return reply(await response.json(),response.status);
+     }
      if(path==='/api/lab/documents/sync'&&request.method==='POST'){
-      if(env.LAB_CONNECTORS_ENABLED!=='true')throw new HttpError(503,'Conectores externos ainda desligados.');
       if(!request.headers.get('Content-Type')?.startsWith('application/json'))
        throw new HttpError(415,'Envie JSON.');
       const raw=await request.text();
-      if(raw.length>150)throw new HttpError(413,'Pedido de sincronização inválido.');
+      if(raw.length>250)throw new HttpError(413,'Pedido de sincronização inválido.');
       let payload:unknown;
       try{payload=JSON.parse(raw);}catch{throw new HttpError(400,'Pedido JSON inválido.');}
       if(!payload||typeof payload!=='object'||Array.isArray(payload))
        throw new HttpError(400,'Seleção de sincronização inválida.');
       const selection=payload as Record<string,unknown>;
-      if(Object.keys(selection).some(key=>!['source','includeContent'].includes(key))||
-       (selection.source!=='drive'&&selection.source!=='notion')||
-       (selection.includeContent!==undefined&&typeof selection.includeContent!=='boolean'))
-       throw new HttpError(400,'Fonte ou opção de sincronização inválida.');
-      const quota=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))
-       .fetch('https://lab-quota.internal/documents-sync',{method:'POST'});
-      if(!quota.ok)throw new HttpError(quota.status===429?429:503,'Limite de sincronização atingido. Tente em outro momento.');
-      const snapshot=selection.source==='drive'?
-       await fetchDriveDocumentSnapshot(validGoogleToken(request.headers.get('X-Google-Token')),deps.fetch||fetch,selection.includeContent===true):
-       await fetchNotionDocumentSnapshot(env.NOTION_API_KEY||'',deps.fetch||fetch,selection.includeContent===true);
-      // Only after EVERY metadata page loaded successfully will this one atomic index update run.
-      const response=await catalog.fetch('https://lab-documents.internal/sync',{
-       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(snapshot)
-      });
-      return reply(await response.json(),response.status);
+      const source=selection.source,action=selection.action;
+      if(Object.keys(selection).some(key=>!['source','action','includeContent','scanId'].includes(key))||
+       (source!=='drive'&&source!=='notion')||!['start','continue','cancel'].includes(String(action))||
+       (selection.includeContent!==undefined&&typeof selection.includeContent!=='boolean')||
+       (action!=='start'&&typeof selection.scanId!=='string')||
+       (action==='start'&&selection.scanId!==undefined)||
+       (action!=='start'&&selection.includeContent!==undefined))
+       throw new HttpError(400,'Ação ou fonte de sincronização inválida.');
+      const internal=async(route:string,body:unknown)=>{
+       const response=await catalog.fetch('https://lab-documents.internal'+route,{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+       });
+       const value=await response.json() as Record<string,unknown>;
+       if(!response.ok)throw new HttpError(response.status,
+        typeof value.error==='string'?value.error:'Falha na sincronização.');
+       return value;
+      };
+      if(action==='cancel')
+       return reply(await internal('/scan/cancel',{source,scanId:selection.scanId}));
+      if(env.LAB_CONNECTORS_ENABLED!=='true')
+       throw new HttpError(503,'Conectores externos ainda desligados.');
+      // Recheck ephemeral OAuth permission on every step; no tokens are stored.
+      const auth=source==='drive'?
+       validGoogleToken(request.headers.get('X-Google-Token')):env.NOTION_API_KEY||'';
+      if(source==='notion'&&(auth.length<10||auth.length>500))
+       throw new HttpError(503,'Notion não configurado no laboratório.');
+      if(action==='start'){
+       const quota=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))
+        .fetch('https://lab-quota.internal/documents-sync',{method:'POST'});
+       if(!quota.ok)throw new HttpError(quota.status===429?429:503,
+        'Limite de novas sincronizações atingido.');
+       return reply(await internal('/scan/start',
+        {source,includeContent:selection.includeContent===true}),201);
+      }
+      // Continue one page only; no long-running, unbounded sync invocation.
+      const peekResponse=await catalog.fetch('https://lab-documents.internal/scan/peek?source='+source);
+      const peek=await peekResponse.json() as {scan?:{
+       id:string;cursor:string|null;page:number;textReads:number;includeContent:boolean
+      };error?:string};
+      if(!peekResponse.ok||!peek.scan)
+       throw new HttpError(peekResponse.status,peek.error||'Sincronização não encontrada.');
+      if(peek.scan.id!==selection.scanId)
+       throw new HttpError(409,'A sessão de sincronização mudou. Recarregue o status.');
+      const remaining=peek.scan.includeContent?Math.max(0,8-peek.scan.textReads):0;
+      const page=source==='drive'?
+       await fetchDriveDocumentPage(auth,peek.scan.cursor,remaining,deps.fetch||fetch):
+       await fetchNotionDocumentPage(auth,peek.scan.cursor,remaining,deps.fetch||fetch);
+      return reply(await internal('/scan/page',{
+       source,scanId:peek.scan.id,page:peek.scan.page,cursor:peek.scan.cursor,
+       nextCursor:page.nextCursor,documents:page.documents,textReads:page.textReads
+      }));
      }
      throw new HttpError(405,'Método ou rota de documentos não permitido.');
     }

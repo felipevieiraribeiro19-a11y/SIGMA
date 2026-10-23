@@ -22,7 +22,7 @@ export async function executeApprovedExternalAction(
   body={name:title,mimeType:'application/vnd.google-apps.folder',...(parentId?{parents:[parentId]}:{})};
  }else if(operation==='notion.page.create'){
   if(!notionKey||notionKey.length<10)throw new HttpError(503,'Segredo Notion não configurado.');
-  headers.Authorization='Bearer '+notionKey;headers['Notion-Version']='2022-06-28';
+  headers.Authorization='Bearer '+notionKey;headers['Notion-Version']='2026-03-11';
   url='https://api.notion.com/v1/pages';
   body={parent:{type:'page_id',page_id:parentId},
    properties:{title:{type:'title',title:[{type:'text',text:{content:title}}]}}};

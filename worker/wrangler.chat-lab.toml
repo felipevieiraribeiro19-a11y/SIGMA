@@ -38,6 +38,7 @@ new_sqlite_classes = ["LabMemoryStore"]
 # Ecosystem LAB: no production Firestore, secrets only on Cloudflare.
 LAB_WORKSPACE_ENABLED = "false"
 LAB_CONNECTORS_ENABLED = "false"
+LAB_ACTIONS_ENABLED = "false"
 
 [[durable_objects.bindings]]
 name = "LAB_WORKSPACE"
@@ -46,3 +47,11 @@ class_name = "LabWorkspaceStore"
 [[migrations]]
 tag = "v3"
 new_sqlite_classes = ["LabWorkspaceStore"]
+
+[[durable_objects.bindings]]
+name = "LAB_ACTIONS"
+class_name = "LabExternalActionStore"
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["LabExternalActionStore"]

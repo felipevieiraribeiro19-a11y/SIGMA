@@ -15,6 +15,26 @@ async function apiJson(response:Response,source:'drive'|'notion'):Promise<Record
  if(!result||typeof result!=='object'||Array.isArray(result))throw new HttpError(502,'Resposta inválida de '+source+'.');
  return result as Record<string,unknown>;
 }
+/** Avoid buffering unexpectedly large provider responses inside a Worker. */
+async function limitedPlainText(response:Response,maxBytes=15000):Promise<string|undefined>{
+ const body=response.body;
+ if(!body)return undefined;
+ const reader=body.getReader();
+ const chunks:Uint8Array[]=[];let count=0;
+ try{
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   count+=value.byteLength;
+   if(count>maxBytes){await reader.cancel().catch(()=>{});return undefined;}
+   chunks.push(value);
+  }
+ }finally{reader.releaseLock();}
+ const combined=new Uint8Array(count);let offset=0;
+ for(const item of chunks){combined.set(item,offset);offset+=item.byteLength;}
+ const decoded=new TextDecoder('utf-8',{fatal:false}).decode(combined);
+ return decoded.length<=12000?decoded:undefined;
+}
 const str=(value:unknown,max=200)=>typeof value==='string'?value.replace(/[\x00-\x1f]/g,' ').trim().slice(0,max):'';
 function rich(arr:unknown):string{
  if(!Array.isArray(arr))return '';
@@ -125,10 +145,7 @@ export async function fetchDriveDocumentSnapshot(
     const response=await transport(path,{headers,signal:AbortSignal.timeout(9000)});
     if(response.ok){
      const length=Number(response.headers.get('Content-Length')||'0');
-     if(length<=16000){
-      const data=await response.text();
-      if(data.length<=12000)text=data;
-     }
+     if(length<=15000)text=await limitedPlainText(response);
     }
    }catch{ /* Fail closed for content; metadata remains available. */ }
   }

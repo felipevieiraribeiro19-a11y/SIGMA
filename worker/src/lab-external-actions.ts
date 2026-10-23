@@ -21,16 +21,16 @@ export function actionPayload(raw:unknown):ActionData{
    Date.parse(end)<=Date.parse(start)||Date.parse(end)-Date.parse(start)>7*86400000)
    throw new HttpError(400,'Horário inicial/final inválido. Use ISO com fuso.');
   if(parentId!==undefined)throw new HttpError(400,'O calendário não usa parentId.');
-  return {operation,title:title.trim(),start,end};
+  return {operation:operation as Operation,title:title.trim(),start,end};
  }
  if(start!==undefined||end!==undefined)throw new HttpError(400,'Esta ação não usa horários.');
  if(operation==='notion.page.create'){
   if(typeof parentId!=='string'||!uuid.test(parentId))throw new HttpError(400,'Informe o ID da página-mãe do Notion.');
-  return {operation,title:title.trim(),parentId};
+  return {operation:operation as Operation,title:title.trim(),parentId};
  }
  if(parentId!==undefined&&typeof parentId!=='string')throw new HttpError(400,'Pasta-mãe inválida.');
  if(parentId&&(!/^[A-Za-z0-9_-]{4,120}$/.test(parentId)))throw new HttpError(400,'ID da pasta-mãe inválido.');
- return {operation,title:title.trim(),...(parentId?{parentId}:{})};
+ return {operation:operation as Operation,title:title.trim(),...(parentId?{parentId}:{})};
 }
 type Tx={get:<T>(k:string)=>Promise<T|undefined>;put:(k:string,v:unknown)=>Promise<unknown>};
 type Storage={transaction:<T>(fn:(tx:Tx)=>Promise<T>)=>Promise<T>};

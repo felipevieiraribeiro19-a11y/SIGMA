@@ -88,7 +88,7 @@ export function JarvisLab(){
     {showMemory&&<MemoryCenter/>}
    </section>
    <section className="lab-panel" aria-label="Memória pessoal experimental">
-    <h2>4. Memória pessoal (opcional, preparação)</h2>
+    <h2>4. Memória pessoal</h2>
     <p>Registro manual em armazenamento separado, ativado somente quando você autorizar. Não copia o histórico de conversa e não importa informações do SIGMA principal.</p>
     <LabRealMemory user={user}/>
    </section>

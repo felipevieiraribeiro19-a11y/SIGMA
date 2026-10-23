@@ -2,22 +2,9 @@ import {useEffect,useRef,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {LabFormattedText} from './jarvis-lab-markdown';
 import {approvedChatRequest,readMemoryChoices,type SharedMemoryChoice} from './lab-chat-memory-selection';
-import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,type LabWebSource,type LabChatMessage} from './jarvis-chat-protocol';
+import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,readLabProjectProposal,type LabProjectProposal,type LabWebSource,type LabChatMessage} from './jarvis-chat-protocol';
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
-type ProjectProposal={kind:'project.create';source:'gemini';requiresApproval:true;
- title:string;goal:string;notes:string};
-const safeProjectProposal=(value:unknown):ProjectProposal|null=>{
- if(!value||typeof value!=='object'||Array.isArray(value))return null;
- const v=value as Record<string,unknown>;
- if(v.kind!=='project.create'||v.source!=='gemini'||v.requiresApproval!==true||
-  typeof v.title!=='string'||typeof v.goal!=='string'||typeof v.notes!=='string'||
-  v.title.length<2||v.title.length>120||v.goal.length<2||v.goal.length>1000||
-  v.notes.length>2000)return null;
- return {kind:'project.create',source:'gemini',requiresApproval:true,
-  title:v.title,goal:v.goal,notes:v.notes};
-};
-
 export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:string|null}){
  const [history,setHistory]=useState<LabChatMessage[]>([]);
  const [draft,setDraft]=useState('');
@@ -32,7 +19,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [proposalApproved,setProposalApproved]=useState(false);
  const [savingProposal,setSavingProposal]=useState(false);
  const [proposalNotice,setProposalNotice]=useState('');
- const [projectProposal,setProjectProposal]=useState<ProjectProposal|null>(null);
+ const [projectProposal,setProjectProposal]=useState<LabProjectProposal|null>(null);
  const [projectConfirmed,setProjectConfirmed]=useState(false);
  const [projectSaving,setProjectSaving]=useState(false);
  const [projectNotice,setProjectNotice]=useState('');
@@ -175,7 +162,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
      ?'found':memoryData?.mode==='auto'&&memoryData?.consulted===false&&memoryData?.count===0
      ?'none':null;
    if(!controller.signal.aborted){
-    setProjectProposal(safeProjectProposal(structured?.projectProposal));setProjectConfirmed(false);
+    setProjectProposal(readLabProjectProposal(result));setProjectConfirmed(false);
     setHistory([...messages,{role:'assistant',text:answer}]);
     setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);
     setAutoMemoryResult(autoResult);

@@ -60,6 +60,20 @@ export async function connectLabGoogleWrite():Promise<string>{
  if(!token||token.length>4096)throw Error('O Google não concedeu um token de escrita.');
  return token;
 }
+/** Separate, explicitly requested scopes: metadata is enough for change tracking.
+ * Full-file read is broader and is NEVER requested merely to list filenames.
+ */
+export async function connectLabDocumentGoogle(includeContent=false):Promise<string>{
+ if(!auth)throw Error('Entre com Google no SIGMA antes de sincronizar documentos.');
+ const provider=new GoogleAuthProvider();
+ provider.addScope(includeContent?
+  'https://www.googleapis.com/auth/drive.readonly':
+  'https://www.googleapis.com/auth/drive.metadata.readonly');
+ const result=await signInWithPopup(auth,provider);
+ const token=GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+ if(!token||token.length>4096)throw Error('Não foi possível obter acesso autorizado aos documentos.');
+ return token;
+}
 export async function logoutLab():Promise<void>{
  if(auth)await signOut(auth);
 }

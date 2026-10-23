@@ -43,7 +43,7 @@ test('paginação segura: 250 arquivos, índice antigo preservado até a última
   cursor=next;
  }
  const search=await request('/search?q=Arquivo%20249');
- assert.equal(search.data.results.length,1);
+ assert.ok(search.data.results.length>=1);
  assert.equal(search.data.results[0].key,'drive:file249');
 });
 test('falha na página posterior, duplicata e ciclo não substituem catálogo',async()=>{

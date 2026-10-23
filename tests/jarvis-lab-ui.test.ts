@@ -16,7 +16,12 @@ test('laboratório usa somente Auth e exemplos fictícios; sem gravação pessoa
  assert.match(lab,/disabled=\{openedAsFile\|\|!authReady\|\|loggingIn\}/);
  assert.match(lab,/executa tarefas reais|execução sempre bloqueada/);
  assert.match(auth,/initializeAuth/);
+ assert.match(auth,/browserLocalPersistence/);
+ assert.match(auth,/browserSessionPersistence/);
  assert.match(auth,/inMemoryPersistence/);
+ assert.match(auth,/persistence:\s*\[browserLocalPersistence,browserSessionPersistence,inMemoryPersistence\]/);
+ assert.match(auth,/onAuthStateChanged\(instance,onUser\)/);
+ assert.doesNotMatch(auth,/prompt:'select_account'/);
  assert.doesNotMatch(auth,/\bgetAuth\(/);
  assert.match(auth,/signInWithPopup/);
  assert.doesNotMatch(sample,/\b(getFirestore|setDoc|addDoc|deleteDoc|updateDoc|verifyDatabase|sendChat|loadHistory|X-Google-Token)\b/);
@@ -125,4 +130,16 @@ test('mensagens de bloqueio CSP removem parâmetros, tokens e domínios não rec
  assert.equal(unknown.includes('unauthorized.example.com'),false);
  assert.match(unknown,/recurso externo/);
  assert.equal(safeLabCspDiagnostic('report-uri','https://accounts.google.com?token=secret'), '');
+});
+
+test('auth mantém sessão do Google apenas com Firebase, sem guardar chat ou memória no navegador',()=>{
+ const auth=readFileSync('src/jarvis-lab-auth.ts','utf8');
+ const lab=readFileSync('src/jarvis-lab.tsx','utf8');
+ assert.match(auth,/persistence:\s*\[browserLocalPersistence,browserSessionPersistence,inMemoryPersistence\]/);
+ assert.match(auth,/onAuthStateChanged\(instance,onUser\)/);
+ assert.match(auth,/signOut\(auth\)/);
+ assert.doesNotMatch(auth,/setDoc|saveChat|localStorage\.setItem|sessionStorage\.setItem/);
+ assert.match(lab,/não a navegação privada/);
+ assert.match(lab,/Restaurando sessão Google/);
+ assert.match(lab,/Google conectado/);
 });

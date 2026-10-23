@@ -133,3 +133,42 @@ test('API de documentos nunca responde sem UID autorizado e flag habilitada',asy
  const stranger=makeLabChatWorker({verify:async()=> 'another'});
  assert.equal((await stranger.fetch(req(''),{...env,LAB_DOCUMENTS_ENABLED:'true'})).status,403);
 });
+
+test('Drive recusa HTTP 200 com incompleteSearch para não remover itens do índice por engano',async()=>{
+ let requests=0;
+ const transport=(async(url:string)=>{
+  requests++;
+  assert.match(url,/incompleteSearch/,'o campo de integridade deve ser solicitado');
+  return Response.json({files:[],incompleteSearch:true});
+ }) as typeof fetch;
+ await assert.rejects(()=>fetchDriveDocumentSnapshot('read-token',transport),/incompleta/);
+ assert.equal(requests,1);
+});
+
+test('Drive recusa ciclo de cursor não consecutivo sem continuar varredura',async()=>{
+ let requests=0;
+ const cursors=['A','B','A'];
+ const transport=(async()=>{
+  const result=Response.json({files:[],nextPageToken:cursors[requests]});
+  requests++;
+  return result;
+ }) as typeof fetch;
+ await assert.rejects(()=>fetchDriveDocumentSnapshot('read-token',transport),/Paginação Drive inconsistente/);
+ assert.equal(requests,3);
+});
+
+test('Notion recusa ciclo de cursor não consecutivo e indicador has_more inválido',async()=>{
+ let requests=0;
+ const cursors=['A','B','A'];
+ const transport=(async(_url:string,init:RequestInit)=>{
+  const sent=JSON.parse(String(init.body));
+  assert.equal(sent.start_cursor,requests===0?undefined:cursors[requests-1]);
+  const result=Response.json({results:[],has_more:true,next_cursor:cursors[requests]});
+  requests++;
+  return result;
+ }) as typeof fetch;
+ await assert.rejects(()=>fetchNotionDocumentSnapshot('valid-notion-key',transport),/Paginação Notion inconsistente/);
+ assert.equal(requests,3);
+ const invalid=(async()=>Response.json({results:[],has_more:'false'})) as typeof fetch;
+ await assert.rejects(()=>fetchNotionDocumentSnapshot('valid-notion-key',invalid),/sem indicador válido/);
+});

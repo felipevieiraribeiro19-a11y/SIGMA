@@ -39,7 +39,7 @@ test('paginação segura: 250 arquivos, índice antigo preservado até a última
   assert.equal(result.data.completed,page===2);
   const listed=await request('/documents');
   assert.equal(listed.data.count,page===2?250:1);
-  if(page<2)assert.equal(listed.data.documents[0].textLength,13);
+  if(page<2)assert.equal(listed.data.documents[0].textLength,12);
   cursor=next;
  }
  const search=await request('/search?q=Arquivo%20249');

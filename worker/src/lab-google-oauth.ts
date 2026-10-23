@@ -1,6 +1,6 @@
 /** Per-Firebase-UID OAuth credential vault. Internal Durable Object only; AES-256-GCM at rest. */
 import {HttpError} from './validation';
-import {randomUrl,utf8,validPreset,type ScopePreset,noStore} from './core/google-oauth';
+import {utf8,validPreset,type ScopePreset,noStore} from './core/google-oauth';
 type Tx={get:<T>(k:string)=>Promise<T|undefined>;put:(k:string,v:unknown)=>Promise<unknown>};
 type Store={transaction:<T>(f:(tx:Tx)=>Promise<T>)=>Promise<T>};
 type Env={
@@ -39,17 +39,23 @@ export async function decryptRefresh(cipher:Cipher,key:CryptoKey,uid:string):Pro
 export class LabGoogleOAuthVault{
  private readonly storage:Store;
  private readonly env:Env;
- private refreshing:Promise<{accessToken:string;expiresAt:number}>|null=null;
- private cached:{accessToken:string;expiresAt:number}|null=null;
+ private refreshing=new Map<ScopePreset,Promise<{accessToken:string;expiresAt:number}>>();
+ private cached=new Map<ScopePreset,{accessToken:string;expiresAt:number}>();
  constructor(state:{storage:Store},env:Env){this.storage=state.storage;this.env=env;}
  async fetch(request:Request):Promise<Response>{
   const path=new URL(request.url).pathname;
   try{
    if(path==='/status'&&request.method==='GET'){
-    const linked=await this.storage.transaction(tx=>tx.get<Linked>('linked'));
-    return noStore(linked?{connected:!linked.reauthorize,needsReauthorization:linked.reauthorize,
-     preset:linked.preset,connectedAt:linked.connectedAt,scopes:linked.scopes}:
-     {connected:false,needsReauthorization:false});
+    const connections=await this.storage.transaction(async tx=>{
+     const all:Record<string,unknown>={};
+     for(const preset of ['calendar','drive_metadata','drive_content'] as ScopePreset[]){
+      const linked=await tx.get<Linked>('linked:'+preset);
+      all[preset]=linked?{connected:!linked.reauthorize,needsReauthorization:linked.reauthorize,
+       connectedAt:linked.connectedAt,scopes:linked.scopes}:{connected:false};
+     }
+     return all;
+    });
+    return noStore({connections});
    }
    if(path==='/start'&&request.method==='POST'){
     const input=await request.json() as Record<string,unknown>;
@@ -85,20 +91,24 @@ export class LabGoogleOAuthVault{
     const scopes=typeof input.scopes==='string'?input.scopes:'';
     const linked:Linked={uid:input.uid,preset,cipher,connectedAt:new Date().toISOString(),
      scopes,reauthorize:false};
-    await this.storage.transaction(async tx=>{await tx.put('linked',linked);});
-    this.cached=null;
+    await this.storage.transaction(async tx=>{await tx.put('linked:'+preset,linked);});
+    this.cached.delete(preset);
     return noStore({connected:true,preset});
    }
    if(path==='/disconnect'&&request.method==='POST'){
+    const data=await request.json().catch(()=>null) as {preset?:unknown}|null;
+    const preset=validPreset(data?.preset);
     await this.storage.transaction(async tx=>{
-     await tx.put('pending',null);await tx.put('linked',null);
+     await tx.put('pending',null);await tx.put('linked:'+preset,null);
     });
-    this.cached=null;
-    // Removes local credential; remote consent must be revoked at Google Account settings if desired.
-    return noStore({disconnected:true,remoteRevoked:false});
+    this.cached.delete(preset);
+    // Local only; OAuth grant can be revoked independently at Google Account settings.
+    return noStore({disconnected:true,preset,remoteRevoked:false});
    }
    if(path==='/access'&&request.method==='POST'){
-    const result=await this.accessToken();
+    const data=await request.json().catch(()=>null) as {preset?:unknown}|null;
+    const preset=validPreset(data?.preset);
+    const result=await this.accessToken(preset);
     // Only parent Worker via private DO binding sees accessToken. No browser route returns it.
     return noStore({accessToken:result.accessToken,expiresAt:result.expiresAt});
    }
@@ -108,14 +118,17 @@ export class LabGoogleOAuthVault{
    return noStore({error:error instanceof HttpError?error.message:'Falha segura no cofre OAuth.'},code);
   }
  }
- private async accessToken():Promise<{accessToken:string;expiresAt:number}>{
-  if(this.cached&&this.cached.expiresAt>now()+60_000)return this.cached;
-  if(this.refreshing)return this.refreshing;
-  this.refreshing=this.refreshGoogle();
-  try{return await this.refreshing;}finally{this.refreshing=null;}
+ private async accessToken(preset:ScopePreset):Promise<{accessToken:string;expiresAt:number}>{
+  const cached=this.cached.get(preset);
+  if(cached&&cached.expiresAt>now()+60_000)return cached;
+  const active=this.refreshing.get(preset);
+  if(active)return active;
+  const promise=this.refreshGoogle(preset);
+  this.refreshing.set(preset,promise);
+  try{return await promise;}finally{this.refreshing.delete(preset);}
  }
- private async refreshGoogle():Promise<{accessToken:string;expiresAt:number}>{
-  const linked=await this.storage.transaction(tx=>tx.get<Linked>('linked'));
+ private async refreshGoogle(preset:ScopePreset):Promise<{accessToken:string;expiresAt:number}>{
+  const linked=await this.storage.transaction(tx=>tx.get<Linked>('linked:'+preset));
   if(!linked||linked.reauthorize)throw new HttpError(401,'Conta Google precisa ser reconectada.');
   const key=await importVaultKey(this.env.GOOGLE_OAUTH_ENCRYPTION_KEY||'');
   const token=await decryptRefresh(linked.cipher,key,linked.uid);
@@ -135,11 +148,11 @@ export class LabGoogleOAuthVault{
   if(!result.ok||!payload?.access_token){
    if(payload?.error==='invalid_grant'){
     await this.storage.transaction(async tx=>{
-     const existing=await tx.get<Linked>('linked');
+     const existing=await tx.get<Linked>('linked:'+preset);
      if(existing&&existing.connectedAt===linked.connectedAt)
-      await tx.put('linked',{...existing,reauthorize:true});
+      await tx.put('linked:'+preset,{...existing,reauthorize:true});
     });
-    this.cached=null;
+    this.cached.delete(preset);
     throw new HttpError(401,'Autorização Google expirou ou foi revogada. Reconecte.');
    }
    throw new HttpError(502,'Google não renovou o acesso. Tente novamente.');
@@ -147,13 +160,14 @@ export class LabGoogleOAuthVault{
   if(payload.refresh_token&&payload.refresh_token!==token){
    const rotated=await encryptRefresh(payload.refresh_token,key,linked.uid);
    await this.storage.transaction(async tx=>{
-    const latest=await tx.get<Linked>('linked');
+    const latest=await tx.get<Linked>('linked:'+preset);
     if(latest&&latest.connectedAt===linked.connectedAt)
-     await tx.put('linked',{...latest,cipher:rotated});
+     await tx.put('linked:'+preset,{...latest,cipher:rotated});
    });
   }
   const duration=Number.isFinite(payload.expires_in)?Math.min(3600,Math.max(60,payload.expires_in!)):3600;
-  this.cached={accessToken:payload.access_token,expiresAt:now()+duration*1000};
-  return this.cached;
+  const value={accessToken:payload.access_token,expiresAt:now()+duration*1000};
+  this.cached.set(preset,value);
+  return value;
  }
 }

@@ -554,10 +554,10 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const response=await result.json() as {candidates?:{content?:{
     parts?:{text?:string;thought?:boolean;functionCall?:unknown}[]
    }}[]};
-   const parts=response.candidates?.[0]?.content?.parts||[];
-   const projectProposal=projectProposalEnabled?readProjectProposal(parts):null;
+   const modelParts=response.candidates?.[0]?.content?.parts||[];
+   const projectProposal=projectProposalEnabled?readProjectProposal(modelParts):null;
    const answer=projectProposal?projectPreviewText(projectProposal):
-    parts.filter(p=>!p.thought).map(p=>p.text||'').join('').trim();
+    modelParts.filter(p=>!p.thought).map(p=>p.text||'').join('').trim();
    if(!answer)throw new HttpError(502,'Gemini não retornou uma resposta em texto.');
    if(answer.length>12000)throw new HttpError(502,'Resposta grande demais.');
    return reply({text:answer,persisted:false,executed:false,provider:'gemini',

@@ -15,26 +15,26 @@ test('Beta uses Jarvis HUD without changing the LAB entrypoint',()=>{
  assert.match(hud,/src\/jarvis-chat-protocol|validLabApiBase/);
 });
 
-test('orb is a detailed vector hologram, without text in its center',()=>{
+test('orb uses exact local reference crop, with moving connections and no Saturn ring',()=>{
  assert.match(hud,/import \{SigmaOrb\} from '.\/SigmaOrb'/);
  assert.match(hud,/<SigmaOrb\/>/);
- assert.match(orb,/<svg viewBox="0 0 480 480" className="sigma-orb-v3-svg"/);
- assert.match(orb,/links\.map/);
- assert.match(orb,/stars\.map/);
- assert.match(orb,/orb-v3-clip/);
- assert.match(orb,/orb-v3-glow/);
- assert.doesNotMatch(orb,/<text[ >]/);
- assert.match(orb,/sigma-orb-v3-network/);
+ assert.match(orb,/import orbReference from '.\/assets\/sigma-orb-reference.webp'/);
+ const image=readFileSync('src/assets/sigma-orb-reference.webp');
+ assert.equal(image.toString('ascii',0,4),'RIFF');
+ assert.equal(image.toString('ascii',8,12),'WEBP');
+ assert.ok(image.byteLength>2000);
+ assert.match(orb,/sigma-orb-reference-image/);
+ assert.match(orb,/sigma-orb-reference-neural/);
  assert.match(orb,/animateMotion/);
- assert.doesNotMatch(orb,/Hairline equatorial orbital path/);
- assert.doesNotMatch(orb,/rx="174" ry="37"/);
- assert.doesNotMatch(orb,/M 65 230 Q 240 303 414 230/);
  assert.match(orb,/signalLinks\.map/);
- assert.match(orbCss,/sigma-orb-v4-hover/);
- assert.match(orbCss,/sigma-orb-v4-neural-drift/);
- assert.match(orbCss,/sigma-orb-v4-flow/);
- assert.match(orbCss,/\.sigma-orb-v3-signals\{display:none\}/);
+ assert.match(orbCss,/sigma-orb-reference-float/);
+ assert.match(orbCss,/sigma-orb-reference-network/);
+ assert.match(orbCss,/sigma-orb-reference-flow/);
+ assert.match(orbCss,/sigma-orb-reference-orbit/);
+ assert.doesNotMatch(orb,/rx="174" ry="37"|Hairline equatorial orbital path/);
+ assert.doesNotMatch(orb,/<text[ >]/);
  assert.match(orbCss,/prefers-reduced-motion:reduce/);
+ assert.match(orbCss,/\.sigma-orb-reference-signals\{display:none\}/);
  assert.match(css,/prefers-reduced-motion:reduce/);
 });
 

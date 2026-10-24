@@ -66,3 +66,28 @@ export function readLabProjectProposal(data:unknown):LabProjectProposal|null{
  return {kind:'project.create',source:'gemini',requiresApproval:true,
   title:v.title,goal:v.goal,notes:v.notes};
 }
+
+
+/** Client-side display contract; never grants permission to save. */
+export type LabTaskProposal={
+ kind:'task.create';source:'gemini';requiresApproval:true;
+ title:string;notes:string;dueDate:string;priority:'low'|'normal'|'high';
+ projectTitleHint:string;
+};
+export function readLabTaskProposal(raw:unknown):LabTaskProposal|null{
+ const body=raw as {taskProposal?:unknown}|null;
+ const x=body?.taskProposal;
+ if(!x||typeof x!=='object'||Array.isArray(x))return null;
+ const p=x as Record<string,unknown>;
+ if(p.kind!=='task.create'||p.source!=='gemini'||p.requiresApproval!==true||
+  typeof p.title!=='string'||p.title.trim().length<2||p.title.length>160||
+  typeof p.notes!=='string'||p.notes.length>1500||
+  typeof p.dueDate!=='string'||
+  (p.dueDate!==''&&!/^(?:19|20|21)\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.test(p.dueDate))||
+  !['low','normal','high'].includes(String(p.priority))||
+  typeof p.projectTitleHint!=='string'||p.projectTitleHint.length>120)
+  return null;
+ return {kind:'task.create',source:'gemini',requiresApproval:true,title:p.title,
+  notes:p.notes,dueDate:p.dueDate,priority:p.priority as LabTaskProposal['priority'],
+  projectTitleHint:p.projectTitleHint};
+}

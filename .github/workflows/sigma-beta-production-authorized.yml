@@ -3,10 +3,7 @@ name: SIGMA Beta - publicar site principal autorizado
 # Autorizacao explicita do proprietario nesta conversa em 24/10/2026.
 # Execucao unica por adicao deste arquivo na branch de preparacao Beta.
 on:
-  pull_request:
-    branches: [sigma-consultar-concluir-tarefas-chat]
-    types: [synchronize]
-    paths: ['.github/workflows/sigma-beta-production-authorized.yml']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,11 +14,7 @@ concurrency:
 
 jobs:
   validar:
-    if: >-
-      github.event.pull_request.number == 20 &&
-      github.head_ref == 'sigma-beta-preparacao-20261024' &&
-      github.base_ref == 'sigma-consultar-concluir-tarefas-chat' &&
-      github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
+    if: github.ref == 'refs/heads/sigma-beta-preparacao-20261024'
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:

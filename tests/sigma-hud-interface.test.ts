@@ -18,11 +18,11 @@ test('Beta uses Jarvis HUD without changing the LAB entrypoint',()=>{
 test('orb is a detailed vector hologram, without text in its center',()=>{
  assert.match(hud,/import \{SigmaOrb\} from '.\/SigmaOrb'/);
  assert.match(hud,/<SigmaOrb\/>/);
- assert.match(orb,/<svg className="sigma-orb-v2-svg"/);
- assert.match(orb,/meshEdges\.map/);
- assert.match(orb,/radialLines\.map/);
- assert.match(orb,/sigma-v2-sphere-clip/);
- assert.match(orb,/sigma-v2-glow/);
+ assert.match(orb,/<svg viewBox="0 0 480 480" className="sigma-orb-v3-svg"/);
+ assert.match(orb,/links\.map/);
+ assert.match(orb,/stars\.map/);
+ assert.match(orb,/orb-v3-clip/);
+ assert.match(orb,/orb-v3-glow/);
  assert.doesNotMatch(orb,/<text[ >]/);
  assert.match(orbCss,/prefers-reduced-motion:reduce/);
  assert.match(css,/prefers-reduced-motion:reduce/);

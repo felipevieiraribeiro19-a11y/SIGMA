@@ -1,0 +1,14 @@
+{
+ "hosting":{
+  "public":"dist-orb-preview",
+  "ignore":["firebase.orb-preview.json","**/.*","**/node_modules/**"],
+  "rewrites":[{"source":"**","destination":"/index.html"}],
+  "headers":[{"source":"**","headers":[
+   {"key":"Cache-Control","value":"no-store"},
+   {"key":"X-Content-Type-Options","value":"nosniff"},
+   {"key":"Referrer-Policy","value":"no-referrer"},
+   {"key":"X-Robots-Tag","value":"noindex, nofollow, noarchive"},
+   {"key":"Content-Security-Policy","value":"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'"}
+  ]}]
+ }
+}

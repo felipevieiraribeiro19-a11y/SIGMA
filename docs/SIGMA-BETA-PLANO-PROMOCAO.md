@@ -28,3 +28,12 @@ Preparar uma versão Beta no endereço principal `https://sigma-61328.web.app`, 
 
 ## Status
 **PREPARAÇÃO INICIADA. PRODUÇÃO NÃO MODIFICADA.** Este documento não é autorização para publicar automaticamente, migrar ou excluir dados.
+
+## Decisão do usuário e primeiro incremento de código
+- Usuário confirmou que a Beta deve **reunir dados existentes tanto do SIGMA principal quanto do LAB**.
+- Foi criado `src/beta-data-inventory.ts`, um reconciliador determinístico de leitura que exige o mesmo UID autenticado em ambas as fontes.
+- Os registros são identificados por `origem:tipo:id`, sem mesclar por texto ou sobrescrever IDs coincidentes; uma fonte indisponível interrompe o inventário, em vez de aparecer falsamente como vazia.
+- O inventário não copia conteúdo de respostas do Gemini, notas financeiras nem executa escritas. `readOnly=true` e `migrationPerformed=false`.
+- Testes em `tests/sigma-beta-data-inventory.test.ts` verificam isolamento por UID, colisão de IDs, duplicatas internas, integridade, fonte ausente e ausência de mutações.
+- **Limite atual:** o reconciliador é um módulo de domínio ainda não ligado a endpoints autenticados ou à UI. Não houve leitura de dados reais, migração ou publicação Beta.
+- Próxima implementação: adaptadores de leitura autenticada para Firestore/Worker LAB, interface unificada, persistência de chat principal e um canal preview Beta com CORS e Auth explicitamente revisados.

@@ -37,3 +37,10 @@ Preparar uma versão Beta no endereço principal `https://sigma-61328.web.app`, 
 - Testes em `tests/sigma-beta-data-inventory.test.ts` verificam isolamento por UID, colisão de IDs, duplicatas internas, integridade, fonte ausente e ausência de mutações.
 - **Limite atual:** o reconciliador é um módulo de domínio ainda não ligado a endpoints autenticados ou à UI. Não houve leitura de dados reais, migração ou publicação Beta.
 - Próxima implementação: adaptadores de leitura autenticada para Firestore/Worker LAB, interface unificada, persistência de chat principal e um canal preview Beta com CORS e Auth explicitamente revisados.
+
+## Adaptadores de leitura e CI
+- `src/beta-data-reader.ts`: prepara consultas `GET` autenticadas ao histórico do Worker principal e aos endpoints de memórias, Workspace e projetos do Worker LAB. Envia o mesmo token Firebase a ambos, sem persistir token nem dados; origens dos Workers são fixadas explicitamente para impedir vazamento de token a destinos inesperados.
+- `tests/sigma-beta-data-reader.test.ts`: verifica GET-only, autenticação, falha fechada quando falta uma fonte e rejeição de destinos não autorizados.
+- `.github/workflows/sigma-beta-preflight.yml`: build e testes sem credenciais, sem deploy, sem migração. O resultado de CI ainda deve ser confirmado antes de integração.
+- **Antes de ativar no navegador:** ambos Workers devem permitir explicitamente o domínio do preview Beta via CORS; a autenticação Firebase também deve autorizar o domínio. Essas configurações ainda não foram alteradas.
+- A integração atual é **somente inventário e leitura**, não migração de conteúdo nem chat unificado. Não habilitar escrita entre bases sem testes e consentimento.

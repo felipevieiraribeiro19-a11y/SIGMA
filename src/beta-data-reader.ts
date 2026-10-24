@@ -14,11 +14,11 @@ export type BetaReadOptions={
  signal?:AbortSignal;
  transport?:typeof fetch;
 };
-function apiBase(value:string):string{
+function apiBase(value:string,expectedHost:string):string{
  const parsed=new URL(value);
  if(parsed.protocol!=='https:'||parsed.username||parsed.password||
     parsed.pathname!=='/'||parsed.search||parsed.hash||
-    !parsed.hostname.endsWith('.workers.dev'))
+    parsed.hostname!==expectedHost)
   throw Error('Origem de API Beta não autorizada.');
  return parsed.origin;
 }
@@ -42,7 +42,8 @@ export async function readBetaInventory(options:BetaReadOptions):Promise<BetaInv
  const {uid,idToken,signal,transport=fetch}=options;
  if(typeof uid!=='string'||uid.length<4||typeof idToken!=='string'||idToken.length<20)
   throw Error('Autenticação Beta inválida.');
- const main=apiBase(options.mainApiBase),lab=apiBase(options.labApiBase);
+ const main=apiBase(options.mainApiBase,'sigma-cerebro.felipevieiraribeiro19.workers.dev');
+ const lab=apiBase(options.labApiBase,'sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev');
  if(main===lab)throw Error('Fontes principal e LAB devem permanecer distintas.');
  const [history,memory,workspace,projects]=await Promise.all([
   readJson(main,'/api/history',idToken,transport,signal),

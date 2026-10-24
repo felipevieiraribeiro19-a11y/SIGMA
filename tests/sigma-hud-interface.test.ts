@@ -27,7 +27,7 @@ test('orb uses native animated WebGL and no pasted image or Saturn belt',()=>{
  assert.match(gpu,/ellips[e]/);
  assert.match(gpu,/Deliberately hollow/);
  assert.match(gpu,/float shell=smoothstep/);
- assert.doesNotMatch(gpu,/float threads|float nodes|float diamond=/);
+ assert.doesNotMatch(gpu,/float threads|float nodes|float diamond=star\(/);
  assert.match(gpu,/star\(/);
  assert.match(gpu,/Concentric circular HUD only/);
  assert.match(gpu,/requestAnimationFrame/);

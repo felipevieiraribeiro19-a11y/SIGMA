@@ -112,8 +112,15 @@ export function makeLabChatWorker(deps:Dependencies={}){
   };
   const reply=(payload:unknown,status=200)=>new Response(JSON.stringify(payload),{status,headers});
   try{
-   // Não aceitar origem ausente, curingas ou origem de produção.
-   if(!env.ALLOWED_ORIGIN||origin!==env.ALLOWED_ORIGIN)
+   // SIGMA Beta may use the existing LAB records without disabling the preview.
+   // Explicit exact-origin allowlist; never accept wildcard or arbitrary Origin.
+   const betaOrigin='https://sigma-61328.web.app';
+   const previewOrigin='https://sigma-61328--jarvis-lab-pw5dmfbc.web.app';
+   const allowedOrigin=!!env.ALLOWED_ORIGIN&&(
+    origin===env.ALLOWED_ORIGIN||
+    (env.ALLOWED_ORIGIN===betaOrigin&&origin===previewOrigin)
+   );
+   if(!allowedOrigin)
     throw new HttpError(403,'Origem não autorizada.');
    headers['Access-Control-Allow-Origin']=origin;
    const path=new URL(request.url).pathname;

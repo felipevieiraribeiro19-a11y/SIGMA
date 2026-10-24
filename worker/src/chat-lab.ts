@@ -534,8 +534,12 @@ export function makeLabChatWorker(deps:Dependencies={}){
     const response=await env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid))
      .fetch('https://lab-workspace.internal/entries',{method:'GET'});
     if(!response.ok)throw new HttpError(503,'Não foi possível consultar suas tarefas.');
+    const projectsResponse=await env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid))
+     .fetch('https://lab-workspace.internal/projects',{method:'GET'});
+    if(!projectsResponse.ok)throw new HttpError(503,'Não foi possível identificar projetos das tarefas.');
     const parsed=await response.json() as unknown;
-    const safe=readTaskContext(parsed);
+    const linkedProjects=await projectsResponse.json() as unknown;
+    const safe=readTaskContext(parsed,linkedProjects);
     taskContext=safe.prompt;
     taskReadReceipt=safe.receipt;
    }

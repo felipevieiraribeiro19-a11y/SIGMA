@@ -182,7 +182,7 @@ export class LabWorkspaceStore{
     return json({entry},201);
    }
    if(pathname==='/entries/briefing')throw new HttpError(405,'Método não permitido.');
-   if(id&&!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))
+   if(id&&!id.endsWith('/complete')&&!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))
     throw new HttpError(400,'Identificador inválido.');
    if(id?.endsWith('/complete')){
     const taskId=id.slice(0,-'/complete'.length);

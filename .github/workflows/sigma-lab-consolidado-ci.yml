@@ -6,9 +6,11 @@ on:
   push:
     branches:
       - sigma-lab-consolidacao-segura
+      - sigma-lab-preflight-etapa11
   pull_request:
     branches:
       - sigma-ecossistema-integracoes
+      - sigma-lab-consolidacao-segura
   workflow_dispatch:
 
 permissions:

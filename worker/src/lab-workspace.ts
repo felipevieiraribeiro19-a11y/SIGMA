@@ -57,7 +57,7 @@ export class LabWorkspaceStore{
  async fetch(request:Request):Promise<Response>{
   const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
   const {pathname}=new URL(request.url);
-  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset)|\/[0-9a-f-]{36})?$/.test(pathname)&&
+  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset)|\/[0-9a-f-]{36}(?:\/complete)?)?$/.test(pathname)&&
    !/^\/projects(?:\/[0-9a-f-]{36})?$/.test(pathname))return json({error:'Rota inexistente.'},404);
   const id=pathname.startsWith('/entries/')?pathname.slice(9):null;
   try{
@@ -180,6 +180,36 @@ export class LabWorkspaceStore{
      await tx.put('entries',[...list,row]);return row;
     });
     return json({entry},201);
+   }
+   // Uma conclusão é um update mínimo e transacional: sem sobrescrever notas ou prazos.
+   // Exige a versão da tarefa exibida na revisão humana; não repete nem reabre.
+   const completion=pathname.match(/^\/entries\/([0-9a-f-]{36})\/complete$/i);
+   if(completion){
+    if(request.method!=='POST')throw new HttpError(405,'Use POST para concluir tarefa.');
+    const taskId=completion[1];
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(taskId))
+     throw new HttpError(400,'Identificador de tarefa inválido.');
+    const raw=await request.text();
+    if(raw.length>150)throw new HttpError(413,'Confirmação grande demais.');
+    let value:unknown;
+    try{value=JSON.parse(raw);}catch{throw new HttpError(400,'JSON inválido.');}
+    if(!value||typeof value!=='object'||Array.isArray(value)||
+     Object.keys(value).length!==1||typeof (value as {expectedUpdatedAt?:unknown}).expectedUpdatedAt!=='string'||
+     !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test((value as {expectedUpdatedAt:string}).expectedUpdatedAt))
+     throw new HttpError(400,'Confirmação de tarefa inválida.');
+    const expected=(value as {expectedUpdatedAt:string}).expectedUpdatedAt;
+    const entry=await this.state.storage.transaction(async tx=>{
+     const records=(await tx.get<WorkspaceEntry[]>('entries'))||[];
+     const original=records.find(x=>x.id===taskId);
+     if(!original||original.kind!=='task')throw new HttpError(404,'Tarefa não encontrada.');
+     if(original.done)throw new HttpError(409,'Esta tarefa já está concluída.');
+     if(original.updatedAt!==expected)
+      throw new HttpError(409,'Esta tarefa mudou desde a consulta. Consulte novamente antes de concluir.');
+     const updated:WorkspaceEntry={...original,done:true,updatedAt:new Date().toISOString()};
+     await tx.put('entries',records.map(x=>x.id===taskId?updated:x));
+     return updated;
+    });
+    return json({entry,completed:true});
    }
    if(pathname==='/entries/briefing')throw new HttpError(405,'Método não permitido.');
    if(id&&!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))

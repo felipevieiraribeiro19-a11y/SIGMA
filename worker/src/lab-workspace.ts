@@ -57,7 +57,7 @@ export class LabWorkspaceStore{
  async fetch(request:Request):Promise<Response>{
   const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
   const {pathname}=new URL(request.url);
-  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset)|\/[0-9a-f-]{36})?$/.test(pathname)&&
+  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset)|\/[0-9a-f-]{36}(?:\/complete)?)?$/.test(pathname)&&
    !/^\/projects(?:\/[0-9a-f-]{36})?$/.test(pathname))return json({error:'Rota inexistente.'},404);
   const id=pathname.startsWith('/entries/')?pathname.slice(9):null;
   try{
@@ -184,6 +184,33 @@ export class LabWorkspaceStore{
    if(pathname==='/entries/briefing')throw new HttpError(405,'Método não permitido.');
    if(id&&!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))
     throw new HttpError(400,'Identificador inválido.');
+   if(id?.endsWith('/complete')){
+    const taskId=id.slice(0,-'/complete'.length);
+    if(request.method!=='PATCH')throw new HttpError(405,'Conclusão exige PATCH.');
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(taskId))
+     throw new HttpError(400,'Tarefa inválida.');
+    const payload=await request.json() as unknown;
+    if(!payload||typeof payload!=='object'||Array.isArray(payload)||
+      Object.keys(payload).length!==1||
+      typeof (payload as {expectedUpdatedAt?:unknown}).expectedUpdatedAt!=='string')
+     throw new HttpError(400,'Revisão da tarefa obrigatória.');
+    const expected=(payload as {expectedUpdatedAt:string}).expectedUpdatedAt;
+    if(expected.length>40||Number.isNaN(Date.parse(expected)))
+     throw new HttpError(400,'Revisão inválida.');
+    const entry=await this.state.storage.transaction(async tx=>{
+     const list=(await tx.get<WorkspaceEntry[]>('entries'))||[];
+     const current=list.find(x=>x.id===taskId);
+     if(!current)throw new HttpError(404,'Tarefa não encontrada.');
+     if(current.kind!=='task')throw new HttpError(409,'Registro não é uma tarefa.');
+     if(current.done)throw new HttpError(409,'Tarefa já concluída. Nada foi alterado.');
+     if(current.updatedAt!==expected)
+      throw new HttpError(409,'Tarefa foi modificada. Atualize a lista antes de confirmar.');
+     const updated={...current,done:true,updatedAt:new Date().toISOString()};
+     await tx.put('entries',list.map(x=>x.id===taskId?updated:x));
+     return updated;
+    });
+    return json({entry,completed:true});
+   }
    if(id&&request.method==='PATCH'){
     const data=entryPayload(await request.json());
     const entry=await this.state.storage.transaction(async tx=>{

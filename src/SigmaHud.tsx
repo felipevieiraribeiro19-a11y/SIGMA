@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useState,type ReactNode} from 'react';
 import type {User} from 'firebase/auth';
 import {Activity,BookOpen,CalendarDays,CheckSquare,ChevronRight,Database,FolderOpen,Home,LogIn,LogOut,Menu,MessageCircle,RefreshCw,Settings2,ShieldCheck,Wallet,Wifi, X} from 'lucide-react';
 import {JarvisChatPanel} from './JarvisChatPanel';
@@ -35,7 +35,7 @@ function Orb(){return <div className="sigma-orb-scene" aria-label="Núcleo holog
  <div className="sigma-orb-ring sigma-orb-ring-two"/><div className="sigma-orb-core"><div className="sigma-orb-glint"/></div>
  <div className="sigma-orb-platform"/><span className="sigma-orb-beam"/>
  </div>;}
-function Panel({title,children,action}:{title:string;children:React.ReactNode;action?:React.ReactNode}){
+function Panel({title,children,action}:{title:string;children:ReactNode;action?:React.ReactNode}){
  return <section className="sigma-hud-panel"><div className="sigma-panel-heading"><h2>{title}</h2>{action}</div>{children}</section>;
 }
 export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowserDiagnostic,googleReadToken,onGoogleReadToken}:{

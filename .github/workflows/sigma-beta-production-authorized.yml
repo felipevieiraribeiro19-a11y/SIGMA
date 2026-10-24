@@ -1,0 +1,75 @@
+name: SIGMA Beta - publicar site principal autorizado
+
+# Autorizacao explicita do proprietario nesta conversa em 24/10/2026.
+# Execucao unica por adicao deste arquivo na branch de preparacao Beta.
+on:
+  push:
+    branches: [sigma-beta-preparacao-20261024]
+    paths: ['.github/workflows/sigma-beta-production-authorized.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sigma-firebase-production
+  cancel-in-progress: false
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      VITE_SIGMA_BETA: 'true'
+      VITE_JARVIS_LAB_API: https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Compilar Beta, verificar Worker e executar testes
+        run: |
+          npm run build:beta
+          npm run check:worker
+          npm test
+          test -s dist-sigma-beta/index.html
+          if grep -qi 'laborat.rio jarvis' dist-sigma-beta/index.html; then
+            echo 'HTML de laboratorio encontrado na Beta'; exit 1
+          fi
+      - name: Validar laboratorio sem alterar sua publicacao
+        run: |
+          npm run build:lab
+          node tests/verify-jarvis-lab-build.mjs
+          node scripts/sigma-lab-preflight.mjs
+
+  publicar:
+    needs: validar
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VITE_SIGMA_BETA: 'true'
+      VITE_JARVIS_LAB_API: https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Compilar somente a interface Beta
+        run: |
+          npm run build:beta
+          test -s dist-sigma-beta/index.html
+      - name: Reutilizar WIF Google existente
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/428047765465/locations/global/workloadIdentityPools/sigma-github/providers/github
+          service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Substituir somente arquivos do Firebase Hosting principal
+        run: npx --yes firebase-tools@15.34.0 deploy --only hosting --config firebase.beta.json --project sigma-61328 --non-interactive

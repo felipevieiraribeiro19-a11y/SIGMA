@@ -197,6 +197,61 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    if(pending.current===controller){pending.current=null;setBusy(false);}
   }
  }
+ async function refreshTaskProjects(hint:string){
+  if(!user||!api)return;
+  try{
+   const token=await user.getIdToken();
+   const response=await fetch(api+'/api/lab/workspace/projects',{
+    method:'GET',headers:{Authorization:'Bearer '+token},cache:'no-store'
+   });
+   const body:unknown=await response.json().catch(()=>null);
+   if(!response.ok)throw Error('Não foi possível carregar projetos para esta tarefa.');
+   const rows=(body as {projects?:unknown}|null)?.projects;
+   if(!Array.isArray(rows)||rows.length>50)throw Error('Lista de projetos inválida.');
+   const projects=rows.map((x:unknown)=>{
+    const p=x as {id?:unknown;title?:unknown;status?:unknown}|null;
+    if(!p||typeof p.id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(p.id)||
+     typeof p.title!=='string'||!['active','paused','archived'].includes(String(p.status)))
+      throw Error('Projeto inválido na resposta do servidor.');
+    return {id:p.id,title:p.title,status:p.status as string};
+   }).filter(p=>p.status!=='archived');
+   setTaskProjects(projects);
+   const matches=projects.filter(p=>p.title.localeCompare(hint,'pt-BR',{sensitivity:'base'})===0);
+   if(hint&&matches.length===1)setTaskProjectId(matches[0].id);
+  }catch(e){setTaskNotice(e instanceof Error?e.message:'Projetos indisponíveis.');}
+ }
+ async function createApprovedTask(){
+  if(!user||!api||!taskProposal||!taskApproved||taskSaving||busy)return;
+  const chosen=taskProjectId?taskProjects.find(p=>p.id===taskProjectId):null;
+  if(taskProjectId&&!chosen){setTaskNotice('Selecione novamente um projeto válido.');return;}
+  if(taskProposal.projectTitleHint&&!chosen){
+   setTaskNotice('Escolha um projeto válido antes de salvar esta tarefa.');return;
+  }
+  setTaskSaving(true);setTaskNotice('');
+  try{
+   const token=await user.getIdToken();
+   const task={kind:'task',title:taskProposal.title.trim(),notes:taskProposal.notes,
+    done:false,minutes:0,amount:0,priority:taskProposal.priority,
+    ...(taskProposal.dueDate?{dueDate:taskProposal.dueDate}:{}),
+    ...(chosen?{projectId:chosen.id}:{})};
+   const response=await fetch(api+'/api/lab/workspace',{
+    method:'POST',cache:'no-store',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify(task)
+   });
+   const payload:unknown=await response.json().catch(()=>null);
+   if(!response.ok)throw Error((payload as {error?:string}|null)?.error||
+    'Não foi possível confirmar o registro. Confira a Gestão integrada antes de tentar novamente.');
+   const saved=(payload as {entry?:{id?:unknown;kind?:unknown;title?:unknown;projectId?:unknown}}|null)?.entry;
+   if(typeof saved?.id!=='string'||saved.kind!=='task'||saved.title!==task.title||
+      (chosen&&saved.projectId!==chosen.id))
+    throw Error('Resposta incompleta. Confira os registros antes de tentar novamente.');
+   setTaskNotice('Tarefa "'+saved.title+'" salva e confirmada pelo SIGMA'+
+    (chosen?' no projeto "'+chosen.title+'"':'')+'. Consulte-a na Gestão integrada.');
+   setTaskProposal(null);setTaskApproved(false);setTaskProjects([]);setTaskProjectId('');
+  }catch(e){setTaskNotice(e instanceof Error?e.message:'Falha ao salvar tarefa.');}
+  finally{setTaskSaving(false);}
+ }
  async function createApprovedProject(){
   if(!user||!api||!projectProposal||!projectConfirmed||projectSaving||busy)return;
   setProjectSaving(true);setProjectNotice('');
@@ -240,7 +295,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  }
  return <div className="lab-chat">
   <h3>Conversa com Gemini + pesquisa + memória opcional</h3>
-  <p>Conversa temporária: não fica salva e não acessa Agenda ou Drive sem autorização. Quando o recurso de projetos estiver habilitado no laboratório, o Gemini poderá apenas propor um projeto; a criação exige revisão e confirmação separadas. Pesquisa na web somente quando habilitada. Use exemplos fictícios e evite dados pessoais.</p>
+  <p>Conversa temporária: não fica salva e não acessa Agenda ou Drive sem autorização. Projetos e tarefas podem ser propostos pelo Gemini, mas só serão salvos após revisão e confirmação separadas. Pesquisa na web somente quando habilitada. Use exemplos fictícios e evite dados pessoais.</p>
   {!api&&<p className="lab-chat-notice" role="status">Integração em preparação: o Worker isolado ainda não foi publicado e validado.</p>}
   {api&&!user&&<p className="lab-chat-notice" role="status">Faça login Google acima para habilitar os testes de conversa.</p>}
   {history.length>0&&<div className="lab-chat-dialog" aria-label="Mensagens desta sessão">
@@ -286,6 +341,40 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    }}>Descartar proposta</button>
   </div>}
   {projectNotice&&<p role="status">{projectNotice}</p>}
+  {taskProposal&&<div className="lab-learning-proposal" aria-label="Proposta de tarefa, não salva">
+   <strong>Proposta de tarefa — nada salvo ainda</strong>
+   <p>Revise os dados, escolha o projeto e marque a autorização. Não há envio de lembrete externo nem criação automática.</p>
+   <label>Tarefa<input maxLength={160} value={taskProposal.title}
+    onChange={e=>{setTaskProposal({...taskProposal,title:e.target.value});setTaskApproved(false);}}/></label>
+   <label>Observações<textarea rows={2} maxLength={1500} value={taskProposal.notes}
+    onChange={e=>{setTaskProposal({...taskProposal,notes:e.target.value});setTaskApproved(false);}}/></label>
+   <label>Prazo (opcional)<input type="date" value={taskProposal.dueDate}
+    onChange={e=>{setTaskProposal({...taskProposal,dueDate:e.target.value});setTaskApproved(false);}}/></label>
+   <label>Prioridade<select value={taskProposal.priority}
+    onChange={e=>{setTaskProposal({...taskProposal,priority:e.target.value as LabTaskProposal['priority']});setTaskApproved(false);}}>
+    <option value="low">Baixa</option><option value="normal">Normal</option><option value="high">Alta</option>
+   </select></label>
+   {taskProposal.projectTitleHint&&<p>Projeto citado na conversa: <strong>{taskProposal.projectTitleHint}</strong>. Confira qual projeto está selecionado.</p>}
+   <label>Projeto
+    <select value={taskProjectId} onChange={e=>{setTaskProjectId(e.target.value);setTaskApproved(false);}}>
+     <option value="">Sem projeto{taskProposal.projectTitleHint?' (selecione o projeto citado)':''}</option>
+     {taskProjects.map(project=><option value={project.id} key={project.id}>{project.title} ({project.status==='paused'?'pausado':'ativo'})</option>)}
+    </select>
+   </label>
+   <button type="button" disabled={taskSaving||busy}
+    onClick={()=>void refreshTaskProjects(taskProposal.projectTitleHint)}>Atualizar projetos</button>
+   <label><input type="checkbox" checked={taskApproved} disabled={taskSaving}
+    onChange={e=>setTaskApproved(e.target.checked)}/>
+    Revisei e autorizo salvar exatamente esta tarefa no meu SIGMA.</label>
+   <button type="button" disabled={busy||taskSaving||!taskApproved||
+     taskProposal.title.trim().length<2||
+     (Boolean(taskProposal.projectTitleHint)&&!taskProjects.some(p=>p.id===taskProjectId))}
+    onClick={()=>void createApprovedTask()}>{taskSaving?'Registrando…':'Confirmar e salvar tarefa'}</button>
+   <button type="button" disabled={busy||taskSaving} onClick={()=>{
+    setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);
+   }}>Descartar tarefa</button>
+  </div>}
+  {taskNotice&&<p role="status">{taskNotice}</p>}
   {proposalText&&<div className="lab-learning-proposal">
    <strong>Aprendizado contínuo — sugestão, não salva</strong>
    <p>O SIGMA identificou uma informação que talvez valha guardar. Revise, corrija ou descarte.</p>
@@ -362,7 +451,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

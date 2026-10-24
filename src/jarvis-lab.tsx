@@ -67,7 +67,7 @@ export function JarvisLab(){
   <main>
    {!beta&&<div className="lab-warning" role="status"><strong>MODO DE TESTES — NÃO É O SIGMA PRINCIPAL</strong>
     <p>Ambiente separado do SIGMA principal. O chat não salva mensagens nem executa tarefas reais. Memórias só poderão ser guardadas quando o módulo opcional for habilitado e você autorizar cada registro.</p>
-   </div>
+   </div>}
    <h1>{beta?'Seu assistente pessoal, todos os dias.':'Seu Jarvis, em construção.'}</h1>
    <p className="lab-lead">{beta?'Converse com o SIGMA, acompanhe projetos, estudos e tarefas. Versão Beta: o histórico deste chat ainda não é salvo automaticamente.':'Teste as futuras funções com segurança. Nenhum registro pessoal é necessário.'}</p>
    <section className="lab-panel" aria-label="Acesso ao SIGMA">

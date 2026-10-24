@@ -50,6 +50,32 @@ test('identifica consulta e conclusão, mas não pedidos negados',()=>{
  assert.equal(taskCompleteIntent('Não concluí a revisão do planejamento'),false);
  assert.equal(taskCompleteIntent('Como concluir tarefas?'),false);
 });
+test('não propõe conclusão para perguntas, hipóteses ou tarefas não concluídas',()=>{
+ for(const text of [
+  'Como marcar uma tarefa como concluída?',
+  'A revisão do planejamento está concluída?',
+  'Será que concluí a revisão do planejamento?',
+  'Se eu concluir a revisão do planejamento, o que acontece?',
+  'Ainda não terminei a revisão',
+  'A revisão não está concluída',
+  'Não quero marcar minha tarefa como concluída',
+  'Nunca marque a revisão como concluída'
+ ])assert.equal(taskCompleteIntent(text),false,text);
+ for(const text of [
+  'Sigma, concluí a revisão do planejamento',
+  'Terminei a revisão do planejamento',
+  'Marque a revisão do planejamento como concluída',
+  'Pode marcar a revisão do planejamento como concluída?'
+ ])assert.equal(taskCompleteIntent(text),true,text);
+});
+test('interface invalida aprovação em atualizações, logouts e respostas atrasadas',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const source=readFileSync(new URL('../src/JarvisChatPanel.tsx',import.meta.url),'utf8');
+ assert.match(source,/setCompletionApproved\(false\);setCompletionId\(''\);setPendingTasks\(\[\]\)/);
+ assert.match(source,/version!==completionLoadVersion\.current/);
+ assert.match(source,/completionSaving\|\|completionLoading\|\|busy/);
+});
+
 test('resumo de tarefas nunca compartilha notas, dinheiro ou texto de estudo',()=>{
  const raw={entries:[{...task,id:taskId,updatedAt:'2026-10-23T20:00:00.000Z',
   notes:'SEGREDO PRIVADO',amount:9999}]};

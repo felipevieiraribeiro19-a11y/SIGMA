@@ -1,0 +1,42 @@
+name: SIGMA Beta - validar consolidacao sem deploy
+
+on:
+  push:
+    branches: [sigma-beta-preparacao-20261024]
+  pull_request:
+    branches: [sigma-consultar-concluir-tarefas-chat]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sigma-beta-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    env:
+      VITE_JARVIS_LAB_API: https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias fixadas
+        run: npm ci
+      - name: Compilar as duas interfaces sem publicar
+        run: |
+          npm run build
+          npm run build:lab
+      - name: Validar TypeScript do Worker
+        run: npm run check:worker
+      - name: Executar testes automatizados, inclusive inventario Beta
+        run: npm test
+      - name: Validar isolamento LAB
+        run: |
+          node tests/verify-jarvis-lab-build.mjs
+          node scripts/sigma-lab-preflight.mjs

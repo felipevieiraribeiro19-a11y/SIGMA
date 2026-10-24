@@ -6,12 +6,43 @@ const base='http://127.0.0.1:'+port+'/offline-lab/';
 const phase=process.argv[2]||'before';
 let checks=0;
 const headers={'X-SIGMA-LAB':'offline-fixture','Content-Type':'application/json'};
-async function call(action,{method='POST',body,actor='fictional_owner',headersOverride}={}){
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function call(action,options={},attempt=0){
+ const {method='POST',body,actor='fictional_owner',headersOverride}=options;
  const [route,extra]=action.split('&');
  const url=base+route+'?actor='+actor+(extra?'&'+extra:'');
  const response=await fetch(url,{method,headers:headersOverride||headers,
   ...(body?{body:JSON.stringify(body)}:{})});
- const json=await response.json();
+ const raw=await response.text();
+ let json;
+ try{json=JSON.parse(raw);}
+ catch{
+  // Wrangler may hot-reload while first creating a local Durable Object.
+  // Only re-read GET. For POST issue, reconcile the unique fictional ID
+  // via audit FIRST: do not blindly repeat an action with uncertain outcome.
+  const restarted=raw.startsWith('Your worker restarted mid-request.');
+  if(!restarted||attempt>=2)throw new Error(
+   'Resposta não JSON no laboratório local: HTTP '+response.status+' '+raw.slice(0,140));
+  await pause(600);
+  if(method==='GET')return call(action,options,attempt+1);
+  if(route==='issue'&&typeof body?.id==='string'){
+   const inspected=await call('audit&id='+encodeURIComponent(body.id),{
+    method:'GET',actor,headersOverride
+   },attempt+1);
+   if(inspected.status!==200)throw new Error('Não foi possível confirmar proposta após reinício.');
+   const audit=inspected.json.audit;
+   if(audit?.state==='pending'){
+    const digest=audit.events?.find(e=>e.kind==='proposed')?.digest;
+    if(typeof digest!=='string'||!/^[a-f0-9]{64}$/.test(digest))
+     throw new Error('Auditoria da proposta incompleta após reinício.');
+    console.log('RECOVERED fictional proposal from durable audit (no repeated POST)');
+    return {status:200,json:{state:'pending',digest,executed:false}};
+   }
+   if(audit===null)return call(action,options,attempt+1);
+   throw new Error('Proposta foi alterada durante o reinício; não repetir.');
+  }
+  throw new Error('Ação POST teve resultado incerto no workerd local; sem repetição automática.');
+ }
  return {status:response.status,json};
 }
 async function check(name,fn){

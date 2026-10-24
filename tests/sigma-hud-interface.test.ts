@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 const hud=readFileSync('src/SigmaHud.tsx','utf8');
 const app=readFileSync('src/jarvis-lab.tsx','utf8');
 const css=readFileSync('src/sigma-hud.css','utf8');
+const orb=readFileSync('src/SigmaOrb.tsx','utf8');
+const orbCss=readFileSync('src/sigma-orb.css','utf8');
 
 test('Beta uses Jarvis HUD without changing the LAB entrypoint',()=>{
  assert.match(app,/if\(beta\)return <SigmaHud/);
@@ -13,10 +15,16 @@ test('Beta uses Jarvis HUD without changing the LAB entrypoint',()=>{
  assert.match(hud,/src\/jarvis-chat-protocol|validLabApiBase/);
 });
 
-test('orb is visual and has no SIGMA lettering in its center',()=>{
- const orb=hud.split('function Orb()')[1].split('function Panel(')[0];
- assert.ok(orb.includes('sigma-orb-core'));
- assert.ok(!orb.includes('>SIGMA<'));
+test('orb is a detailed vector hologram, without text in its center',()=>{
+ assert.match(hud,/import \{SigmaOrb\} from '.\/SigmaOrb'/);
+ assert.match(hud,/<SigmaOrb\/>/);
+ assert.match(orb,/<svg className="sigma-orb-v2-svg"/);
+ assert.match(orb,/meshEdges\.map/);
+ assert.match(orb,/radialLines\.map/);
+ assert.match(orb,/sigma-v2-sphere-clip/);
+ assert.match(orb,/sigma-v2-glow/);
+ assert.doesNotMatch(orb,/<text[ >]/);
+ assert.match(orbCss,/prefers-reduced-motion:reduce/);
  assert.match(css,/prefers-reduced-motion:reduce/);
 });
 

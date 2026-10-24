@@ -24,6 +24,7 @@ import {SIGMA_MODULES} from './core/ecosystem-manifest';
 import {PROJECT_TOOL_DECLARATION,projectToolInstruction,readProjectProposal,projectPreviewText} from './core/project-proposal-tool';
 import {readSharedProjects,type ProjectContextReceipt} from './core/project-chat-context';
 import {TASK_TOOL_DECLARATION,explicitTaskIntent,taskToolInstruction,localTaskDates,readTaskProposal,taskPreviewText} from './core/task-proposal-tool';
+import {taskReadIntent,taskCompleteIntent,readTaskContext,readTaskCompleteProposal,TASK_COMPLETE_TOOL_DECLARATION,taskCompletionInstruction,type TaskReadReceipt} from './core/task-chat-read';
 // O laboratório possui identidade própria e não herda afirmações sobre
 // histórico persistido do SIGMA principal.
 const LAB_SYSTEM_IDENTITY = [
@@ -286,7 +287,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
       return reply(await response.json(),response.status);
      }
      const suffix=path.slice('/api/lab/workspace'.length);
-     if(suffix&&!/^\/[0-9a-f-]{36}$/i.test(suffix))
+     if(suffix&&!/^\/[0-9a-f-]{36}(?:\/complete)?$/i.test(suffix))
       throw new HttpError(404,'Rota do espaço de trabalho inválida.');
      let body:unknown;
      if(request.method==='POST'||request.method==='PATCH'){
@@ -506,6 +507,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
      })).join('\\n'):
      'Biblioteca local consultada: nenhum documento encontrado para esta pergunta. Não invente fonte.';
    }
+   let taskContext='';
+   let taskReadReceipt:TaskReadReceipt|undefined;
    let projectContext='';
    let projectContextReceipt:ProjectContextReceipt|undefined;
    if(requestedProjects===true){
@@ -522,6 +525,19 @@ export function makeLabChatWorker(deps:Dependencies={}){
     const safe=readSharedProjects(projects);
     projectContext=safe.prompt;
     projectContextReceipt=safe.receipt;
+   }
+   // Task reads only when the latest authenticated user message requests them.
+   // Completion proposals never read or mutate tasks through the model.
+   if(taskReadIntent(messages[messages.length-1].text)){
+    if(env.LAB_BRAIN_ENABLED!=='true'||env.LAB_WORKSPACE_ENABLED!=='true'||!env.LAB_WORKSPACE)
+     throw new HttpError(503,'Consulta de tarefas ainda desabilitada.');
+    const response=await env.LAB_WORKSPACE.get(env.LAB_WORKSPACE.idFromName(uid))
+     .fetch('https://lab-workspace.internal/entries',{method:'GET'});
+    if(!response.ok)throw new HttpError(503,'Não foi possível consultar suas tarefas.');
+    const parsed=await response.json() as unknown;
+    const safe=readTaskContext(parsed);
+    taskContext=safe.prompt;
+    taskReadReceipt=safe.receipt;
    }
    // Cota independente da QUOTA usada em produção, por UID.
    const limit=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))
@@ -561,16 +577,17 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const projectProposalEnabled=env.LAB_BRAIN_ENABLED==='true'&&
     env.LAB_WORKSPACE_ENABLED==='true'&&!!env.LAB_WORKSPACE;
    const taskIntent=explicitTaskIntent(messages[messages.length-1].text);
+   const completeIntent=taskCompleteIntent(messages[messages.length-1].text);
    const dates=localTaskDates();
    const model=buildGeminiRequest(env.GEMINI_MODEL,env.GEMINI_API_KEY,{
     systemInstruction:{parts:[{text:LAB_SYSTEM_IDENTITY+
-     (projectProposalEnabled?' '+projectToolInstruction()+' '+taskToolInstruction(dates.today,dates.tomorrow):'')}]},
+     (projectProposalEnabled?' '+projectToolInstruction()+' '+taskToolInstruction(dates.today,dates.tomorrow)+' '+taskCompletionInstruction():'')}]},
     contents:messages.map((m,i)=>({
      role:m.role==='assistant'?'model':'user',
-     parts:[{text:m.text},...(i===messages.length-1&&approvedMemoryContext?[{text:approvedMemoryContext}]:[]),...(i===messages.length-1&&onlineContext?[{text:onlineContext}]:[]),...(i===messages.length-1&&connectorContext?[{text:connectorContext}]:[]),...(i===messages.length-1&&libraryContext?[{text:libraryContext}]:[]),...(i===messages.length-1&&projectContext?[{text:projectContext}]:[])]
+     parts:[{text:m.text},...(i===messages.length-1&&approvedMemoryContext?[{text:approvedMemoryContext}]:[]),...(i===messages.length-1&&onlineContext?[{text:onlineContext}]:[]),...(i===messages.length-1&&connectorContext?[{text:connectorContext}]:[]),...(i===messages.length-1&&libraryContext?[{text:libraryContext}]:[]),...(i===messages.length-1&&projectContext?[{text:projectContext}]:[]),...(i===messages.length-1&&taskContext?[{text:taskContext}]:[])]
     })),
     generationConfig:{maxOutputTokens:1100},
-    ...(projectProposalEnabled?{tools:[{functionDeclarations:[...PROJECT_TOOL_DECLARATION.functionDeclarations,TASK_TOOL_DECLARATION]}]}:{})
+    ...(projectProposalEnabled?{tools:[{functionDeclarations:[...PROJECT_TOOL_DECLARATION.functionDeclarations,TASK_TOOL_DECLARATION,TASK_COMPLETE_TOOL_DECLARATION]}]}:{})
    },25000);
    const result=await(deps.fetch||fetch)(model.url,model.init);
    if(result.status===429)throw new HttpError(429,'Cota do Gemini esgotada no momento.');
@@ -583,12 +600,18 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const modelCalls=modelParts.filter(p=>p.functionCall!==undefined);
    const taskCallName=(modelCalls[0]?.functionCall as {name?:unknown}|undefined)?.name;
    const taskRequest=projectProposalEnabled&&taskCallName==='propose_task';
+   const completeRequest=projectProposalEnabled&&taskCallName==='propose_complete_task';
+   if(completeRequest&&(!completeIntent||modelCalls.length!==1||
+      modelParts.some(p=>p.thought&&p.functionCall!==undefined)))
+    throw new HttpError(502,'Proposta de conclusão não autorizada pela última mensagem.');
+   const taskCompletion=completeRequest?readTaskCompleteProposal(modelCalls[0].functionCall):null;
    if(taskRequest&&(!taskIntent||modelCalls.length!==1||
      modelParts.some(p=>p.thought&&p.functionCall!==undefined)))
     throw new HttpError(502,'Proposta de tarefa não autorizada pelo pedido atual.');
    const taskProposal=taskRequest?readTaskProposal(modelCalls[0].functionCall):null;
-   const projectProposal=projectProposalEnabled&&!taskRequest?readProjectProposal(modelParts):null;
-   const answer=taskProposal?taskPreviewText(taskProposal):
+   const projectProposal=projectProposalEnabled&&!taskRequest&&!completeRequest?readProjectProposal(modelParts):null;
+   const answer=taskCompletion?'Identifique a tarefa exata na lista abaixo e confirme a conclusão. Nada foi alterado.':
+    taskProposal?taskPreviewText(taskProposal):
     projectProposal?projectPreviewText(projectProposal):
     modelParts.filter(p=>!p.thought).map(p=>p.text||'').join('').trim();
    if(!answer)throw new HttpError(502,'Gemini não retornou uma resposta em texto.');
@@ -596,6 +619,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
    return reply({text:answer,persisted:false,executed:false,provider:'gemini',
     ...(projectProposal?{projectProposal}:{}),
     ...(taskProposal?{taskProposal}:{}),
+    ...(taskCompletion?{taskCompletion}:{}),
+    ...(taskReadReceipt?{tasks:taskReadReceipt}:{}),
     ...(projectContextReceipt?{projects:projectContextReceipt}:{}),
     ...(sources.length?{web:{searched:true,sources:sources.map(x=>({title:x.title,url:x.url,publishedDate:x.publishedDate}))}}:{}),
     ...(autoMemory?{memory:{consulted:usedMemoryCount>0,count:usedMemoryCount,mode:'auto'}}:

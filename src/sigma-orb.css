@@ -1,0 +1,29 @@
+/* SIGMA — reactor orb v2. Local vector hologram, no image downloads. */
+.sigma-orb-v2{
+ position:relative;
+ width:min(100%,520px);
+ aspect-ratio:1;
+ margin:0 auto;
+ isolation:isolate;
+ pointer-events:none;
+ filter:drop-shadow(0 0 17px rgba(0,121,255,.25));
+}
+.sigma-orb-v2-halo{
+ position:absolute;
+ inset:8%;
+ border-radius:50%;
+ background:radial-gradient(circle at 50% 44%,rgba(22,145,255,.15),rgba(5,63,147,.13) 35%,rgba(0,82,196,.06) 56%,transparent 73%);
+ box-shadow:0 0 70px rgba(0,103,220,.1);
+}
+.sigma-orb-v2-svg{width:100%;height:100%;display:block;overflow:visible}
+.sigma-orb-v2-slow,.sigma-orb-v2-reverse{transform-origin:240px 226px;transform-box:view-box;will-change:transform}
+.sigma-orb-v2-slow{animation:sigma-orb-v2-turn 70s linear infinite}
+.sigma-orb-v2-reverse{animation:sigma-orb-v2-turn 49s linear infinite reverse}
+@keyframes sigma-orb-v2-turn{to{transform:rotate(360deg)}}
+@media(max-width:850px){
+ .sigma-orb-v2{width:min(96%,370px);filter:drop-shadow(0 0 12px rgba(0,121,255,.24))}
+}
+@media(max-width:430px){.sigma-orb-v2{width:min(98%,335px)}}
+@media(prefers-reduced-motion:reduce){
+ .sigma-orb-v2-slow,.sigma-orb-v2-reverse{animation:none;will-change:auto}
+}

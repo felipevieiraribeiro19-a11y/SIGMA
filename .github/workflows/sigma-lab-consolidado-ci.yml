@@ -114,3 +114,60 @@ jobs:
           path: reports/sigma-npm-audit.md
           retention-days: 5
           if-no-files-found: error
+
+  bundle-cerebro-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Compilar cérebro SIGMA LAB em um arquivo para atualização via Cloudflare conectado
+        run: |
+          mkdir -p dist-worker-lab
+          ./node_modules/.bin/esbuild worker/src/chat-lab.ts --bundle --platform=browser --format=esm --target=es2022 --outfile=dist-worker-lab/worker.mjs
+          test -s dist-worker-lab/worker.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sigma-worker-lab-bundle
+          path: dist-worker-lab/worker.mjs
+          retention-days: 2
+          if-no-files-found: error
+
+  firebase-lab-deploy-autorizado:
+    # Autorização explícita do proprietário: laboratório apenas; não produção.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/sigma-lab-preflight-etapa11'
+    needs: [codigo-e-interface]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VITE_JARVIS_LAB_API: https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Compilar e verificar site exclusivo do laboratório
+        run: |
+          npm run build:lab
+          node tests/verify-jarvis-lab-build.mjs
+          node scripts/sigma-lab-preflight.mjs
+      - name: Reutilizar identidade federada sem chave privada
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/428047765465/locations/global/workloadIdentityPools/sigma-github/providers/github
+          service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Publicar APENAS canal jarvis-lab
+        run: npx --yes firebase-tools@latest hosting:channel:deploy jarvis-lab --config firebase.lab.json --project sigma-61328 --expires 30d --non-interactive

@@ -1,27 +1,9 @@
-/* Native SVG hologram: every visual element is browser-rendered. */
-.sigma-orb-native{position:relative;width:min(100%,520px);aspect-ratio:1;margin:0 auto;isolation:isolate;pointer-events:none;transform-origin:50% 50%;animation:sigma-native-hover 7s ease-in-out infinite;filter:drop-shadow(0 0 16px rgba(0,112,255,.21))}
-.sigma-orb-native-svg{display:block;width:100%;height:100%;overflow:visible}
-.sigma-native-hud-a,.sigma-native-hud-b,.sigma-native-hud-c,.sigma-native-rim-rotation,.sigma-native-neural,.sigma-native-filament-rotation{transform-origin:240px 240px;transform-box:view-box}
-.sigma-native-hud-a{animation:sigma-native-rotate 88s linear infinite}
-.sigma-native-hud-b{animation:sigma-native-rotate 120s linear infinite reverse}
-.sigma-native-hud-c{animation:sigma-native-rotate 72s linear infinite reverse}
-.sigma-native-rim-rotation{animation:sigma-native-rotate 18s linear infinite}
-.sigma-native-neural{animation:sigma-native-network 20s ease-in-out infinite alternate}
-.sigma-native-filament-rotation{animation:sigma-native-refraction 14s ease-in-out infinite alternate}
-.sigma-native-flow-a{animation:sigma-native-flow 3.5s linear infinite}
-.sigma-native-flow-b{animation:sigma-native-flow 4.9s linear infinite reverse}
-.sigma-native-twinkle{animation:sigma-native-twinkle 3.9s ease-in-out infinite}
-.sigma-native-twinkle-alt{animation:sigma-native-twinkle 5.2s ease-in-out infinite reverse}
-.sigma-native-hero-flare{transform-origin:184px 208px;transform-box:view-box;animation:sigma-native-flare 5.4s ease-in-out infinite}
-.sigma-native-breathe{transform-origin:240px 240px;transform-box:view-box;animation:sigma-native-pulse 4.8s ease-in-out infinite}
-@keyframes sigma-native-hover{0%,100%{transform:translateY(0) rotate(-.65deg) scale(1)}50%{transform:translateY(-9px) rotate(.65deg) scale(1.015)}}
-@keyframes sigma-native-rotate{to{transform:rotate(360deg)}}
-@keyframes sigma-native-network{0%{transform:rotate(-7deg) scale(.986) translate(-1px,1px)}50%{transform:rotate(1deg) scale(1.015) translate(1px,-1px)}100%{transform:rotate(8deg) scale(.995) translate(-1px,1px)}}
-@keyframes sigma-native-refraction{0%{transform:rotate(-9deg) scale(.99)}100%{transform:rotate(9deg) scale(1.02)}}
-@keyframes sigma-native-flow{to{stroke-dashoffset:-48}}
-@keyframes sigma-native-twinkle{0%,100%{opacity:.47}50%{opacity:1}}
-@keyframes sigma-native-flare{0%,100%{opacity:.75;transform:scale(.85)}50%{opacity:1;transform:scale(1.12)}}
-@keyframes sigma-native-pulse{0%,100%{opacity:.35;transform:scale(.93)}50%{opacity:.92;transform:scale(1.08)}}
-@media(max-width:850px){.sigma-orb-native{width:min(100%,380px)}}
-@media(max-width:430px){.sigma-orb-native{width:min(100%,342px)}}
-@media(prefers-reduced-motion:reduce){.sigma-orb-native,.sigma-native-hud-a,.sigma-native-hud-b,.sigma-native-hud-c,.sigma-native-rim-rotation,.sigma-native-neural,.sigma-native-filament-rotation,.sigma-native-flow-a,.sigma-native-flow-b,.sigma-native-twinkle,.sigma-native-twinkle-alt,.sigma-native-hero-flare,.sigma-native-breathe{animation:none!important}.sigma-native-signals{display:none}}
+/* Native WebGL orb: transparent canvas over the SIGMA dark HUD. */
+.sigma-orb-webgl{position:relative;width:min(100%,520px);aspect-ratio:1;margin:0 auto;isolation:isolate;pointer-events:none;transform-origin:center;animation:sigma-webgl-hover 7s ease-in-out infinite;filter:drop-shadow(0 0 17px rgba(0,100,255,.25))}
+.sigma-orb-webgl canvas{width:100%;height:100%;display:block;user-select:none}
+.sigma-orb-fallback{position:absolute;inset:20%;border-radius:50%;background:radial-gradient(circle at 34% 28%,#144b94 0%,#061631 36%,#020916 73%,#0879e4 95%,#86f3ff 100%);box-shadow:0 0 18px #078bff,0 0 42px rgba(0,120,255,.4),inset 0 0 32px #026be4;border:2px solid #3bc7ff}
+.sigma-orb-fallback span{position:absolute;inset:22%;border-radius:50%;background:radial-gradient(circle,#0c3e8b55,transparent 65%)}
+@keyframes sigma-webgl-hover{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-9px) scale(1.018)}}
+@media(max-width:850px){.sigma-orb-webgl{width:min(100%,380px)}}
+@media(max-width:430px){.sigma-orb-webgl{width:min(100%,342px)}}
+@media(prefers-reduced-motion:reduce){.sigma-orb-webgl{animation:none}}

@@ -8,6 +8,7 @@ const app=readFileSync('src/jarvis-lab.tsx','utf8');
 const css=readFileSync('src/sigma-hud.css','utf8');
 const orb=readFileSync('src/SigmaOrb.tsx','utf8');
 const orbCss=readFileSync('src/sigma-orb.css','utf8');
+const gpu=readFileSync('src/sigma-orb-webgl.ts','utf8');
 
 test('Beta uses Jarvis HUD without changing the LAB entrypoint',()=>{
  assert.match(app,/if\(beta\)return <SigmaHud/);
@@ -15,28 +16,34 @@ test('Beta uses Jarvis HUD without changing the LAB entrypoint',()=>{
  assert.match(hud,/src\/jarvis-chat-protocol|validLabApiBase/);
 });
 
-test('orb is native SVG, no pasted image or Saturn ring, with animated neural links',()=>{
+test('orb uses native animated WebGL and no pasted image or Saturn belt',()=>{
  assert.match(hud,/import \{SigmaOrb\} from '.\/SigmaOrb'/);
  assert.match(hud,/<SigmaOrb\/>/);
- assert.match(orb,/className="sigma-orb-native-svg"/);
- assert.match(orb,/viewBox="0 0 480 480"/);
- assert.match(orb,/sigma-native-glass/);
- assert.match(orb,/sigma-native-rim/);
- assert.match(orb,/sigma-native-refraction/);
- assert.match(orb,/filaments\.map/);
- assert.match(orb,/connections\.map/);
- assert.match(orb,/animateMotion/);
- assert.match(orb,/sigma-native-hud-a/);
- assert.match(orbCss,/sigma-native-hover/);
- assert.match(orbCss,/sigma-native-network/);
- assert.match(orbCss,/sigma-native-rotate/);
- assert.match(orbCss,/sigma-native-flow/);
- assert.doesNotMatch(orb,/<img|<image|\.webp|\.png|\.jpe?g|data:image/);
- assert.doesNotMatch(orb,/rx="174" ry="37"|Hairline equatorial orbital path/);
- assert.doesNotMatch(orb,/<text[ >]/);
- assert.match(orbCss,/prefers-reduced-motion:reduce/);
- assert.match(orbCss,/\.sigma-native-signals\{display:none\}/);
+ assert.match(orb,/mountSigmaOrb/);
+ assert.match(orb,/<canvas/);
+ assert.match(gpu,/getContext\('webgl'/);
+ assert.match(gpu,/gl\.drawArrays/);
+ assert.match(gpu,/u_time/);
+ assert.match(gpu,/ellips[e]/);
+ assert.match(gpu,/threads/);
+ assert.match(gpu,/star\(/);
+ assert.match(gpu,/Concentric circular HUD only/);
+ assert.match(gpu,/requestAnimationFrame/);
+ assert.match(gpu,/prefers-reduced-motion/);
+ assert.match(orbCss,/sigma-webgl-hover/);
+ assert.doesNotMatch(orb,/\.webp|\.png|\.jpe?g|<img/);
+ assert.doesNotMatch(gpu,/\.webp|\.png|\.jpe?g|sampler2D|texture2D/);
  assert.match(css,/prefers-reduced-motion:reduce/);
+});
+
+test('standalone orb preview compiles without replacing SIGMA Beta',()=>{
+ const output=execFileSync('npm',['run','build:orb-preview'],{
+  encoding:'utf8',timeout:120000,env:{...process.env,VITE_SIGMA_BETA:'false'}
+ });
+ assert.match(output,/built in/);
+ const html=readFileSync('dist-orb-preview/index.html','utf8');
+ assert.match(html,/SIGMA/);
+ assert.doesNotMatch(html,/firebaseapp\.com|sigma-jarvis-cerebro-lab/);
 });
 
 test('dashboard requests real authenticated metrics and never hardcodes sample numbers',()=>{

@@ -62,7 +62,7 @@ export function inspectLabConfig({worker,hosting,vite,workflow}){
  assert.match(labDeploy,
   /workload_identity_provider:\s*projects\/428047765465\/locations\/global\/workloadIdentityPools\/sigma-github\/providers\/github/,
   'WIF existente deve ser reutilizado.');
- const expected='run: npx --yes firebase-tools@latest hosting:channel:deploy jarvis-lab --config firebase.lab.json --project sigma-61328 --expires 30d --non-interactive';
+ const expected='run: npx --yes firebase-tools@15.34.0 hosting:channel:deploy jarvis-lab --config firebase.lab.json --project sigma-61328 --expires 30d --non-interactive';
  assert.ok(labDeploy.includes(expected),
   'Somente canal jarvis-lab e firebase.lab.json podem ser publicados.');
  assert.equal((workflow.match(/hosting:channel:deploy/g)||[]).length,1,

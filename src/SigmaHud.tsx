@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState,type ReactNode} from 'react';
+import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
 import type {User} from 'firebase/auth';
 import {Activity,BookOpen,CalendarDays,CheckSquare,ChevronRight,Database,FolderOpen,Home,LogIn,LogOut,Menu,MessageCircle,RefreshCw,Settings2,ShieldCheck,Wallet,Wifi, X} from 'lucide-react';
 import {JarvisChatPanel} from './JarvisChatPanel';
@@ -49,9 +49,11 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
  const [loading,setLoading]=useState(false);
  const [loadError,setLoadError]=useState('');
  const [lastUpdated,setLastUpdated]=useState<Date|null>(null);
+ const loadVersion=useRef(0);
  const load=useCallback(async()=>{
-  if(!user||!api){setBriefing(null);setProjects([]);setLastUpdated(null);return;}
-  setLoading(true);setLoadError('');
+  const version=++loadVersion.current;
+  if(!user||!api){setBriefing(null);setProjects([]);setLastUpdated(null);setLoading(false);return;}
+  setBriefing(null);setProjects([]);setLoading(true);setLoadError('');
   try{
    const token=await user.getIdToken();
    const headers={Authorization:'Bearer '+token};
@@ -62,11 +64,12 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
    if(!b.ok||!p.ok)throw Error('Não foi possível carregar os dados da sua conta.');
    const bData:unknown=await b.json(),pData:unknown=await p.json();
    if(!bData||typeof bData!=='object'||typeof (bData as Briefing).date!=='string')throw Error('Resumo recebido em formato inesperado.');
+   if(version!==loadVersion.current)return;
    setBriefing(bData as Briefing);
    setProjects(Array.isArray((pData as {projects?:unknown})?.projects)?(pData as {projects:Project[]}).projects:[]);
    setLastUpdated(new Date());
-  }catch(e){setLoadError(e instanceof Error?e.message:'Dados indisponíveis.');setBriefing(null);setProjects([]);}
-  finally{setLoading(false);}
+  }catch(e){if(version===loadVersion.current){setLoadError(e instanceof Error?e.message:'Dados indisponíveis.');setBriefing(null);setProjects([]);}}
+  finally{if(version===loadVersion.current)setLoading(false);}
  },[user]);
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{if(page==='home'&&user)void load();},[page,user?.uid]);

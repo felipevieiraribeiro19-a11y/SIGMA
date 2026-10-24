@@ -20,7 +20,7 @@ export function taskCompleteIntent(message:string):boolean{
  // permission to propose completing a real record.
  if(/\b(como|quando|onde|por que|porque|sera que|se eu|e se|hipoteticamente)\b/.test(s)||
   /\bnao\s+(?:quero|precisa|pode|deve|conclui|terminei|finalizei|completei|marque|dar baixa)\b/.test(s)||
-  /\b(?:nunca|nem|sem)\s+(?:\S+\s+){0,3}(?:concluir|concluido|concluida|terminar|finalizar|marcar|feito)\b/.test(s)||
+  /\b(?:nunca|nem|sem)\s+(?:\S+\s+){0,3}(?:concluir|concluido|concluida|terminar|finalizar|marcar|marque|marca|feito)\b/.test(s)||
   /\bnao\s+(?:\S+\s+){0,3}(?:concluido|concluida|terminei|finalizei|completei|feito|pronto)\b/.test(s))
   return false;
  const imperative=/\b(marque|marca|conclua|finalize|de baixa|pode marcar|pode concluir)\b/.test(s);

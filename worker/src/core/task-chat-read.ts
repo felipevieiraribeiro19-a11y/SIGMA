@@ -15,9 +15,17 @@ export function taskReadIntent(message:string):boolean{
   /\b(qual|quais|lista|liste|mostr[ae]|exib[ae]|consult[ae]|tenho|pendentes?|abertas?|vencidas?|hoje|amanha|proxim[ao]s?|ver)\b/.test(s);
 }
 export function taskCompleteIntent(message:string):boolean{
- const s=normalizeTaskText(message);
- return /\b(conclui|concluido|concluida|terminei|finalizei|completei|feito|pronto|marqu[ae]|dar baixa|deu baixa)\b/.test(s)&&
-  !/\b(nao conclui|nao terminei|nao finalizei|nao completei|nao marque|nao dar baixa|sem concluir)\b/.test(s);
+ const s=normalizeTaskText(message).trim();
+ // Questioning a process, a hypothetical case or a negative status is not
+ // permission to propose completing a real record.
+ if(/\b(como|quando|onde|por que|porque|sera que|se eu|e se|hipoteticamente)\b/.test(s)||
+  /\bnao\s+(?:quero|precisa|pode|deve|conclui|terminei|finalizei|completei|marque|dar baixa)\b/.test(s)||
+  /\b(?:nunca|nem|sem)\s+(?:\S+\s+){0,3}(?:concluir|concluido|concluida|terminar|finalizar|marcar|feito)\b/.test(s)||
+  /\bnao\s+(?:\S+\s+){0,3}(?:concluido|concluida|terminei|finalizei|completei|feito|pronto)\b/.test(s))
+  return false;
+ const imperative=/\b(marque|marca|conclua|finalize|de baixa|pode marcar|pode concluir)\b/.test(s);
+ if(s.includes('?')&&!imperative)return false;
+ return /\b(conclui|concluido|concluida|terminei|finalizei|completei|feito|pronto|marqu[ae]|dar baixa|deu baixa|conclua|finalize|de baixa)\b/.test(s);
 }
 export function parseTaskList(raw:unknown):SharedTask[]{
  const entries=(raw as {entries?:unknown}|null)?.entries;

@@ -11,6 +11,7 @@ on:
     branches:
       - sigma-ecossistema-integracoes
       - sigma-lab-consolidacao-segura
+      - sigma-lab-preflight-etapa11
   workflow_dispatch:
 
 permissions:
@@ -122,6 +123,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: sigma-chat-tarefas-confirmadas
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -139,17 +142,19 @@ jobs:
           retention-days: 2
           if-no-files-found: error
       - name: Salvar bundle revisável somente na branch de LAB
-        if: github.event_name == 'push' && github.ref == 'refs/heads/sigma-lab-preflight-etapa11'
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 18 && github.head_ref == 'sigma-chat-tarefas-confirmadas' && github.base_ref == 'sigma-lab-preflight-etapa11' && github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f dist-worker-lab/worker.mjs
-          git commit -m "build(lab): bundle temporário para atualizar Worker via conector"
-          git push origin HEAD:sigma-lab-preflight-etapa11
+          if ! git diff --cached --quiet; then
+            git commit -m "build(lab): bundle temporário para atualizar Worker via conector"
+            git push origin HEAD:sigma-chat-tarefas-confirmadas
+          fi
 
   firebase-lab-deploy-autorizado:
     # Autorização explícita do proprietário: laboratório apenas; não produção.
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 17 && github.head_ref == 'sigma-lab-preflight-etapa11' && github.base_ref == 'sigma-lab-consolidacao-segura' && github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 18 && github.head_ref == 'sigma-chat-tarefas-confirmadas' && github.base_ref == 'sigma-lab-preflight-etapa11' && github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     needs: [codigo-e-interface]
     runs-on: ubuntu-latest
     timeout-minutes: 20

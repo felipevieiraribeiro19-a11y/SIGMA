@@ -91,3 +91,36 @@ export function readLabTaskProposal(raw:unknown):LabTaskProposal|null{
   notes:p.notes,dueDate:p.dueDate,priority:p.priority as LabTaskProposal['priority'],
   projectTitleHint:p.projectTitleHint};
 }
+
+
+export type LabTaskCompletion={
+ kind:'task.complete';source:'gemini';requiresApproval:true;titleHint:string;
+};
+export function readLabTaskCompletion(raw:unknown):LabTaskCompletion|null{
+ const obj=(raw as {taskCompletion?:unknown}|null)?.taskCompletion;
+ if(!obj||typeof obj!=='object'||Array.isArray(obj))return null;
+ const p=obj as Record<string,unknown>;
+ if(p.kind!=='task.complete'||p.source!=='gemini'||p.requiresApproval!==true||
+  typeof p.titleHint!=='string'||p.titleHint.trim().length<2||p.titleHint.length>160)
+  return null;
+ return {kind:'task.complete',source:'gemini',requiresApproval:true,titleHint:p.titleHint};
+}
+export type LabPendingTask={id:string;title:string;done:false;updatedAt:string;dueDate:string;projectId:string};
+export function readLabPendingTasks(raw:unknown):LabPendingTask[]{
+ const rows=(raw as {entries?:unknown}|null)?.entries;
+ if(!Array.isArray(rows)||rows.length>250)throw Error('Lista de tarefas inválida.');
+ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ return rows.filter((row:unknown)=>(row as {kind?:unknown;done?:unknown}|null)?.kind==='task'&&
+  (row as {done?:unknown}).done===false).map((raw:unknown)=>{
+  const r=raw as Record<string,unknown>;
+  if(typeof r.id!=='string'||!uuid.test(r.id)||typeof r.title!=='string'||
+   r.title.length>160||r.title.trim().length<2||typeof r.updatedAt!=='string'||
+   Number.isNaN(Date.parse(r.updatedAt))||
+   (r.projectId!==undefined&&(typeof r.projectId!=='string'||!uuid.test(r.projectId)))||
+   (r.dueDate!==undefined&&(typeof r.dueDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.dueDate))))
+   throw Error('Tarefa inválida.');
+  return {id:r.id,title:r.title,done:false,updatedAt:r.updatedAt,
+   dueDate:typeof r.dueDate==='string'?r.dueDate:'',
+   projectId:typeof r.projectId==='string'?r.projectId:''};
+ });
+}

@@ -1,0 +1,75 @@
+# SIGMA - consolidacao tecnica, SEM deploy e SEM credenciais
+# Executa somente para a branch de revisao consolidada; evita consumir Work.
+name: SIGMA - verificacao consolidada do laboratorio
+
+on:
+  push:
+    branches:
+      - sigma-lab-consolidacao-segura
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sigma-consolidacao-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codigo-e-interface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias travadas
+        run: npm ci
+      - name: Compilar interface principal (sem publicar)
+        run: npm run build
+      - name: Compilar interface Jarvis LAB (sem publicar)
+        run: npm run build:lab
+      - name: Validar TypeScript do Worker
+        run: npm run check:worker
+      - name: Executar todos os testes
+        run: npm test
+      - name: Auditar build estatico e isolado do laboratorio
+        run: node tests/verify-jarvis-lab-build.mjs
+
+  chat-cloudflare-local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias travadas
+        run: npm ci
+      - name: Iniciar Worker em workerd local e verificar bloqueios
+        env:
+          CI: 'true'
+          CLOUDFLARE_API_TOKEN: ''
+          CLOUDFLARE_ACCOUNT_ID: ''
+        run: bash tests/run-jarvis-chat-offline.sh
+
+  durabilidade-cloudflare-local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias travadas
+        run: npm ci
+      - name: Persistencia e recuperacao em Durable Object local
+        env:
+          CI: 'true'
+          CLOUDFLARE_API_TOKEN: ''
+          CLOUDFLARE_ACCOUNT_ID: ''
+        run: bash tests/run-cloudflare-offline-lab.sh

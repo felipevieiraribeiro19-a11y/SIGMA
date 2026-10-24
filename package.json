@@ -9,7 +9,8 @@
     "test": "node --import tsx --test tests/*.test.ts tests/*.test.tsx",
     "check:worker": "tsc --noEmit -p worker/tsconfig.json",
     "build:lab": "tsc --noEmit && vite build --config vite.lab.config.ts",
-    "build:beta": "tsc --noEmit && vite build --config vite.beta.config.ts"
+    "build:beta": "tsc --noEmit && vite build --config vite.beta.config.ts",
+    "build:orb-preview": "tsc --noEmit && vite build --config vite.orb-preview.config.ts"
   },
   "dependencies": {
     "react": "^19.0.0",

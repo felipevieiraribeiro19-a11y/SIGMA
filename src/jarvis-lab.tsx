@@ -93,7 +93,7 @@ export function JarvisLab(){
      {showMemory?'Fechar demonstração':'Abrir memória fictícia'}
     </button>
     {showMemory&&<MemoryCenter/>}
-   </section>
+   </section>}
    <section className="lab-panel" aria-label="Memória pessoal experimental">
     <h2>{beta?'Memória pessoal':'4. Memória pessoal'}</h2>
     <p>Memórias controladas por você, armazenadas no ambiente SIGMA Beta. O histórico antigo do SIGMA principal ainda não foi importado.</p>
@@ -106,7 +106,7 @@ export function JarvisLab(){
      {showActions?'Fechar revisão':'Abrir revisão fictícia'}
     </button>
     {showActions&&<ActionReviewCenter mode="offline" onPreview={localFictionalPreview}/>}
-   </section>
+   </section>}
    <section className="lab-panel" aria-label="Gestão pessoal no SIGMA">
     <h2>{beta?'Gestão integrada — estudos, rotina, tarefas e finanças':'6. Gestão integrada — estudos, rotina, tarefas e finanças'}</h2>
     <LabEcosystemPanel user={user}/>

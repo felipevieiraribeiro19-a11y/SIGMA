@@ -15,26 +15,27 @@ test('Beta uses Jarvis HUD without changing the LAB entrypoint',()=>{
  assert.match(hud,/src\/jarvis-chat-protocol|validLabApiBase/);
 });
 
-test('orb uses exact local reference crop, with moving connections and no Saturn ring',()=>{
+test('orb is native SVG, no pasted image or Saturn ring, with animated neural links',()=>{
  assert.match(hud,/import \{SigmaOrb\} from '.\/SigmaOrb'/);
  assert.match(hud,/<SigmaOrb\/>/);
- assert.match(orb,/import orbReference from '.\/assets\/sigma-orb-reference.webp'/);
- const image=readFileSync('src/assets/sigma-orb-reference.webp');
- assert.equal(image.toString('ascii',0,4),'RIFF');
- assert.equal(image.toString('ascii',8,12),'WEBP');
- assert.ok(image.byteLength>2000);
- assert.match(orb,/sigma-orb-reference-image/);
- assert.match(orb,/sigma-orb-reference-neural/);
+ assert.match(orb,/className="sigma-orb-native-svg"/);
+ assert.match(orb,/viewBox="0 0 480 480"/);
+ assert.match(orb,/sigma-native-glass/);
+ assert.match(orb,/sigma-native-rim/);
+ assert.match(orb,/sigma-native-refraction/);
+ assert.match(orb,/filaments\.map/);
+ assert.match(orb,/connections\.map/);
  assert.match(orb,/animateMotion/);
- assert.match(orb,/signalLinks\.map/);
- assert.match(orbCss,/sigma-orb-reference-float/);
- assert.match(orbCss,/sigma-orb-reference-network/);
- assert.match(orbCss,/sigma-orb-reference-flow/);
- assert.match(orbCss,/sigma-orb-reference-orbit/);
+ assert.match(orb,/sigma-native-hud-a/);
+ assert.match(orbCss,/sigma-native-hover/);
+ assert.match(orbCss,/sigma-native-network/);
+ assert.match(orbCss,/sigma-native-rotate/);
+ assert.match(orbCss,/sigma-native-flow/);
+ assert.doesNotMatch(orb,/<img|<image|\.webp|\.png|\.jpe?g|data:image/);
  assert.doesNotMatch(orb,/rx="174" ry="37"|Hairline equatorial orbital path/);
  assert.doesNotMatch(orb,/<text[ >]/);
  assert.match(orbCss,/prefers-reduced-motion:reduce/);
- assert.match(orbCss,/\.sigma-orb-reference-signals\{display:none\}/);
+ assert.match(orbCss,/\.sigma-native-signals\{display:none\}/);
  assert.match(css,/prefers-reduced-motion:reduce/);
 });
 

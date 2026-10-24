@@ -41,11 +41,36 @@ export function inspectLabConfig({worker,hosting,vite,workflow}){
  assert.ok(csp.includes("form-action 'none'"));
  assert.match(vite,/publicDir:\s*false/,'Não copiar public/config.json da produção.');
  assert.match(vite,/outDir:\s*'dist-jarvis-lab'/,'Build LAB precisa de saída isolada.');
- // This CI workflow must never have a production deploy nor any deploy at all.
- assert.doesNotMatch(workflow,/(?:firebase-tools|wrangler)\S*\s+deploy|hosting:channel:deploy|\bsecrets\./i,
-  'Pipeline de verificação não deve publicar nem usar segredos.');
- assert.doesNotMatch(workflow,/id-token:\s*write/i,
-  'Pipeline não pode receber permissão de autenticação cloud.');
+ // A single owner-approved LAB-only Firebase publication is now explicitly
+ // allowed. All other deploys, cloud secrets and identity escalation are denied.
+ assert.doesNotMatch(workflow,/(?:wrangler\s+deploy|firebase\s+deploy|\bsecrets\.)/i,
+  'CI não pode publicar Worker nem usar secrets.');
+ const marker='\n  firebase-lab-deploy-autorizado:\n';
+ const sections=workflow.split(marker);
+ assert.equal(sections.length,2,
+  'É necessário exatamente um job de publicação isolada e revisável.');
+ const [ci,labDeploy]=sections;
+ assert.doesNotMatch(ci,/hosting:channel:deploy|id-token:\s*write/i,
+  'Jobs de teste não podem autenticar ou publicar.');
+ assert.match(labDeploy,
+  /if:\s*github\.event_name == 'push' && github\.ref == 'refs\/heads\/sigma-lab-preflight-etapa11'/,
+  'Deploy só pode ocorrer mediante push na branch de LAB autorizada.');
+ assert.match(labDeploy,/needs:\s*\[codigo-e-interface\]/,
+  'Deploy exige CI de interface e testes aprovado.');
+ assert.match(labDeploy,/id-token:\s*write/,
+  'Deploy deve usar federação de identidade, nunca chave privada.');
+ assert.match(labDeploy,
+  /workload_identity_provider:\s*projects\/428047765465\/locations\/global\/workloadIdentityPools\/sigma-github\/providers\/github/,
+  'WIF existente deve ser reutilizado.');
+ const expected='run: npx --yes firebase-tools@latest hosting:channel:deploy jarvis-lab --config firebase.lab.json --project sigma-61328 --expires 30d --non-interactive';
+ assert.ok(labDeploy.includes(expected),
+  'Somente canal jarvis-lab e firebase.lab.json podem ser publicados.');
+ assert.equal((workflow.match(/hosting:channel:deploy/g)||[]).length,1,
+  'Somente uma publicação Hosting de LAB é permitida.');
+ assert.equal((workflow.match(/id-token:\s*write/g)||[]).length,1,
+  'Apenas o job LAB pode solicitar identidade federada.');
+ assert.doesNotMatch(labDeploy,/firebase\.json(?:\s|$)|sigma-61328\.web\.app|sigma-cerebro(?=[^-\w]|$)/i,
+  'Publicação não pode apontar ao SIGMA principal.');
  return {worker:LAB_WORKER,origin:LAB_ORIGIN,flags:'off'};
 }
 

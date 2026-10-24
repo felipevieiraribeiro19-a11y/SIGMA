@@ -23,6 +23,7 @@ import {proposeContinuousLearning} from './core/continuous-learning';
 import {SIGMA_MODULES} from './core/ecosystem-manifest';
 import {PROJECT_TOOL_DECLARATION,projectToolInstruction,readProjectProposal,projectPreviewText} from './core/project-proposal-tool';
 import {readSharedProjects,type ProjectContextReceipt} from './core/project-chat-context';
+import {TASK_TOOL_DECLARATION,explicitTaskIntent,taskToolInstruction,localTaskDates,readTaskProposal,taskPreviewText} from './core/task-proposal-tool';
 // O laboratório possui identidade própria e não herda afirmações sobre
 // histórico persistido do SIGMA principal.
 const LAB_SYSTEM_IDENTITY = [
@@ -559,15 +560,17 @@ export function makeLabChatWorker(deps:Dependencies={}){
     :intent.needed?'Nenhuma fonte atual foi obtida. Não apresente informação como se fosse verificada em tempo real.':'';
    const projectProposalEnabled=env.LAB_BRAIN_ENABLED==='true'&&
     env.LAB_WORKSPACE_ENABLED==='true'&&!!env.LAB_WORKSPACE;
+   const taskIntent=explicitTaskIntent(messages[messages.length-1].text);
+   const dates=localTaskDates();
    const model=buildGeminiRequest(env.GEMINI_MODEL,env.GEMINI_API_KEY,{
     systemInstruction:{parts:[{text:LAB_SYSTEM_IDENTITY+
-     (projectProposalEnabled?' '+projectToolInstruction():'')}]},
+     (projectProposalEnabled?' '+projectToolInstruction()+' '+taskToolInstruction(dates.today,dates.tomorrow):'')}]},
     contents:messages.map((m,i)=>({
      role:m.role==='assistant'?'model':'user',
      parts:[{text:m.text},...(i===messages.length-1&&approvedMemoryContext?[{text:approvedMemoryContext}]:[]),...(i===messages.length-1&&onlineContext?[{text:onlineContext}]:[]),...(i===messages.length-1&&connectorContext?[{text:connectorContext}]:[]),...(i===messages.length-1&&libraryContext?[{text:libraryContext}]:[]),...(i===messages.length-1&&projectContext?[{text:projectContext}]:[])]
     })),
     generationConfig:{maxOutputTokens:1100},
-    ...(projectProposalEnabled?{tools:[PROJECT_TOOL_DECLARATION]}:{})
+    ...(projectProposalEnabled?{tools:[{functionDeclarations:[...PROJECT_TOOL_DECLARATION.functionDeclarations,TASK_TOOL_DECLARATION]}]}:{})
    },25000);
    const result=await(deps.fetch||fetch)(model.url,model.init);
    if(result.status===429)throw new HttpError(429,'Cota do Gemini esgotada no momento.');
@@ -576,13 +579,23 @@ export function makeLabChatWorker(deps:Dependencies={}){
     parts?:{text?:string;thought?:boolean;functionCall?:unknown}[]
    }}[]};
    const modelParts=response.candidates?.[0]?.content?.parts||[];
-   const projectProposal=projectProposalEnabled?readProjectProposal(modelParts):null;
-   const answer=projectProposal?projectPreviewText(projectProposal):
+   // The model may propose only one operation; it never executes writes.
+   const modelCalls=modelParts.filter(p=>p.functionCall!==undefined);
+   const taskCallName=(modelCalls[0]?.functionCall as {name?:unknown}|undefined)?.name;
+   const taskRequest=projectProposalEnabled&&taskCallName==='propose_task';
+   if(taskRequest&&(!taskIntent||modelCalls.length!==1||
+     modelParts.some(p=>p.thought&&p.functionCall!==undefined)))
+    throw new HttpError(502,'Proposta de tarefa não autorizada pelo pedido atual.');
+   const taskProposal=taskRequest?readTaskProposal(modelCalls[0].functionCall):null;
+   const projectProposal=projectProposalEnabled&&!taskRequest?readProjectProposal(modelParts):null;
+   const answer=taskProposal?taskPreviewText(taskProposal):
+    projectProposal?projectPreviewText(projectProposal):
     modelParts.filter(p=>!p.thought).map(p=>p.text||'').join('').trim();
    if(!answer)throw new HttpError(502,'Gemini não retornou uma resposta em texto.');
    if(answer.length>12000)throw new HttpError(502,'Resposta grande demais.');
    return reply({text:answer,persisted:false,executed:false,provider:'gemini',
     ...(projectProposal?{projectProposal}:{}),
+    ...(taskProposal?{taskProposal}:{}),
     ...(projectContextReceipt?{projects:projectContextReceipt}:{}),
     ...(sources.length?{web:{searched:true,sources:sources.map(x=>({title:x.title,url:x.url,publishedDate:x.publishedDate}))}}:{}),
     ...(autoMemory?{memory:{consulted:usedMemoryCount>0,count:usedMemoryCount,mode:'auto'}}:

@@ -36,6 +36,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [completionId,setCompletionId]=useState('');
  const [completionApproved,setCompletionApproved]=useState(false);
  const [completionSaving,setCompletionSaving]=useState(false);
+ const [completionLoading,setCompletionLoading]=useState(false);
  const [completionNotice,setCompletionNotice]=useState('');
  const [tasksReceipt,setTasksReceipt]=useState<{shared:number;available:number;truncated:boolean}|null>(null);
  const [memoryChoices,setMemoryChoices]=useState<SharedMemoryChoice[]>([]);
@@ -49,8 +50,9 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [autoMemoryResult,setAutoMemoryResult]=useState<'found'|'none'|null>(null);
  const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
- useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);},[user?.uid]);
+ const completionLoadVersion=useRef(0);
+ useEffect(()=>()=>{pending.current?.abort();completionLoadVersion.current++;},[]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -140,7 +142,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);
+  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -236,23 +238,34 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   }catch(e){setTaskNotice(e instanceof Error?e.message:'Projetos indisponíveis.');}
  }
  async function refreshPendingTasks(hint:string){
-  if(!user||!api)return;
-  setCompletionNotice('');
+  if(!user||!api||completionSaving)return;
+  // Changing the list or its revision revokes approval, before the GET.
+  // Ignore responses belonging to a prior proposal or account.
+  const version=++completionLoadVersion.current;
+  setCompletionLoading(true);setCompletionNotice('');
+  setCompletionApproved(false);setCompletionId('');setPendingTasks([]);
   try{
    const token=await user.getIdToken();
+   if(version!==completionLoadVersion.current)return;
    const response=await fetch(api+'/api/lab/workspace',{
     method:'GET',headers:{Authorization:'Bearer '+token},cache:'no-store'
    });
    const body:unknown=await response.json().catch(()=>null);
+   if(version!==completionLoadVersion.current)return;
    if(!response.ok)throw Error('Não foi possível consultar tarefas para concluir.');
    const tasks=readLabPendingTasks(body);
    setPendingTasks(tasks);
    const matches=tasks.filter(t=>t.title.localeCompare(hint,'pt-BR',{sensitivity:'base'})===0);
    setCompletionId(matches.length===1?matches[0].id:'');
-  }catch(e){setCompletionNotice(e instanceof Error?e.message:'Lista de tarefas indisponível.');}
+  }catch(e){
+   if(version===completionLoadVersion.current)
+    setCompletionNotice(e instanceof Error?e.message:'Lista de tarefas indisponível.');
+  }finally{
+   if(version===completionLoadVersion.current)setCompletionLoading(false);
+  }
  }
  async function confirmTaskCompletion(){
-  if(!user||!api||!taskCompletion||!completionApproved||completionSaving||busy)return;
+  if(!user||!api||!taskCompletion||!completionApproved||completionSaving||completionLoading||busy)return;
   const chosen=pendingTasks.find(t=>t.id===completionId);
   if(!chosen){setCompletionNotice('Selecione uma tarefa pendente válida.');return;}
   setCompletionSaving(true);setCompletionNotice('');
@@ -271,7 +284,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
     saved.entry?.done!==true)
     throw Error('Resposta incompleta. Confira a Gestão integrada antes de repetir.');
    setCompletionNotice('Tarefa "'+chosen.title+'" concluída e confirmada pelo SIGMA.');
-   setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);
+   completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);
   }catch(e){setCompletionNotice(e instanceof Error?e.message:'Falha ao concluir tarefa.');}
   finally{setCompletionSaving(false);}
  }
@@ -438,21 +451,21 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    <strong>Concluir tarefa — aguardando sua confirmação</strong>
    <p>O Gemini sugeriu concluir: <strong>{taskCompletion.titleHint}</strong>. Selecione a tarefa real da sua conta. Nada foi alterado ainda.</p>
    <label>Tarefa pendente
-    <select value={completionId} onChange={e=>{setCompletionId(e.target.value);setCompletionApproved(false);}}>
+    <select disabled={busy||completionSaving||completionLoading} value={completionId} onChange={e=>{setCompletionId(e.target.value);setCompletionApproved(false);}}>
      <option value="">Selecione uma tarefa específica</option>
      {pendingTasks.map(t=><option key={t.id} value={t.id}>{t.title}{t.dueDate?' — '+t.dueDate:''}</option>)}
     </select>
    </label>
-   <button type="button" disabled={busy||completionSaving}
-    onClick={()=>void refreshPendingTasks(taskCompletion.titleHint)}>Atualizar tarefas pendentes</button>
-   <label><input type="checkbox" checked={completionApproved} disabled={completionSaving}
+   <button type="button" disabled={busy||completionSaving||completionLoading}
+    onClick={()=>void refreshPendingTasks(taskCompletion.titleHint)}>{completionLoading?'Consultando tarefas…':'Atualizar tarefas pendentes'}</button>
+   <label><input type="checkbox" checked={completionApproved} disabled={completionSaving||completionLoading}
     onChange={e=>setCompletionApproved(e.target.checked)}/>
     Revisei a tarefa selecionada e autorizo marcá-la como concluída.</label>
-   <button type="button" disabled={busy||completionSaving||!completionApproved||
+   <button type="button" disabled={busy||completionSaving||completionLoading||!completionApproved||
     !pendingTasks.some(t=>t.id===completionId)}
     onClick={()=>void confirmTaskCompletion()}>{completionSaving?'Concluindo…':'Confirmar conclusão'}</button>
    <button type="button" disabled={busy||completionSaving} onClick={()=>{
-    setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);
+    completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);
    }}>Cancelar conclusão</button>
   </div>}
   {completionNotice&&<p role="status">{completionNotice}</p>}
@@ -532,7 +545,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

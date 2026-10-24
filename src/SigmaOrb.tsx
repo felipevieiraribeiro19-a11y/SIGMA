@@ -134,12 +134,6 @@ export function SigmaOrb(){
   <path d="M 341 163 A 119 119 0 0 1 337 290" fill="none" stroke="#35c5ff" strokeWidth="5" strokeLinecap="round" opacity=".8" filter="url(#orb-v3-glow)"/>
   <path d="M 152 305 A 119 119 0 0 0 290 330" fill="none" stroke="#70e3ff" strokeWidth="4" strokeLinecap="round" opacity=".9" filter="url(#orb-v3-glow)"/>
 
-  {/* Hairline equatorial orbital path — not a thick mechanical belt */}
-  <ellipse cx="240" cy="230" rx="174" ry="37" transform="rotate(8 240 230)" fill="none" stroke="#35baff" strokeOpacity=".4" strokeWidth="1.2" strokeDasharray="170 14 85 10"/>
-  <path d="M 65 230 Q 240 303 414 230" fill="none" stroke="#4ccaff" strokeOpacity=".3" strokeWidth=".7"/>
-  <circle cx="66" cy="230" r="2.4" fill="#7aeaff" filter="url(#orb-v3-glow)"/>
-  <circle cx="415" cy="230" r="2.4" fill="#7aeaff" filter="url(#orb-v3-glow)"/>
-
   {/* Starbursts on the refractive edge */}
   <g filter="url(#orb-v3-glow)">
    <circle cx="240" cy="102" r="3" fill="#f2ffff"/>

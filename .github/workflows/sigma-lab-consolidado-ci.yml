@@ -7,6 +7,7 @@ on:
     branches:
       - sigma-lab-consolidacao-segura
       - sigma-lab-preflight-etapa11
+      - sigma-chat-tarefas-confirmadas
   pull_request:
     branches:
       - sigma-ecossistema-integracoes
@@ -154,7 +155,7 @@ jobs:
 
   firebase-lab-deploy-autorizado:
     # Autorização explícita do proprietário: laboratório apenas; não produção.
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 18 && github.head_ref == 'sigma-chat-tarefas-confirmadas' && github.base_ref == 'sigma-lab-preflight-etapa11' && github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/sigma-chat-tarefas-confirmadas'
     needs: [codigo-e-interface]
     runs-on: ubuntu-latest
     timeout-minutes: 20

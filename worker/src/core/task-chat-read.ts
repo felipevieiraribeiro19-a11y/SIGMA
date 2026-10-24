@@ -18,7 +18,8 @@ export function taskCompleteIntent(message:string):boolean{
  const s=normalizeTaskText(message).trim();
  // Questioning a process, a hypothetical case or a negative status is not
  // permission to propose completing a real record.
- if(/\b(como|quando|onde|por que|porque|sera que|se eu|e se|hipoteticamente)\b/.test(s)||
+ if(/^(?:sigma[,! ]*)?(?:como|quando|onde|por que|porque|sera que)\b/.test(s)||
+  /\b(se eu|e se|hipoteticamente)\b/.test(s)||
   /\bnao\s+(?:quero|precisa|pode|deve|conclui|terminei|finalizei|completei|marque|dar baixa)\b/.test(s)||
   /\b(?:nunca|nem|sem)\s+(?:\S+\s+){0,3}(?:concluir|concluido|concluida|terminar|finalizar|marcar|marque|marca|feito)\b/.test(s)||
   /\bnao\s+(?:\S+\s+){0,3}(?:concluido|concluida|terminei|finalizei|completei|feito|pronto)\b/.test(s))

@@ -24,6 +24,13 @@ test('orb is a detailed vector hologram, without text in its center',()=>{
  assert.match(orb,/orb-v3-clip/);
  assert.match(orb,/orb-v3-glow/);
  assert.doesNotMatch(orb,/<text[ >]/);
+ assert.match(orb,/sigma-orb-v3-network/);
+ assert.match(orb,/animateMotion/);
+ assert.match(orb,/signalLinks\.map/);
+ assert.match(orbCss,/sigma-orb-v4-hover/);
+ assert.match(orbCss,/sigma-orb-v4-neural-drift/);
+ assert.match(orbCss,/sigma-orb-v4-flow/);
+ assert.match(orbCss,/\.sigma-orb-v3-signals\{display:none\}/);
  assert.match(orbCss,/prefers-reduced-motion:reduce/);
  assert.match(css,/prefers-reduced-motion:reduce/);
 });

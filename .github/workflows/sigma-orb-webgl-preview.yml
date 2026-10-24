@@ -1,0 +1,71 @@
+name: SIGMA - previsualizar orbe WebGL isolado
+
+on:
+  pull_request:
+    branches: [sigma-beta-preparacao-20261024]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sigma-orb-webgl-preview
+  cancel-in-progress: false
+
+jobs:
+  validar:
+    if: >-
+      github.event.pull_request.number == 28 &&
+      github.head_ref == 'sigma-orbe-webgl-preview-20261024' &&
+      github.base_ref == 'sigma-beta-preparacao-20261024' &&
+      github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_SIGMA_BETA: 'true'
+      VITE_JARVIS_LAB_API: https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Validar frontend, Worker, testes e prévia WebGL
+        run: |
+          npm run build:beta
+          npm run build:orb-preview
+          npm run check:worker
+          npm test
+          test -s dist-orb-preview/index.html
+          test -s dist-sigma-beta/index.html
+
+  publicar-previa:
+    needs: validar
+    if: >-
+      github.event.pull_request.number == 28 &&
+      github.head_ref == 'sigma-orbe-webgl-preview-20261024' &&
+      github.base_ref == 'sigma-beta-preparacao-20261024' &&
+      github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build:orb-preview
+      - name: Autenticar com WIF existente (sem chave privada)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/428047765465/locations/global/workloadIdentityPools/sigma-github/providers/github
+          service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Publicar SOMENTE canal temporário, nunca o site principal
+        run: npx --yes firebase-tools@15.34.0 hosting:channel:deploy orb-webgl-20261024 --project sigma-61328 --config firebase.orb-preview.json --expires 7d --non-interactive

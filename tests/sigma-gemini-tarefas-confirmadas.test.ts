@@ -26,7 +26,7 @@ function fixture(){
  const request=(path:string,method:string,body:unknown)=>new Request(
   'https://lab.fake/api/lab/'+path,{method,
    headers:{Origin:origin,Authorization:'Bearer example','Content-Type':'application/json'},
-   body:JSON.stringify(body)});
+   ...(method==='GET'||method==='HEAD'?{}:{body:JSON.stringify(body)})});
  return {store,map,env,request};
 }
 function mockedModel(call:unknown){

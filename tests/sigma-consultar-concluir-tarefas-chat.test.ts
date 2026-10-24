@@ -53,7 +53,7 @@ test('identifica consulta e conclusão, mas não pedidos negados',()=>{
 test('resumo de tarefas nunca compartilha notas, dinheiro ou texto de estudo',()=>{
  const raw={entries:[{...task,id:taskId,updatedAt:'2026-10-23T20:00:00.000Z',
   notes:'SEGREDO PRIVADO',amount:9999}]};
- const ctx=readTaskContext(raw);
+ const ctx=readTaskContext(raw,{projects:[{id:'10000000-0000-4000-8000-000000000001',title:'Teste SIGMA'}]});
  assert.equal(ctx.receipt.shared,1);
  assert.match(ctx.prompt,/Revisar meu planejamento/);
  assert.doesNotMatch(ctx.prompt,/SEGREDO PRIVADO|9999/);
@@ -145,4 +145,24 @@ test('valida chamada de ferramenta e parser cliente',()=>{
  assert.throws(()=>readTaskCompleteProposal({name:'propose_complete_task',args:{titleHint:'x'}}));
  assert.equal(readLabTaskCompletion({taskCompletion:{kind:'task.complete',source:'gemini',
   requiresApproval:false,titleHint:'Revisar meu planejamento'}}),null);
+});
+
+test('consulta vinculada usa nome do projeto real, sem compartilhar notas privadas',async()=>{
+ const f=setup();
+ const created=await f.owner.fetch(f.request('workspace/projects','POST',{
+  title:'Teste SIGMA',goal:'Organizar tarefas',notes:'OBSERVAÇÃO PRIVADA DO PROJETO'
+ }),f.env);
+ assert.equal(created.status,201);
+ const project=(await created.json() as any).project;
+ const saved=await f.owner.fetch(f.request('workspace','POST',{...task,projectId:project.id}),f.env);
+ assert.equal(saved.status,201);
+ const {worker,input}=model(null);
+ const result=await worker.fetch(f.request('chat','POST',{
+  messages:[{role:'user',text:'Quais tarefas pendentes no projeto Teste SIGMA?'}]
+ }),f.env);
+ assert.equal(result.status,200);
+ const context=JSON.stringify(input());
+ assert.match(context,/Teste SIGMA/);
+ assert.match(context,/Revisar meu planejamento/);
+ assert.doesNotMatch(context,/OBSERVAÇÃO PRIVADA DO PROJETO/);
 });

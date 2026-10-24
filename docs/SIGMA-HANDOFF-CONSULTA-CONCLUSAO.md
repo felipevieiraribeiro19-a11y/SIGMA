@@ -25,3 +25,12 @@
 - Não existe memória persistente de chat; somente dados de Workspace e memórias autorizadas.
 - A lista compartilhada com Gemini é limitada a 25 tarefas pendentes e 250 registros totais.
 - Não chamar de concluída a validação de navegador enquanto o usuário/Work não executar o teste real.
+
+## Continuação em 24/10/2026 (após abrir o PR #19)
+- Revisão do GitHub: PR continua draft, ainda não mesclado; CI `Verify` passou após corrigir o filtro conservador de conclusão.
+- `worker/src/core/task-chat-read.ts`: pedidos informativos/hipotéticos e negações deixam de ser tratados como conclusão; comando direto `Marque ... como concluída` continua aceito. Os testes cobrem exemplos afirmativos e negativos.
+- `src/JarvisChatPanel.tsx`: recarregar a lista pendente invalida checkbox, ID e versão previamente aprovados; requisições atrasadas de propostas/sessões anteriores são descartadas; botão de conclusão fica indisponível durante a atualização.
+- `tests/sigma-consultar-concluir-tarefas-chat.test.ts`: cobertura adicional de falsas intenções e das salvaguardas de atualização na interface.
+- `.github/workflows/sigma-lab-pr19-preflight.yml`: compilação e testes completos do LAB, inspeção do pacote e upload de artefatos temporários. **Não há autenticação em Firebase/Cloudflare nem deploy.** Este workflow NÃO é um publicador.
+- Publicação futura: exigir nova autorização explícita para atualizar APENAS `jarvis-lab` e `sigma-jarvis-cerebro-lab`, usando WIF/credenciais existentes. Não reutilizar automaticamente os workflows antigos do PR #18: suas travas referem-se a outras branches.
+- Após publicação autorizada, testar no navegador via Work: `Quais tarefas tenho para amanhã?`, `Sigma, concluí a revisão do planejamento`, selecionar a tarefa certa, confirmar uma única vez, consultar Gestão integrada e recarregar. Se a resposta da conclusão for incerta, consultar primeiro o estado em vez de tentar novamente.

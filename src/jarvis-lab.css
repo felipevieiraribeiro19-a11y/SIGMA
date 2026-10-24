@@ -132,3 +132,15 @@ button:disabled{cursor:not-allowed;opacity:.48}button:focus-visible,select:focus
 .lab-learning-proposal input[type="checkbox"]{width:20px;height:20px}
 .lab-chat-memory .lab-source-option{display:flex;align-items:center;gap:10px;padding:7px 0}
 .lab-chat-memory .lab-source-option input[type="checkbox"]{width:20px;height:20px}
+
+/* Formulários de proposta no Safari/iPhone: campos legíveis e sem overflow. */
+.lab-learning-proposal label{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:6px;min-width:0}
+.lab-learning-proposal label:has(input[type="checkbox"]){display:flex;align-items:flex-start;gap:10px}
+.lab-learning-proposal input:not([type="checkbox"]),.lab-learning-proposal select,.lab-learning-proposal textarea{
+ display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;
+ padding:12px;background:#071c2b;color:#eff7ff;color-scheme:dark;
+ border:1px solid #547d97;border-radius:9px;font:inherit;
+}
+.lab-learning-proposal input[type="date"]{min-height:44px}
+.lab-learning-proposal select{min-height:44px}
+.lab-learning-proposal button{max-width:100%;overflow-wrap:anywhere}

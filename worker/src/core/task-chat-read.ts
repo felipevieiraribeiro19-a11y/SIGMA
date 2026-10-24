@@ -35,13 +35,24 @@ export function parseTaskList(raw:unknown):SharedTask[]{
    priority:row.priority||'normal',projectId:row.projectId||'',updatedAt:row.updatedAt};
  });
 }
-export function readTaskContext(raw:unknown):{prompt:string;receipt:TaskReadReceipt}{
+export function readTaskContext(raw:unknown,projectData?:unknown):{prompt:string;receipt:TaskReadReceipt}{
  const tasks=parseTaskList(raw);
+ const rows=(projectData as {projects?:unknown}|null)?.projects;
+ if(projectData!==undefined&&(!Array.isArray(rows)||rows.length>50))
+  throw new HttpError(503,'Projetos vinculados às tarefas indisponíveis.');
+ const projectNames=new Map<string,string>();
+ for(const item of Array.isArray(rows)?rows:[]){
+  const p=item as {id?:unknown;title?:unknown}|null;
+  if(!p||typeof p.id!=='string'||!uuid.test(p.id)||typeof p.title!=='string'||
+   p.title.trim().length<2||p.title.length>120)
+   throw new HttpError(503,'Projeto vinculado inválido.');
+  projectNames.set(p.id,p.title);
+ }
  const pending=tasks.filter(t=>!t.done).sort((a,b)=>
   (a.dueDate||'9999-12-31').localeCompare(b.dueDate||'9999-12-31')||
   a.title.localeCompare(b.title,'pt-BR'));
  const shared=pending.slice(0,25).map(({title,dueDate,priority,projectId})=>({
-  title,dueDate,priority,projectId
+  title,dueDate,priority,projectTitle:projectId?(projectNames.get(projectId)||'Projeto não encontrado'):'Sem projeto'
  }));
  return {
   prompt:['TAREFAS PENDENTES REAIS DO SIGMA, CONSULTADAS PARA O DONO AUTENTICADO.',

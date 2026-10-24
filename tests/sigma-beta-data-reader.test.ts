@@ -43,10 +43,10 @@ test('falha fechada quando uma das fontes está indisponível',async()=>{
  await assert.rejects(readBetaInventory(opts),/incompletos/);
 });
 
-test('recusa mesma origem para os dois bancos',async()=>{
+test('recusa uso do Worker principal como Worker LAB',async()=>{
  const opts=options();
  opts.labApiBase=main;
- await assert.rejects(readBetaInventory(opts),/distintas/);
+ await assert.rejects(readBetaInventory(opts),/não autorizada/);
 });
 
 test('recusa API fora de HTTPS workers.dev',async()=>{
@@ -59,4 +59,10 @@ test('recusa ausência de autenticação',async()=>{
  const opts=options();
  opts.idToken='';
  await assert.rejects(readBetaInventory(opts),/Autenticação/);
+});
+
+test('recusa destino Worker desconhecido mesmo usando HTTPS',async()=>{
+ const opts=options();
+ opts.labApiBase='https://terceiro.workers.dev';
+ await assert.rejects(readBetaInventory(opts),/não autorizada/);
 });

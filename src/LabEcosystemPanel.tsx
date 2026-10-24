@@ -32,7 +32,7 @@ export function LabEcosystemPanel({user,view='all'}:{user:User|null;view?:'all'|
  useEffect(()=>{if(view!=='all'&&view!=='projects')setKind(view==='tasks'?'task':view==='finance'?'finance':'study');},[view]);
  useEffect(()=>{if(user){void reload().catch(e=>setError(e instanceof Error?e.message:'Não foi possível consultar seus registros.'));}},[user?.uid,view]);
  async function call(path:string,method='GET',body?:unknown):Promise<any>{
-  if(!user||!api)throw Error('Entre com Google no laboratório.');
+  if(!user||!api)throw Error('Entre com Google no SIGMA.');
   const token=await user.getIdToken();
   const response=await fetch(api+'/api/lab/workspace'+path,{method,cache:'no-store',
    headers:{Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':'application/json'})},
@@ -72,7 +72,7 @@ export function LabEcosystemPanel({user,view='all'}:{user:User|null;view?:'all'|
       questionsTotal:Number(questionsTotal),questionsCorrect:Number(questionsCorrect)
      }:{} )}:{})});
    await reload();
-   setTitle('');setNotes('');setMinutes('0');setAmount('0');setDueDate('');setPriority('normal');setSubject('');setQuestionsTotal('');setQuestionsCorrect('');setNotice('Registro salvo na sua área experimental.');
+   setTitle('');setNotes('');setMinutes('0');setAmount('0');setDueDate('');setPriority('normal');setSubject('');setQuestionsTotal('');setQuestionsCorrect('');setNotice('Registro salvo no SIGMA.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar.');}
   finally{setBusy(false);}
  }

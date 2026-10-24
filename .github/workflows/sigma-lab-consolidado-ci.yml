@@ -149,7 +149,7 @@ jobs:
 
   firebase-lab-deploy-autorizado:
     # Autorização explícita do proprietário: laboratório apenas; não produção.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/sigma-lab-preflight-etapa11'
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 17 && github.head_ref == 'sigma-lab-preflight-etapa11' && github.base_ref == 'sigma-lab-consolidacao-segura' && github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     needs: [codigo-e-interface]
     runs-on: ubuntu-latest
     timeout-minutes: 20

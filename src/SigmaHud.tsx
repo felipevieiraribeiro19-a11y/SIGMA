@@ -90,7 +90,7 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
     <button type="button" className="sigma-menu-open" aria-label="Abrir menu" onClick={()=>setMenuOpen(true)}><Menu size={23}/></button>
     <div className="sigma-hud-mobile-brand">SIGMA</div>
     <span className="sigma-hud-top-title">{page==='home'?'CENTRAL DE COMANDO':pageTitle.toUpperCase()}</span>
-    <div className="sigma-hud-top-right"><span className="sigma-hud-clock">{new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date())}</span><button type="button" className="sigma-profile" onClick={()=>navigate('settings')} aria-label="Conta e configurações">{user?.photoURL?<img src={user.photoURL} alt=""/>:<Settings2 size={20}/>}</button></div>
+    <div className="sigma-hud-top-right"><span className="sigma-hud-clock">{new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit'}).format(new Date())}</span><button type="button" className="sigma-profile" onClick={()=>navigate('settings')} aria-label="Conta e configurações"><Settings2 size={20}/></button></div>
    </header>
    {!authReady&&<div className="sigma-hud-notice" role="status">Restaurando sua sessão Google…</div>}
    {authReady&&!user&&<section className="sigma-login-card"><ShieldCheck size={26}/><h1>Ativar central SIGMA</h1><p>Entre com sua conta Google para acessar os registros reais de estudos, tarefas e projetos.</p><button type="button" disabled={loggingIn} onClick={onLogin}><LogIn size={18}/>{loggingIn?'Conectando…':'Entrar com Google'}</button></section>}

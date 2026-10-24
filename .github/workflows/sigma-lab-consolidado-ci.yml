@@ -22,6 +22,9 @@ jobs:
   codigo-e-interface:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    env:
+      # Public, lab-only endpoint: not a secret. Required to test the actual bundle.
+      VITE_JARVIS_LAB_API: https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,7 +42,16 @@ jobs:
       - name: Executar todos os testes
         run: npm test
       - name: Auditar build estatico e isolado do laboratorio
-        run: node tests/verify-jarvis-lab-build.mjs
+        run: |
+          node tests/verify-jarvis-lab-build.mjs
+          node scripts/sigma-lab-preflight.mjs
+      - name: Salvar pacote estatico para revisao privada (sem publicar)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sigma-lab-build-revisao
+          path: dist-jarvis-lab/
+          retention-days: 5
+          if-no-files-found: error
 
   chat-cloudflare-local:
     runs-on: ubuntu-latest
@@ -76,3 +88,27 @@ jobs:
           CLOUDFLARE_API_TOKEN: ''
           CLOUDFLARE_ACCOUNT_ID: ''
         run: bash tests/run-cloudflare-offline-lab.sh
+
+  dependencias-somente-relatorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Coletar avisos do registro npm sem alterar arquivos
+        run: |
+          mkdir -p reports
+          npm audit --json > reports/npm-audit.json || true
+          node scripts/sigma-npm-audit-report.mjs reports/npm-audit.json reports/sigma-npm-audit.md
+      - name: Anexar relatorio ao GitHub privado, sem publicar
+        uses: actions/upload-artifact@v4
+        with:
+          name: sigma-lab-auditoria-npm
+          path: reports/sigma-npm-audit.md
+          retention-days: 5
+          if-no-files-found: error

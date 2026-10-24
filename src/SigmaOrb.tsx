@@ -13,6 +13,12 @@ const links=[
  [9,10],[9,12],[9,13],[10,11],[11,12],[12,13]
 ] as const;
 const ticks=Array.from({length:72},(_,i)=>i);
+// Small light impulses travel across the same curves used by the neural mesh.
+const signalLinks=[0,3,7,12,18,22] as const;
+function neuralPath(a:number,b:number){
+ const start=stars[a],end=stars[b];
+ return `M ${start[0]} ${start[1]} Q ${240+(start[0]+end[0]-480)*.48} ${222+(start[1]+end[1]-444)*.48} ${end[0]} ${end[1]}`;
+}
 const dust=Array.from({length:85},(_,i)=>{
  const a=i*2.39996323, radius=127+(i*41%84);
  return {x:240+Math.cos(a)*radius,y:224+Math.sin(a)*radius,r:i%7===0?1.3:.45};
@@ -24,7 +30,7 @@ function Star({x,y,r}:{x:number;y:number;r:number}){
  </g>;
 }
 export function SigmaOrb(){
- return <div className="sigma-orb-v3" role="img" aria-label="Núcleo de energia azul holográfico, profundo e luminoso">
+ return <div className="sigma-orb-v3" role="img" aria-label="Núcleo de energia azul holográfico animado, com conexões luminosas em movimento">
  <svg viewBox="0 0 480 480" className="sigma-orb-v3-svg" aria-hidden="true" focusable="false">
   <defs>
    <radialGradient id="orb-v3-atmosphere">
@@ -96,14 +102,24 @@ export function SigmaOrb(){
     <ellipse cx="240" cy="222" rx="83" ry="116" transform="rotate(-23 240 222)"/>
     <path d="M 126 203 Q 233 253 352 202 M 132 274 Q 233 228 343 271"/>
    </g>
-   {/* Fine neuronal filaments: floating inside the dark globe, not an opaque wire cage */}
-   <g fill="none" stroke="#168ff0" strokeOpacity=".44" strokeWidth=".9">
-    {links.map(([a,b],i)=><path key={i} d={`M ${stars[a][0]} ${stars[a][1]} Q ${240+(stars[a][0]+stars[b][0]-480)*.48} ${222+(stars[a][1]+stars[b][1]-444)*.48} ${stars[b][0]} ${stars[b][1]}`}/>)}
+   {/* The entire neural layer drifts, while impulses travel along its connections. */}
+   <g className="sigma-orb-v3-network">
+    <g className="sigma-orb-v3-filaments" fill="none" stroke="#168ff0" strokeOpacity=".62" strokeWidth="1.1" strokeDasharray="3 7">
+     {links.map(([a,b],i)=><path key={i} d={neuralPath(a,b)} className={i%2===0?'sigma-orb-v3-filament-a':'sigma-orb-v3-filament-b'}/>)}
+    </g>
+    {stars.map(([x,y,r],i)=><Star key={i} x={x} y={y} r={r}/>)}
+    <g className="sigma-orb-v3-signals" filter="url(#orb-v3-glow)">
+     {signalLinks.map((linkIndex,i)=>{
+      const [a,b]=links[linkIndex];
+      return <circle key={linkIndex} r={i%3===0?2.8:2.1} fill="#d7ffff">
+       <animateMotion path={neuralPath(a,b)} dur={`${2.2+i*.47}s`} begin={`-${i*.71}s`} repeatCount="indefinite"/>
+      </circle>;
+     })}
+    </g>
    </g>
    <path d="M 134 165 C 165 122 185 117 230 113 C 178 148 157 192 152 247" fill="#64e3ff" fillOpacity=".13"/>
    <path d="M 314 127 C 358 166 354 242 318 288 C 329 229 322 169 314 127" fill="#006aff" fillOpacity=".11"/>
    <path d="M 166 286 C 207 324 264 329 314 289" stroke="#2d9fff" strokeWidth="2" strokeOpacity=".32" fill="none"/>
-   {stars.map(([x,y,r],i)=><Star key={i} x={x} y={y} r={r}/>)}
    <circle cx="184" cy="152" r="39" fill="url(#orb-v3-glint)" opacity=".82"/>
    <circle cx="313" cy="282" r="24" fill="url(#orb-v3-glint)" opacity=".65"/>
    <path d="M 170 147 Q 211 111 272 112" fill="none" stroke="#c0f8ff" strokeOpacity=".7" strokeWidth="2" filter="url(#orb-v3-glow)"/>

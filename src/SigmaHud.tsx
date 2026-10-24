@@ -9,6 +9,7 @@ import {LabDocumentsPanel} from './LabDocumentsPanel';
 import {LabRealMemory} from './LabRealMemory';
 import {validLabApiBase} from './jarvis-chat-protocol';
 import './sigma-hud.css';
+import {SigmaOrb} from './SigmaOrb';
 
 type Page='home'|'chat'|'study'|'projects'|'tasks'|'agenda'|'finance'|'library'|'integrations'|'settings';
 type Briefing={
@@ -30,11 +31,6 @@ const mobileNav:Page[]=['home','study','tasks','agenda','settings'];
 function formatMoney(value:number){return value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
 function formatMinutes(value:number){return value>=60?`${Math.floor(value/60)}h ${String(value%60).padStart(2,'0')}min`:`${value} min`;}
 function safeNumber(value:unknown){return typeof value==='number'&&Number.isFinite(value)?value:null;}
-function Orb(){return <div className="sigma-orb-scene" aria-label="Núcleo holográfico do SIGMA, elemento visual">
- <div className="sigma-orb-outer"/><div className="sigma-orb-scan"/><div className="sigma-orb-ring sigma-orb-ring-one"/>
- <div className="sigma-orb-ring sigma-orb-ring-two"/><div className="sigma-orb-core"><div className="sigma-orb-glint"/></div>
- <div className="sigma-orb-platform"/><span className="sigma-orb-beam"/>
- </div>;}
 function Panel({title,children,action}:{title:string;children:ReactNode;action?:React.ReactNode}){
  return <section className="sigma-hud-panel"><div className="sigma-panel-heading"><h2>{title}</h2>{action}</div>{children}</section>;
 }
@@ -109,7 +105,7 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
         <button type="button" onClick={()=>navigate('integrations')}>Pesquisar e integrar <ChevronRight size={16}/></button>
        </div>
       </div>
-      <Orb/>
+      <SigmaOrb/>
       <div className="sigma-hud-hero-right">
        <Panel title="TAREFAS EM FOCO" action={<button type="button" className="sigma-text-button" onClick={()=>navigate('tasks')}>Ver todas <ChevronRight size={14}/></button>}>
         {!user?<p>Entre para consultar suas tarefas.</p>:loading&&!briefing?<p>Consultando tarefas…</p>:briefing?<><div className="sigma-hud-hero-stat"><strong>{briefing.openTasks}</strong> abertas <span>· {briefing.dueToday} para hoje</span></div>{briefing.highlightedTasks.length>0?<ul className="sigma-hud-task-list">{briefing.highlightedTasks.slice(0,4).map(t=><li key={t.id}><CheckSquare size={16}/><span>{t.title}</span><small>{t.dueDate?t.dueDate.split('-').reverse().join('/'):''}</small></li>)}</ul>:<p>Sem tarefas destacadas no momento.</p>}</>:<p>Resumo indisponível.</p>}

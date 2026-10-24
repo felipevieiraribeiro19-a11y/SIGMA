@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {LabFormattedText} from './jarvis-lab-markdown';
 import {approvedChatRequest,readMemoryChoices,type SharedMemoryChoice} from './lab-chat-memory-selection';
-import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,readLabProjectProposal,type LabProjectProposal,type LabWebSource,type LabChatMessage} from './jarvis-chat-protocol';
+import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,readLabProjectProposal,readLabTaskProposal,type LabProjectProposal,type LabTaskProposal,type LabWebSource,type LabChatMessage} from './jarvis-chat-protocol';
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
 export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:string|null}){
@@ -25,6 +25,12 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [projectConfirmed,setProjectConfirmed]=useState(false);
  const [projectSaving,setProjectSaving]=useState(false);
  const [projectNotice,setProjectNotice]=useState('');
+ const [taskProposal,setTaskProposal]=useState<LabTaskProposal|null>(null);
+ const [taskProjects,setTaskProjects]=useState<{id:string;title:string;status:string}[]>([]);
+ const [taskProjectId,setTaskProjectId]=useState('');
+ const [taskApproved,setTaskApproved]=useState(false);
+ const [taskSaving,setTaskSaving]=useState(false);
+ const [taskNotice,setTaskNotice]=useState('');
  const [memoryChoices,setMemoryChoices]=useState<SharedMemoryChoice[]>([]);
  const [selectedMemoryIds,setSelectedMemoryIds]=useState<string[]>([]);
  const [memoryPickerOpen,setMemoryPickerOpen]=useState(false);
@@ -37,7 +43,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [consultedMemoryCount,setConsultedMemoryCount]=useState(0);
  const pending=useRef<AbortController|null>(null);
  useEffect(()=>()=>{pending.current?.abort();},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -127,7 +133,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');
+  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -144,7 +150,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    }
    const answer=assertLabReply(result);
    const sources=readLabWebSources(result);
-   const structured=result as {integrations?:unknown;learningProposal?:unknown;projectProposal?:unknown;projects?:unknown}|null;
+   const structured=result as {integrations?:unknown;learningProposal?:unknown;projectProposal?:unknown;taskProposal?:unknown;projects?:unknown}|null;
    const library=(result as {library?:{consulted?:unknown;sources?:unknown}}|null)?.library;
    const docRefs=library?.consulted===true&&Array.isArray(library.sources)?
     library.sources.filter((x):x is {key:string;title:string;source:string;url:string;contentStatus:string}=>
@@ -175,7 +181,10 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
      ?'found':memoryData?.mode==='auto'&&memoryData?.consulted===false&&memoryData?.count===0
      ?'none':null;
    if(!controller.signal.aborted){
+    const newTask=readLabTaskProposal(result);
+    setTaskProposal(newTask);setTaskApproved(false);setTaskProjects([]);setTaskProjectId('');
     setProjectProposal(readLabProjectProposal(result));setProjectConfirmed(false);
+    if(newTask)void refreshTaskProjects(newTask.projectTitleHint);
     setHistory([...messages,{role:'assistant',text:answer}]);
     setProjectsReceipt(nextProjects);
     setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);

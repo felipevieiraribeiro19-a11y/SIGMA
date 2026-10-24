@@ -53,8 +53,8 @@ export function inspectLabConfig({worker,hosting,vite,workflow}){
  assert.doesNotMatch(ci,/hosting:channel:deploy|id-token:\s*write/i,
   'Jobs de teste não podem autenticar ou publicar.');
  assert.match(labDeploy,
-  /if:\s*github\.event_name == 'push' && github\.ref == 'refs\/heads\/sigma-chat-tarefas-confirmadas'/,
-  'Deploy só pode ocorrer via push na branch isolada sigma-chat-tarefas-confirmadas.');
+  /if:\s*github\.event_name == 'pull_request' && github\.event\.pull_request\.number == 18 && github\.head_ref == 'sigma-chat-tarefas-confirmadas' && github\.base_ref == 'sigma-lab-preflight-etapa11' && github\.event\.pull_request\.head\.repo\.full_name == 'felipevieiraribeiro19-a11y\/SIGMA'/,
+  'Deploy apenas pelo PR 18 de LAB originado no repositório privado.');
  assert.match(labDeploy,/needs:\s*\[codigo-e-interface\]/,
   'Deploy exige CI de interface e testes aprovado.');
  assert.match(labDeploy,/id-token:\s*write/,

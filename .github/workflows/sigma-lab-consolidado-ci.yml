@@ -178,4 +178,4 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
       - name: Publicar APENAS canal jarvis-lab
-        run: npx --yes firebase-tools@latest hosting:channel:deploy jarvis-lab --config firebase.lab.json --project sigma-61328 --expires 30d --non-interactive
+        run: npx --yes firebase-tools@15.34.0 hosting:channel:deploy jarvis-lab --config firebase.lab.json --project sigma-61328 --expires 30d --non-interactive

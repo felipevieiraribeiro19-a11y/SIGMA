@@ -34,7 +34,7 @@ export function LabDocumentsPanel({user}:{user:User|null}){
   finally{setBusy(false);}
  }
  async function call(path:string,method='GET',body?:unknown,token?:string|null):Promise<any>{
-  if(!user||!api)throw Error('Entre com Google e abra o laboratório publicado.');
+  if(!user||!api)throw Error('Entre com Google para acessar o SIGMA.');
   const identity=await user.getIdToken();
   const r=await fetch(api+'/api/lab/documents'+path,{
    method,cache:'no-store',headers:{Authorization:'Bearer '+identity,
@@ -47,7 +47,7 @@ export function LabDocumentsPanel({user}:{user:User|null}){
   return response;
  }
  async function oauthRequest(path:string,body?:unknown):Promise<any>{
-  if(!user||!api)throw Error('Entre no laboratório publicado com sua conta Google.');
+  if(!user||!api)throw Error('Entre no SIGMA com sua conta Google.');
   const idToken=await user.getIdToken();
   const response=await fetch(api+'/api/lab/oauth/'+path,{
    method:body===undefined?'GET':'POST',cache:'no-store',
@@ -195,7 +195,7 @@ export function LabDocumentsPanel({user}:{user:User|null}){
   <p>Sincronização <strong>sob seu comando</strong>: o SIGMA detecta arquivos novos, alterados e ausentes, indexa títulos e pode guardar trechos de texto para pesquisa. Não modifica arquivos nas suas contas.</p>
   <p>Os textos indexados permanecem em um banco isolado do Cloudflare LAB até você apagá-los. Até 1.000 documentos por origem, em etapas de no máximo 100 arquivos por consulta. O índice anterior só muda quando todas as páginas são verificadas.</p>
   <div className="lab-workspace-form">
-   <h3>Conexão Google permanente — laboratório</h3>
+   <h3>Conexão Google permanente — SIGMA</h3>
    <p>OAuth com renovação segura: os refresh tokens ficam criptografados no Cloudflare e nunca são entregues ao navegador. A conexão precisa ser configurada pelo proprietário no Google Cloud antes de funcionar. Ela ainda não substitui as autorizações temporárias das integrações acima.</p>
    <button type="button" disabled={busy||!user} onClick={()=>void oauthStatus()}>Consultar conexões permanentes</button>
    {(['calendar','drive_metadata','drive_content'] as const).map(preset=><div key={preset}>

@@ -44,3 +44,14 @@ Preparar uma versão Beta no endereço principal `https://sigma-61328.web.app`, 
 - `.github/workflows/sigma-beta-preflight.yml`: build e testes sem credenciais, sem deploy, sem migração. O resultado de CI ainda deve ser confirmado antes de integração.
 - **Antes de ativar no navegador:** ambos Workers devem permitir explicitamente o domínio do preview Beta via CORS; a autenticação Firebase também deve autorizar o domínio. Essas configurações ainda não foram alteradas.
 - A integração atual é **somente inventário e leitura**, não migração de conteúdo nem chat unificado. Não habilitar escrita entre bases sem testes e consentimento.
+
+## Publicação Beta autorizada e realizada em 24/10/2026
+- O proprietário esclareceu que o site principal não tinha registros que precisassem ser migrados e autorizou **substituir imediatamente o frontend principal** ("mete ficha").
+- O Firebase Hosting principal foi publicado com sucesso em `https://sigma-61328.web.app` usando `dist-sigma-beta`, WIF existente e validação GitHub Actions. Run de publicação: `40105214819`, jobs `validar` e `publicar` concluídos com sucesso.
+- O novo frontend Beta usa os registros existentes no Worker LAB e o mesmo Firebase Auth; **não foi feita cópia nem exclusão de dados**. A interface LAB segue publicada no canal `jarvis-lab`.
+- O Worker `sigma-jarvis-cerebro-lab` foi atualizado via Cloudflare API com duas origens exatas: principal Beta e preview LAB, sem curingas. O binding `ALLOWED_ORIGIN` passou a apontar para o domínio principal, e o código aceita também o preview LAB. Após a atualização, verificou-se a preservação dos 22 bindings, incluindo 3 segredos e 6 Durable Objects. Última versão de Worker confirmada: `5363daf2-189d-4f96-889b-4f2facbc9c17`.
+- O workflow de publicação automática foi desabilitado após o lançamento e ficou restrito a `workflow_dispatch`, para evitar redeploys em cada commit.
+- A Beta **não** implementa ainda a migração de histórico antigo do Firestore principal, nem grava o histórico de mensagens do chat LAB. Os registros confirmados de memórias, projetos e tarefas permanecem no armazenamento LAB existente.
+- Validação real no navegador (login, tarefas, Safari iPhone) ainda depende de uso/teste manual. Não afirmar que foi concluída.
+- Rollback: Firebase Hosting conserva versões anteriores no console; Worker mantém versão anterior `a505ad3f-297a-48ac-808c-8819265dbf74` para eventual restauração, sem tocar no armazenamento Durable Objects.
+- **Importante:** `worker/wrangler.chat-lab.toml` permanece com origem LAB para testes locais. Um deploy futuro via Wrangler sem alinhar a variável `ALLOWED_ORIGIN` com o domínio Beta pode interromper a comunicação do site principal; alinhar antes de novos deploys.

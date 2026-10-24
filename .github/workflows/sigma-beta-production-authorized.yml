@@ -1,9 +1,11 @@
 name: SIGMA Beta - publicar site principal autorizado
 
-# Autorizacao explicita do proprietario nesta conversa em 24/10/2026.
-# Execucao unica por adicao deste arquivo na branch de preparacao Beta.
+# Autorização expressa em 24/10/2026 para atualizar diretamente a Beta já publicada.
+# Somente PR #21 (HUD) pode publicar; nenhuma alteração de Worker, banco ou regras.
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [sigma-beta-preparacao-20261024]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -14,7 +16,12 @@ concurrency:
 
 jobs:
   validar:
-    if: github.ref == 'refs/heads/sigma-beta-preparacao-20261024'
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.number == 21 &&
+      github.head_ref == 'sigma-hud-jarvis-interface-20261024' &&
+      github.base_ref == 'sigma-beta-preparacao-20261024' &&
+      github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
@@ -44,9 +51,9 @@ jobs:
 
   publicar:
     if: >-
-      github.event.pull_request.number == 20 &&
-      github.head_ref == 'sigma-beta-preparacao-20261024' &&
-      github.base_ref == 'sigma-consultar-concluir-tarefas-chat' &&
+      github.event.pull_request.number == 21 &&
+      github.head_ref == 'sigma-hud-jarvis-interface-20261024' &&
+      github.base_ref == 'sigma-beta-preparacao-20261024' &&
       github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     needs: validar
     runs-on: ubuntu-latest
@@ -75,5 +82,5 @@ jobs:
           service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
           create_credentials_file: true
           export_environment_variables: true
-      - name: Substituir somente arquivos do Firebase Hosting principal
+      - name: Atualizar somente interface do Firebase Hosting principal (HUD autorizado)
         run: npx --yes firebase-tools@15.34.0 deploy --only hosting --config firebase.beta.json --project sigma-61328 --non-interactive

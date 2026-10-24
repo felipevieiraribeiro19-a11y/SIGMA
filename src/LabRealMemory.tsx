@@ -78,7 +78,7 @@ export function LabRealMemory({user}:{user:User|null}){
   finally{setBusy(false);}
  }
  async function remove(id:string){
-  if(busy||!window.confirm('Apagar esta memória do laboratório?'))return;
+  if(busy||!window.confirm('Apagar esta memória do SIGMA?'))return;
   setBusy(true);setError('');
   try{
    await call('DELETE','/'+id);
@@ -88,14 +88,14 @@ export function LabRealMemory({user}:{user:User|null}){
   finally{setBusy(false);}
  }
  async function eraseAll(){
-  if(!eraseConfirmed||busy||!window.confirm('Apagar TODAS as memórias do laboratório?'))return;
+  if(!eraseConfirmed||busy||!window.confirm('Apagar TODAS as memórias do SIGMA?'))return;
   setBusy(true);setError('');
   try{await call('DELETE');setEntries([]);setEraseConfirmed(false);}
   catch(e){setError(e instanceof Error?e.message:'Falha ao apagar.');}
   finally{setBusy(false);}
  }
- return <section className="lab-real-memory" aria-label="Memória pessoal experimental">
-  <h3>Memória pessoal — Etapa 16</h3>
+ return <section className="lab-real-memory" aria-label="Memória pessoal">
+  <h3>Memória pessoal</h3>
   <p>As informações são guardadas somente após você aprovar o registro. Quando habilitada, esta memória permanece entre visitas e pode ser editada ou apagada. Não é histórico de conversas. Se você ativar a consulta contextual no chat, as notas relevantes poderão ser enviadas ao Gemini nas próximas perguntas.</p>
   <p className="lab-memory-warning">Use apenas dados fictícios nos primeiros testes. Não registre senhas ou informações sensíveis.</p>
   {!user&&<p>Entre com Google para consultar a memória experimental.</p>}
@@ -107,7 +107,7 @@ export function LabRealMemory({user}:{user:User|null}){
    <p role="status">{entries.length} de 30 registros. Não há gravação automática.</p>
    <label htmlFor="lab-memory-draft">Nova memória aprovada por você</label>
    <textarea id="lab-memory-draft" rows={3} maxLength={500}
-    placeholder="Exemplo fictício: Quero estudar três disciplinas nesta semana."
+    placeholder="Informação que você deseja que o SIGMA lembre…"
     value={draft} disabled={busy} onChange={e=>{setDraft(e.target.value);setConfirmed(false);}}/>
    <label className="lab-memory-consent"><input type="checkbox" checked={confirmed} disabled={busy}
      onChange={e=>setConfirmed(e.target.checked)}/>
@@ -132,7 +132,7 @@ export function LabRealMemory({user}:{user:User|null}){
    {entries.length>0&&<div className="lab-memory-danger">
     <label><input type="checkbox" checked={eraseConfirmed} disabled={busy}
       onChange={e=>setEraseConfirmed(e.target.checked)}/>
-      Entendo que esta ação excluirá todas as memórias do laboratório.</label>
+      Entendo que esta ação excluirá todas as memórias do SIGMA.</label>
     <button type="button" className="memory-delete" disabled={!eraseConfirmed||busy}
       onClick={()=>void eraseAll()}>Excluir todas as memórias</button>
    </div>}

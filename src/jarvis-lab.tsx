@@ -2,6 +2,7 @@ import {useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import type {User} from 'firebase/auth';
 import {MemoryCenter} from './MemoryCenter';
+import {SigmaHud} from './SigmaHud';
 import {LabRealMemory} from './LabRealMemory';
 import {JarvisChatPanel} from './JarvisChatPanel';
 import {LabEcosystemPanel} from './LabEcosystemPanel';
@@ -62,6 +63,9 @@ export function JarvisLab(){
   catch(e){setAuthError(readableLabAuthError(e));}
   finally{setLoggingIn(false);}
  }
+ if(beta)return <SigmaHud user={user} authReady={authReady} loggingIn={loggingIn}
+  onLogin={()=>{void toggleLogin();}} authError={authError} authBrowserDiagnostic={authBrowserDiagnostic}
+  googleReadToken={googleReadToken} onGoogleReadToken={setGoogleReadToken}/>;
  return <div className="jarvis-lab">
   <header><span className="lab-symbol" aria-hidden="true">Σ</span><div><strong>SIGMA</strong><small>{beta?'ASSISTENTE PESSOAL · BETA':'LABORATÓRIO JARVIS · ISOLADO'}</small></div></header>
   <main>

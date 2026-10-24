@@ -101,6 +101,6 @@ export function LabProjectsPanel({user,projects,selectedId,onSelect,onRefresh}:{
   <button type="button" disabled={busy} onClick={()=>onSelect('')}>Mostrar todos os registros / sem projeto</button>
   {notice&&<p role="status">{notice}</p>}
   {error&&<p role="alert" className="lab-error">{error}</p>}
-  <small>A criação por conversa com a IA ainda depende de uma próxima etapa: autorização explícita para as ações propostas. Nenhum projeto é criado automaticamente a partir do chat neste momento.</small>
+  <small>Você também pode solicitar projetos pelo chat. Antes de salvar, o SIGMA apresenta uma proposta para sua revisão e confirmação.</small>
  </section>;
 }

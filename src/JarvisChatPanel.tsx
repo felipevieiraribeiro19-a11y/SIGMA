@@ -136,7 +136,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   try{messages=nextLabMessages(history,draft);}
   catch(e){setError(e instanceof Error?e.message:'Mensagem inválida.');return;}
   if(selectedSources.some(p=>p==='calendar'||p==='drive')&&!googleToken){
-   setError('Conecte primeiro a leitura Google na seção 7.');return;
+   setError('Conecte primeiro a leitura Google em Agenda ou Integrações.');return;
   }
   let payload:ReturnType<typeof approvedChatRequest>;
   try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects);}
@@ -534,16 +534,16 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
      onChange={()=>toggleSource(provider)}/>
     {provider==='calendar'?'Agenda Google':provider==='drive'?'Google Drive':'Notion'}
    </label>)}
-   {selectedSources.some(x=>x==='drive'||x==='calendar')&&!googleToken&&<small>Conecte o Google na seção 7 antes de consultar esses serviços.</small>}
+   {selectedSources.some(x=>x==='drive'||x==='calendar')&&!googleToken&&<small>Conecte o Google em Agenda ou Integrações antes de consultar esses serviços.</small>}
   </div>
-  <label htmlFor="lab-chat-input">Mensagem de teste</label>
+  <label htmlFor="lab-chat-input">Sua mensagem</label>
   <textarea id="lab-chat-input" rows={3} maxLength={2000}
-   placeholder="Exemplo fictício: Sigma, explique o que você consegue fazer."
+   placeholder="Converse com o SIGMA sobre seus estudos, projetos ou tarefas…"
    value={draft} onChange={e=>setDraft(e.target.value)}
    disabled={!api||!user||busy}/>
   <div className="lab-chat-buttons">
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
-    {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar para Gemini'}
+    {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar mensagem'}
    </button>
    <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);}}>Limpar sessão local</button>
   </div>

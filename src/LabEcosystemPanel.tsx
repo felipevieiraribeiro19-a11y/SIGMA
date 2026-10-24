@@ -11,7 +11,7 @@ type StudyPerformance={overall:SubjectPerformance;today:SubjectPerformance;subje
 type DayBriefing={studyPerformance:StudyPerformance;date:string;studyMinutesToday:number;studySessionsToday:number;financeNetToday:number;financeEntriesToday:number;tasksCompletedToday:number;openTasks:number;overdueTasks:number;dueToday:number;dueNext7Days:number;undatedTasks:number;highlightedTasks:{id:string;title:string;dueDate:string|null;priority:string;group:string}[];latestDiary:{title:string;date:string}|null;guidance:string[];limitation:string};
 type Totals={studiedMinutes:number;financialBalance:number;tasksOpen:number;tasksDone:number};
 const labels:Record<Kind,string>={study:'Estudos',daily:'Diário e rotina',task:'Tarefas',finance:'Finanças'};
-export function LabEcosystemPanel({user}:{user:User|null}){
+export function LabEcosystemPanel({user,view='all'}:{user:User|null;view?:'all'|'study'|'projects'|'tasks'|'finance'}){
  const [entries,setEntries]=useState<Entry[]>([]);
  const [totals,setTotals]=useState<Totals|null>(null);
  const [projects,setProjects]=useState<LabProject[]>([]);
@@ -29,8 +29,10 @@ export function LabEcosystemPanel({user}:{user:User|null}){
  const [briefing,setBriefing]=useState<DayBriefing|null>(null);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>{setEntries([]);setTotals(null);setBriefing(null);setProjects([]);setSelectedProjectId('');setError('');setNotice('');},[user?.uid]);
+ useEffect(()=>{if(view!=='all'&&view!=='projects')setKind(view==='tasks'?'task':view==='finance'?'finance':'study');},[view]);
+ useEffect(()=>{if(user){void reload().catch(e=>setError(e instanceof Error?e.message:'Não foi possível consultar seus registros.'));}},[user?.uid,view]);
  async function call(path:string,method='GET',body?:unknown):Promise<any>{
-  if(!user||!api)throw Error('Entre com Google no laboratório.');
+  if(!user||!api)throw Error('Entre com Google no SIGMA.');
   const token=await user.getIdToken();
   const response=await fetch(api+'/api/lab/workspace'+path,{method,cache:'no-store',
    headers:{Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':'application/json'})},
@@ -70,7 +72,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
       questionsTotal:Number(questionsTotal),questionsCorrect:Number(questionsCorrect)
      }:{} )}:{})});
    await reload();
-   setTitle('');setNotes('');setMinutes('0');setAmount('0');setDueDate('');setPriority('normal');setSubject('');setQuestionsTotal('');setQuestionsCorrect('');setNotice('Registro salvo na sua área experimental.');
+   setTitle('');setNotes('');setMinutes('0');setAmount('0');setDueDate('');setPriority('normal');setSubject('');setQuestionsTotal('');setQuestionsCorrect('');setNotice('Registro salvo no SIGMA.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível salvar.');}
   finally{setBusy(false);}
  }
@@ -95,16 +97,16 @@ export function LabEcosystemPanel({user}:{user:User|null}){
   finally{setBusy(false);}
  }
  return <div className="lab-workspace">
-  <p>Registre informações estruturadas, separadas do chat. Nada é criado automaticamente a partir de mensagens.</p>
-  <LabProjectsPanel user={user} projects={projects} selectedId={selectedProjectId}
-   onSelect={setSelectedProjectId} onRefresh={reload}/>
-  <div className="lab-workspace-stats">
+  <p>Consulte e atualize seus registros reais. Novos registros só são criados após confirmação.</p>
+  {(view==='all'||view==='projects')&&<LabProjectsPanel user={user} projects={projects} selectedId={selectedProjectId}
+   onSelect={setSelectedProjectId} onRefresh={reload}/>}
+  {view!=='projects'&&<div className="lab-workspace-stats">
    <span>Estudado: <strong>{totals?Math.round(totals.studiedMinutes/6)/10+' h':'—'}</strong></span>
    <span>Tarefas abertas: <strong>{totals?.tasksOpen??'—'}</strong></span>
    <span>Saldo manual: <strong>{totals?totals.financialBalance.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—'}</strong></span>
-  </div>
+  </div>}
   <button type="button" disabled={busy||!user||!api} onClick={()=>void refresh()}>Atualizar meus registros e resumo de hoje</button>
-  {briefing&&<section aria-label="Resumo diário" className="lab-workspace-form">
+  {view!=='projects'&&briefing&&<section aria-label="Resumo diário" className="lab-workspace-form">
    <h3>Resumo de hoje — {briefing.date.split('-').reverse().join('/')}</h3>
    <div className="lab-workspace-stats">
     <span>Estudo registrado hoje: <strong>{briefing.studyMinutesToday} min</strong></span>
@@ -126,7 +128,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
    </>}
    <small>{briefing.limitation}</small>
   </section>}
-  {briefing&&<section className="lab-workspace-form" aria-label="Desempenho nas questões">
+  {(view==='all'||view==='study')&&briefing&&<section className="lab-workspace-form" aria-label="Desempenho nas questões">
    <h3>Estudos — desempenho nas questões</h3>
    <div className="lab-workspace-stats">
     <span>Questões registradas hoje: <strong>{briefing.studyPerformance.today.questionsTotal}</strong></span>
@@ -146,8 +148,8 @@ export function LabEcosystemPanel({user}:{user:User|null}){
    </>}
    <small>{briefing.studyPerformance.disclaimer}</small>
   </section>}
-  <LabStudyCyclePanel user={user}/>
-  <div className="lab-workspace-form">
+  {(view==='all'||view==='study')&&<LabStudyCyclePanel user={user}/>}
+  {view!=='projects'&&<div className="lab-workspace-form">
    <label>Projeto deste registro<select value={selectedProjectId}
     onChange={e=>setSelectedProjectId(e.target.value)}>
     <option value="">Sem projeto (registro geral)</option>
@@ -155,7 +157,7 @@ export function LabEcosystemPanel({user}:{user:User|null}){
      {p.title}{p.status==='paused'?' (pausado)':''}</option>)}
    </select></label>
    {selectedProjectId&&<p role="status">Os novos registros serão vinculados a este projeto. A lista abaixo exibirá somente seus registros.</p>}
-   <label>Categoria<select value={kind} onChange={e=>setKind(e.target.value as Kind)}>{Object.entries(labels).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label>
+   {view==='all'&&<label>Categoria<select value={kind} onChange={e=>setKind(e.target.value as Kind)}>{Object.entries(labels).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label>}
    <label>Assunto ou título<input maxLength={160} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ex.: Contabilidade — revisão de exercícios"/></label>
    <label>Observações<textarea rows={3} maxLength={1500} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Detalhes, progresso, próximos passos"/></label>
    {kind==='study'&&<>
@@ -175,10 +177,10 @@ export function LabEcosystemPanel({user}:{user:User|null}){
     </select></label>
    </>}
    <button type="button" disabled={!user||busy||title.trim().length<2} onClick={()=>void add()}>Salvar registro</button>
-  </div>
+  </div>}
   {notice&&<p role="status">{notice}</p>}
   {error&&<p className="lab-error" role="alert">{error}</p>}
-  {entries.length>0&&<ul className="lab-workspace-list">{entries.filter(e=>!selectedProjectId||e.projectId===selectedProjectId).map(e=><li key={e.id}>
+  {view!=='projects'&&entries.some(e=>(view==='all'||e.kind===(view==='tasks'?'task':view==='finance'?'finance':'study'))&&(!selectedProjectId||e.projectId===selectedProjectId))&&<ul className="lab-workspace-list">{entries.filter(e=>(view==='all'||e.kind===(view==='tasks'?'task':view==='finance'?'finance':'study'))&&(!selectedProjectId||e.projectId===selectedProjectId)).map(e=><li key={e.id}>
    <strong>{labels[e.kind]} — {e.title}</strong>
    {e.projectId&&<small>Projeto: {projects.find(p=>p.id===e.projectId)?.title||'Projeto não localizado'}</small>}
    <small>{new Date(e.createdAt).toLocaleDateString('pt-BR')}{e.kind==='study'?' · '+e.minutes+' min':''}{e.kind==='study'&&e.subject?' · '+e.subject:''}{e.kind==='study'&&e.questionsTotal!==undefined?' · '+e.questionsCorrect+'/'+e.questionsTotal+' questões certas':''}{e.kind==='finance'?' · '+e.amount.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):''}{e.kind==='task'&&e.dueDate?' · Prazo '+e.dueDate.split('-').reverse().join('/'):''}{e.kind==='task'&&e.priority==='high'?' · Prioridade alta':''}</small>

@@ -44,7 +44,7 @@ form .selected-file button{display:grid;place-items:center;min-width:20px;width:
 .sigma-production>header button{border:1px solid #5278b94d;border-radius:50%;width:42px;height:42px;display:grid;place-items:center;color:#9ec0ff;background:#0a1c3e66;backdrop-filter:blur(12px)}
 .sigma-production main{height:calc(100dvh - 78px);max-width:100%;padding:0 20px;pointer-events:none}
 .sigma-production .conversation{width:min(720px,100%);margin:0 auto;flex:1;background:transparent;padding:12px 0;pointer-events:none}
-.sigma-production .conversation:has(article){pointer-events:auto;background:linear-gradient(#02050f8c,#02050f9e);border-radius:18px;padding:18px;backdrop-filter:blur(8px)}
+.sigma-production .conversation:has(article){pointer-events:auto;flex:0 1 min(34vh,320px);max-height:min(34vh,320px);margin-top:auto;background:linear-gradient(#02050fa6,#02050fbd);border-radius:18px;padding:18px;backdrop-filter:blur(8px)}
 .sigma-production .sigma-welcome{min-height:100%;padding:0}
 .sigma-production .composer-wrap{width:min(710px,100%);margin:0 auto;padding:12px 0 max(25px,env(safe-area-inset-bottom));pointer-events:auto}
 .sigma-production .composer-wrap form{border-radius:40px;padding:7px 10px;background:#06112ca8;border:1px solid #648dff77;box-shadow:0 0 28px #2d67ed33,inset 0 0 24px #2454bb14;backdrop-filter:blur(18px);align-items:center}

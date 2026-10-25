@@ -9,7 +9,7 @@ import {approvedChatRequest,readMemoryChoices,type SharedMemoryChoice} from './l
 import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,readLabProjectProposal,readLabTaskProposal,readLabTaskCompletion,readLabPendingTasks,type LabTaskCompletion,type LabPendingTask,type LabProjectProposal,type LabTaskProposal,type LabWebSource,type LabChatMessage} from './jarvis-chat-protocol';
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
-export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:string|null}){
+export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsumed}:{user:User|null;googleToken?:string|null;incomingText?:string|null;onIncomingConsumed?:()=>void}){
  const [external,setExternal]=useState<ActionData|null>(null);
  const [externalNotice,setExternalNotice]=useState('');
  const [confirmSignal,setConfirmSignal]=useState(0);
@@ -402,6 +402,12 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  function toggleSource(value:string){
   setSelectedSources(old=>old.includes(value)?old.filter(x=>x!==value):[...old,value]);
  }
+ useEffect(()=>{
+  if(!incomingText?.trim()||!user)return;
+  const text=incomingText;
+  onIncomingConsumed?.();
+  void send(text);
+ },[incomingText,user?.uid]);
  return <div className="lab-chat">
   <h3>Fale com o SIGMA</h3>
   <p>Diga o que precisa. Tarefas simples são registradas automaticamente no SIGMA; você só precisa revisar quando houver dúvida sobre qual projeto usar. Ações externas e alterações delicadas continuam com proteção. O histórico desta conversa não é salvo automaticamente.</p>

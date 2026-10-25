@@ -2,13 +2,6 @@ name: SIGMA - publicar site definitivo
 
 on:
   workflow_dispatch:
-  push:
-    branches: [sigma-work-integracao]
-    paths:
-      - 'src/main.tsx'
-      - 'src/style.css'
-      - 'public/sigma-orb.html'
-      - '.github/workflows/sigma-production.yml'
 
 permissions:
   contents: read

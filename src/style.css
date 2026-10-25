@@ -28,3 +28,41 @@ form .record-hint{color:#ffc5cb;border-color:#8f3f4b;background:#2b1824}
 form .selected-file{display:flex;align-items:center;gap:8px;max-width:min(90vw,540px)}
 form .selected-file span{max-width:min(72vw,480px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 form .selected-file button{display:grid;place-items:center;min-width:20px;width:20px;height:20px;padding:0;border:0;color:#c4e8f5;background:#28506a}
+
+
+/* SIGMA production home: native animated orb from approved standalone preview.
+   Existing Firebase, chat, media and account controls remain React-owned. */
+.sigma-production{min-height:100dvh;background:#02050f;isolation:isolate}
+.sigma-production::before,.sigma-production::after{display:none!important}
+.sigma-production .orb-visual{position:fixed;inset:0;width:100%;height:100dvh;border:0;z-index:0;background:#02050f;display:block}
+.sigma-production>header,.sigma-production>main{position:relative;z-index:2}
+.sigma-production>header{height:78px;max-width:none;border:0;padding:22px 26px;background:transparent;pointer-events:none}
+.sigma-production>header::after{display:none}
+.sigma-production>header>*{pointer-events:auto}
+.sigma-production .brand{font-family:Inter,system-ui,sans-serif;font-weight:500;letter-spacing:.18em;font-size:19px;color:#a9c4ff;text-shadow:0 0 20px #5c9dff88}
+.sigma-production .brand span{font-size:18px;letter-spacing:.28em;color:#b8d2ff}
+.sigma-production>header button{border:1px solid #5278b94d;border-radius:50%;width:42px;height:42px;display:grid;place-items:center;color:#9ec0ff;background:#0a1c3e66;backdrop-filter:blur(12px)}
+.sigma-production main{height:calc(100dvh - 78px);max-width:100%;padding:0 20px;pointer-events:none}
+.sigma-production .conversation{width:min(720px,100%);margin:0 auto;flex:1;background:transparent;padding:12px 0;pointer-events:none}
+.sigma-production .conversation:has(article){pointer-events:auto;flex:0 1 min(34vh,320px);max-height:min(34vh,320px);margin-top:auto;background:linear-gradient(#02050fa6,#02050fbd);border-radius:18px;padding:18px;backdrop-filter:blur(8px)}
+.sigma-production .sigma-welcome{min-height:100%;padding:0}
+.sigma-production .composer-wrap{width:min(710px,100%);margin:0 auto;padding:12px 0 max(25px,env(safe-area-inset-bottom));pointer-events:auto}
+.sigma-production .composer-wrap form{border-radius:40px;padding:7px 10px;background:#06112ca8;border:1px solid #648dff77;box-shadow:0 0 28px #2d67ed33,inset 0 0 24px #2454bb14;backdrop-filter:blur(18px);align-items:center}
+.sigma-production .composer-wrap form::before{display:none}
+.sigma-production .composer-wrap textarea{font-size:14px;line-height:1.35;max-height:100px;min-height:36px;padding:8px}
+.sigma-production .composer-wrap .send{border-radius:50%;width:38px;height:38px;display:grid;place-items:center;padding:0;color:#e1eeff;background:#214a9dcc;border:1px solid #8caeff99;box-shadow:0 0 14px #3d80ff77}
+.sigma-production .composer-wrap .status{font-size:10px;color:#708ac4;letter-spacing:.04em;margin-top:7px}
+.sigma-production article.assistant{border-left:1px solid #75a9ff88}
+.sigma-production article.user{background:#0b1b42cf;border-color:#558cff66}
+.sigma-production .backdrop{z-index:30;pointer-events:auto}
+.sigma-production .error{font-size:12px}
+@media(max-width:600px){
+ .sigma-production>header{height:66px;padding:14px 18px}
+ .sigma-production main{height:calc(100dvh - 66px);padding:0 13px}
+ .sigma-production .brand{font-size:16px}
+ .sigma-production .brand span{font-size:15px}
+ .sigma-production .composer-wrap{padding-bottom:max(18px,env(safe-area-inset-bottom))}
+ .sigma-production .composer-wrap form{padding:6px 8px}
+ .sigma-production .composer-wrap textarea{font-size:16px}
+ .sigma-production .conversation:has(article){padding:12px}
+}

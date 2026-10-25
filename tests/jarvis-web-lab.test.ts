@@ -136,7 +136,7 @@ test('pesquisa negada não gasta mensagem normal nem gera custo externo',async()
  assert.match((await response.json()).error,/cota de pesquisas|Cota de pesquisas/);
  assert.deepEqual(seen,['https://lab-quota.internal/web-search']);
  assert.equal(calls.searched,0);assert.equal(calls.gemini,0);
- const ordinary=await worker.fetch(request('Explique juros compostos sem pesquisa.'),limited);
+ const ordinary=await worker.fetch(request('Explique juros compostos.'),limited);
  assert.equal(ordinary.status,200);
  assert.equal(calls.gemini,1);
 });

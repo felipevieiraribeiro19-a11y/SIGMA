@@ -2,6 +2,7 @@ name: SIGMA Beta - publicar site principal autorizado
 
 # Autorização expressa em 24/10/2026 para atualizar diretamente a Beta já publicada.
 # Voz e integrações autorizadas pelo proprietário em 24/10/2026. Worker publicado separadamente, preservando dados.
+# Comandos de criação de tarefas automáticos solicitados pelo proprietário em 25/10/2026; acesso exato à branch e sem alterar regras/segredos.
 on:
   pull_request:
     branches: [sigma-beta-preparacao-20261024]
@@ -19,7 +20,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       
-      github.head_ref == 'sigma-voz-confirmacoes-20261025' &&
+      (github.head_ref == 'sigma-voz-confirmacoes-20261025' || github.head_ref == 'sigma-automacao-tarefas-20261025') &&
       github.base_ref == 'sigma-beta-preparacao-20261024' &&
       github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     runs-on: ubuntu-latest
@@ -52,7 +53,7 @@ jobs:
   publicar:
     if: >-
       
-      github.head_ref == 'sigma-voz-confirmacoes-20261025' &&
+      (github.head_ref == 'sigma-voz-confirmacoes-20261025' || github.head_ref == 'sigma-automacao-tarefas-20261025') &&
       github.base_ref == 'sigma-beta-preparacao-20261024' &&
       github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     needs: validar

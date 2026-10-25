@@ -257,11 +257,10 @@ function resize(){const b=canvas.getBoundingClientRect(),d=Math.min(devicePixelR
 addEventListener('resize',resize,{passive:true});resize();
 gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
 function draw(ms){if(!last)last=ms;const delta=Math.min(40,ms-last);last=ms;const state=wrap.dataset.state,activity=state==='thinking'?2:state==='listening'?1.5:state==='speaking'?1.8:1;if(!reduced)time+=delta*.001*activity;
-resize();gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+resize();gl.enable(gl.BLEND);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
 gl.useProgram(bg);setUniform(bg,time,activity-1,ratio);gl.bindBuffer(gl.ARRAY_BUFFER,quadBuffer);const p=gl.getAttribLocation(bg,'a_pos');gl.enableVertexAttribArray(p);gl.vertexAttribPointer(p,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6);
 drawBuffer(lines,lineBuffer,gl.LINES,lineData.length/7,time,activity-1,ratio);
 drawBuffer(points,pointBuffer,gl.POINTS,sparkData.length/7,time,activity-1,ratio,7);
-gl.disable(gl.BLEND);
 if(!reduced)requestAnimationFrame(draw)}
 requestAnimationFrame(draw);
 })();

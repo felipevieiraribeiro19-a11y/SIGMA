@@ -873,14 +873,60 @@
   let active=false, recognition=null, files=[];
   const labels={idle:{title:'Toque no orbe para iniciar',sub:'Estou à disposição'},listening:{title:'Estou ouvindo…',sub:'Pode falar'},thinking:{title:'Processando…',sub:'Só um instante'},speaking:{title:'SIGMA está falando',sub:'Sistema ativo'}};
   function state(s){window.SigmaOrb.setState(s,labels[s])}
+  // On iPhone, calling cancel() immediately before speak() can silently
+  // discard the utterance. Start speech synchronously inside the tap event.
+  // Keep the utterance alive and surface errors instead of failing silently.
+  let currentUtterance=null, speechTimer=null, speechToken=0;
+  function clearSpeechTimer(){if(speechTimer){clearTimeout(speechTimer);speechTimer=null}}
   function say(text,done){
-    if(!('speechSynthesis' in window)){if(done)done();return}
-    try{speechSynthesis.cancel();const utter=new SpeechSynthesisUtterance(text);utter.lang='pt-BR';utter.rate=.96;utter.pitch=.89;
-      const voices=speechSynthesis.getVoices();utter.voice=voices.find(v=>v.lang.toLowerCase().startsWith('pt-br')&&/masculin|male/i.test(v.name))||voices.find(v=>v.lang.toLowerCase().startsWith('pt-br'))||null;
-      let completed=false;const finish=()=>{if(!completed){completed=true;if(done)done()}};utter.onend=finish;utter.onerror=finish;speechSynthesis.speak(utter);
-    }catch(e){if(done)done()}
+    const token=++speechToken;
+    clearSpeechTimer();
+    if(!('speechSynthesis' in window)||!('SpeechSynthesisUtterance' in window)){
+      feedback.textContent='Este navegador não oferece voz. Abra a prévia diretamente no Safari para testar a saudação.';
+      state('listening');return;
+    }
+    try{
+      const synth=window.speechSynthesis;
+      // Do not cancel a fresh utterance on iOS. Only interrupt an existing one.
+      if(currentUtterance&&synth.speaking)synth.cancel();
+      currentUtterance=null;
+      const utter=new SpeechSynthesisUtterance(text);
+      utter.lang='pt-BR';utter.rate=.95;utter.pitch=1;utter.volume=1;
+      // Voice selection is optional: iOS often populates voices asynchronously.
+      const voices=synth.getVoices()||[];
+      const pt=voices.find(v=>v.lang&&v.lang.toLowerCase()==='pt-br')||voices.find(v=>v.lang&&v.lang.toLowerCase().startsWith('pt'));
+      if(pt)utter.voice=pt;
+      currentUtterance=utter;
+      let started=false,finished=false;
+      const finish=()=>{
+        if(finished||token!==speechToken)return;
+        finished=true;clearSpeechTimer();currentUtterance=null;
+        if(done)done();
+      };
+      utter.onstart=()=>{started=true;feedback.textContent='';};
+      utter.onend=finish;
+      utter.onerror=(event)=>{
+        if(token!==speechToken)return;
+        feedback.textContent='Não foi possível reproduzir a voz ('+(event.error||'erro do navegador')+'). Abra este site no Safari e toque no orbe novamente.';
+        clearSpeechTimer();currentUtterance=null;state('listening');
+      };
+      synth.speak(utter);
+      if(synth.paused)synth.resume();
+      // Some iOS embedded browsers accept speak() but never play anything.
+      speechTimer=setTimeout(()=>{
+        if(token!==speechToken||finished)return;
+        if(!started){
+          feedback.textContent='A voz foi bloqueada pelo navegador. Abra o link diretamente no Safari e toque no orbe.';
+          state('listening');
+        }
+      },2400);
+    }catch(e){
+      currentUtterance=null;clearSpeechTimer();
+      feedback.textContent='A voz não iniciou neste navegador. Abra o site no Safari e tente novamente.';
+      state('listening');
+    }
   }
-  function stop(){active=false;if(recognition){try{recognition.abort()}catch(e){}recognition=null}if('speechSynthesis' in window)speechSynthesis.cancel();state('idle');feedback.textContent=''}
+  function stop(){active=false;speechToken++;clearSpeechTimer();currentUtterance=null;if(recognition){try{recognition.abort()}catch(e){}recognition=null}if('speechSynthesis' in window)speechSynthesis.cancel();state('idle');feedback.textContent=''}
   function listen(){if(!active)return;const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!Recognition){state('listening');feedback.textContent='A escuta automática pode não funcionar neste navegador. Você pode digitar ou usar o ditado do teclado.';return}
     try{recognition=new Recognition();recognition.lang='pt-BR';recognition.interimResults=false;recognition.continuous=false;

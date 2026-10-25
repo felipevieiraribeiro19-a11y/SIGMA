@@ -9,7 +9,6 @@ import {LabDocumentsPanel} from './LabDocumentsPanel';
 import {LabRealMemory} from './LabRealMemory';
 import {validLabApiBase} from './jarvis-chat-protocol';
 import './sigma-hud.css';
-import {SigmaOrb} from './SigmaOrb';
 import {SigmaHome} from './SigmaHome';
 
 type Page='home'|'chat'|'study'|'projects'|'tasks'|'agenda'|'finance'|'library'|'integrations'|'settings';
@@ -96,44 +95,6 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
    {authBrowserDiagnostic&&<p role="status" className="sigma-hud-notice sigma-hud-error">{authBrowserDiagnostic}</p>}
    <main>
     {page==='home'&&<SigmaHome user={user} onMenu={()=>setMenuOpen(true)} onNavigate={navigate} onLogin={onLogin} onSend={text=>{setHomeMessage(text);navigate('chat');}}/>}
-    {false&&page==='home'&&<div className="sigma-hud-home">
-     <div className="sigma-hud-hero">
-      <div className="sigma-hud-hero-left">
-       <p className="sigma-hud-eyebrow">CENTRAL PESSOAL <span>•</span> {today}</p>
-       <h1>{user?`Olá, ${name}.`:'Olá.'}</h1><p>Como posso ajudar você hoje?</p>
-       <div className="sigma-hud-quick">
-        <button type="button" onClick={()=>navigate('chat')}>Conversar com SIGMA <ChevronRight size={16}/></button>
-        <button type="button" onClick={()=>navigate('study')}>Planejar estudos <ChevronRight size={16}/></button>
-        <button type="button" onClick={()=>navigate('tasks')}>Minhas tarefas <ChevronRight size={16}/></button>
-        <button type="button" onClick={()=>navigate('integrations')}>Pesquisar e integrar <ChevronRight size={16}/></button>
-       </div>
-      </div>
-      <SigmaOrb/>
-      <div className="sigma-hud-hero-right">
-       <Panel title="TAREFAS EM FOCO" action={<button type="button" className="sigma-text-button" onClick={()=>navigate('tasks')}>Ver todas <ChevronRight size={14}/></button>}>
-        {!user?<p>Entre para consultar suas tarefas.</p>:loading&&!briefing?<p>Consultando tarefas…</p>:briefing?<><div className="sigma-hud-hero-stat"><strong>{briefing.openTasks}</strong> abertas <span>· {briefing.dueToday} para hoje</span></div>{briefing.highlightedTasks.length>0?<ul className="sigma-hud-task-list">{briefing.highlightedTasks.slice(0,4).map(t=><li key={t.id}><CheckSquare size={16}/><span>{t.title}</span><small>{t.dueDate?t.dueDate.split('-').reverse().join('/'):''}</small></li>)}</ul>:<p>Sem tarefas destacadas no momento.</p>}</>:<p>Resumo indisponível.</p>}
-       </Panel>
-       <Panel title="AGENDA"><p>Seus compromissos do Google Calendar podem ser consultados em Integrações, após autorização.</p><button className="sigma-text-button" type="button" onClick={()=>navigate('agenda')}>Abrir agenda <ChevronRight size={14}/></button></Panel>
-      </div>
-     </div>
-     <div className="sigma-hud-metrics">
-      <button type="button" onClick={()=>navigate('study')}><BookOpen size={21}/><span>ESTUDOS HOJE</span><strong>{briefing?formatMinutes(briefing.studyMinutesToday):'—'}</strong><small>{briefing?'Tempo registrado':'Sem dados carregados'}</small></button>
-      <button type="button" onClick={()=>navigate('study')}><Activity size={21}/><span>QUESTÕES HOJE</span><strong>{briefing?briefing.studyPerformance.today.questionsTotal:'—'}</strong><small>{briefing?(briefing.studyPerformance.today.accuracyPercent===null?'Sem taxa de acerto':briefing.studyPerformance.today.accuracyPercent+'% de acerto'):'Sem dados carregados'}</small></button>
-      <button type="button" onClick={()=>navigate('projects')}><FolderOpen size={21}/><span>PROJETOS</span><strong>{user?projects.filter(p=>p.status==='active').length:'—'}</strong><small>Ativos na sua conta</small></button>
-      <button type="button" onClick={()=>navigate('tasks')}><CheckSquare size={21}/><span>TAREFAS ABERTAS</span><strong>{briefing?briefing.openTasks:'—'}</strong><small>{completed===null?'Aguardando dados':`${completed} concluídas hoje`}</small></button>
-      <button type="button" onClick={()=>navigate('finance')}><Wallet size={21}/><span>REGISTROS FINANCEIROS</span><strong>{briefing?formatMoney(briefing.financeNetToday):'—'}</strong><small>Saldo dos lançamentos de hoje</small></button>
-     </div>
-     <div className="sigma-hud-lower">
-      <Panel title="RESUMO DO DIA" action={<button type="button" className="sigma-text-button" disabled={loading||!user} onClick={()=>void load()}><RefreshCw size={14}/>{loading?'Atualizando…':'Atualizar'}</button>}>
-       {loadError&&<p role="alert" className="sigma-hud-error">{loadError}</p>}
-       {!user?<p>Entre com Google para carregar seu resumo.</p>:briefing?<div className="sigma-hud-summary"><div><span>Estudos</span><strong>{formatMinutes(briefing.studyMinutesToday)}</strong></div><div><span>Questões</span><strong>{briefing.studyPerformance.today.questionsTotal}</strong></div><div><span>Concluídas hoje</span><strong>{briefing.tasksCompletedToday}</strong></div><div><span>Próximos 7 dias</span><strong>{briefing.dueNext7Days}</strong></div></div>:<p>{loading?'Carregando dados…':'Resumo ainda não disponível.'}</p>}
-       {lastUpdated&&<small>Atualizado às {lastUpdated.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · Dados reais do SIGMA</small>}
-      </Panel>
-      <Panel title="DESEMPENHO EM QUESTÕES">{briefing?.studyPerformance.subjects?.length?<div className="sigma-hud-subjects">{briefing.studyPerformance.subjects.slice(0,5).map(s=><div key={s.subject}><span>{s.subject}</span><div className="sigma-hud-progress"><i style={{width:`${Math.max(0,Math.min(100,s.accuracyPercent??0))}%`}}/></div><strong>{s.accuracyPercent===null?'—':s.accuracyPercent+'%'}</strong></div>)}</div>:<p>Registre questões por matéria para visualizar seu desempenho.</p>}</Panel>
-      <Panel title="PROJETOS ATIVOS">{projects.filter(p=>p.status==='active').length?<ul className="sigma-hud-projects">{projects.filter(p=>p.status==='active').slice(0,4).map(p=><li key={p.id}><FolderOpen size={16}/><span>{p.title}</span><small>{p.tasksOpen} tarefas abertas</small></li>)}</ul>:<p>Nenhum projeto ativo carregado.</p>}<button type="button" className="sigma-text-button" onClick={()=>navigate('projects')}>Gerenciar projetos <ChevronRight size={14}/></button></Panel>
-     </div>
-     <p className="sigma-hud-footnote">Os números são consultados na sua conta, nunca simulados. O histórico desta conversa ainda não é salvo automaticamente.</p>
-    </div>}
     <section className="sigma-hud-page" hidden={page!=='chat'}><div className="sigma-hud-page-heading"><h1>Conversa com SIGMA</h1><p>Seu assistente pessoal, com controle sobre memórias e ações.</p></div><div className="sigma-hud-module"><JarvisChatPanel user={user} googleToken={googleReadToken} incomingText={homeMessage} onIncomingConsumed={()=>setHomeMessage(null)}/></div></section>
     {(['study','projects','tasks','finance'] as Page[]).includes(page)&&<section className="sigma-hud-page"><div className="sigma-hud-page-heading"><h1>{pageTitle}</h1><p>{page==='study'?'Seu desempenho, registros e ciclos de estudo.':page==='projects'?'Organize seus objetivos e acompanhe o progresso.':page==='tasks'?'Gerencie tarefas, prazos e prioridades.':'Acompanhe os lançamentos registrados no SIGMA.'}</p></div><div className="sigma-hud-module"><LabEcosystemPanel key={page} user={user} view={page as 'study'|'projects'|'tasks'|'finance'}/></div></section>}
     {page==='agenda'&&<section className="sigma-hud-page"><div className="sigma-hud-page-heading"><h1>Agenda</h1><p>Conecte sua agenda Google para consultar compromissos reais. O SIGMA não inventa eventos.</p></div><div className="sigma-hud-module"><LabIntegrationsPanel user={user} googleToken={googleReadToken} onGoogleToken={onGoogleReadToken}/></div></section>}

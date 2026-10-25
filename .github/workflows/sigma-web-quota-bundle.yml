@@ -1,0 +1,45 @@
+name: SIGMA LAB - compilar correcao de cota web (sem deploy)
+on:
+  push:
+    branches: [sigma-web-quota-conversa-20261025]
+    paths:
+      - '.github/workflows/sigma-web-quota-bundle.yml'
+permissions:
+  contents: write
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Validar backend, UI e testes antes do pacote
+        run: |
+          npm run build:beta
+          npm run check:worker
+          npm test
+        env:
+          VITE_SIGMA_BETA: 'true'
+      - name: Gerar bundle do Worker isolado, sem incluir segredos
+        run: |
+          mkdir -p dist-worker-lab
+          ./node_modules/.bin/esbuild worker/src/chat-lab.ts --bundle --platform=browser --format=esm --target=es2022 --outfile=dist-worker-lab/worker.mjs
+          test -s dist-worker-lab/worker.mjs
+          if grep -q 'sigma-cerebro.felipevieiraribeiro19.workers.dev' dist-worker-lab/worker.mjs; then
+            echo 'Backend principal inesperado'; exit 1
+          fi
+      - name: Salvar bundle revisavel na branch isolada, sem publicar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f dist-worker-lab/worker.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "build(lab): bundle validado da correcao de cota web"
+            git push origin HEAD:sigma-web-quota-conversa-20261025
+          fi

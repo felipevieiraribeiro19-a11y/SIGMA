@@ -1,0 +1,36 @@
+/* Approved standalone SIGMA orb, integrated into the real Beta shell. */
+.sigma-hud.sigma-home-mode{display:block;background:#02050f;min-height:100dvh}
+.sigma-home-mode:before{display:none}
+.sigma-home-mode .sigma-hud-content{position:static}
+.sigma-home-mode .sigma-hud-topbar,.sigma-home-mode .sigma-hud-mobile-nav,.sigma-home-mode .sigma-login-card{display:none!important}
+.sigma-home-mode .sigma-hud-content>main{max-width:none!important;margin:0!important;padding:0!important}
+.sigma-home-mode .sigma-hud-sidebar{position:fixed;top:0;left:0;z-index:22;width:min(285px,88vw);height:100dvh;transform:translateX(-110%);transition:transform .22s ease}
+.sigma-home-mode .sigma-hud-sidebar.is-open{transform:translateX(0)}
+.sigma-home-mode .sigma-menu-backdrop{display:block;position:fixed;inset:0;z-index:21;background:#000a;border:0}
+.sigma-home-mode .sigma-menu-close{display:grid}
+.sigma-live-home{height:100dvh;min-height:480px;width:100%;position:relative;isolation:isolate;background:#02050f;color:#cbdcff;overflow:hidden}
+.sigma-live-orb{position:absolute;inset:0;width:100%;height:100%;border:0;z-index:0;background:#02050f}
+.sigma-live-header{position:absolute;z-index:12;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 24px;pointer-events:none}
+.sigma-live-header>*{pointer-events:auto}
+.sigma-live-heading{display:flex;align-items:center;gap:12px}
+.sigma-live-heading>button{height:40px;min-width:40px;display:grid;place-items:center;border:1px solid #6b9dff55;border-radius:50%;background:#0a1b3b8c;color:#b2cfff;backdrop-filter:blur(12px);padding:8px}
+.sigma-live-logo{font-size:20px;letter-spacing:.34em;font-weight:600;color:#b6ccff;text-shadow:0 0 18px #5d95ff88}
+.sigma-live-logo small{display:block;margin-top:5px;font-size:8px;letter-spacing:.34em;font-weight:400;color:#7d9fd9}
+.sigma-live-composer{position:absolute;z-index:12;left:12px;right:12px;bottom:max(18px,env(safe-area-inset-bottom));max-width:690px;margin:0 auto;pointer-events:auto}
+.sigma-live-composer form{display:flex;align-items:center;gap:6px;border-radius:50px;padding:6px 8px;background:#08152eae;border:1px solid #638bff77;box-shadow:0 0 30px #245de833,inset 0 0 22px #386aff14;backdrop-filter:blur(18px)}
+.sigma-live-composer form button{width:38px;height:38px;flex:none;border:0;background:transparent;color:#aac7ff;display:grid;place-items:center;border-radius:50%;padding:0}
+.sigma-live-composer form input{min-width:0;flex:1;background:transparent;border:0;outline:0;color:#e1edff;font:inherit;font-size:14px;padding:9px 2px}
+.sigma-live-composer form input::placeholder{color:#91a8d1}
+.sigma-live-composer form .sigma-live-send{background:#2853adcc;border:1px solid #96b6ff99;color:#fff;box-shadow:0 0 16px #548aff77}
+.sigma-live-composer form button:disabled{opacity:.35}
+.sigma-live-composer>small{display:block;text-align:center;margin-top:9px;font-size:10px;letter-spacing:.06em;color:#718cbd}
+.sigma-live-notice{font-size:12px;text-align:center;background:#08152bd9;border:1px solid #365fbb88;padding:7px 12px;border-radius:10px;color:#d4e4ff}
+@media(max-width:600px){
+ .sigma-live-header{padding:17px 16px}
+ .sigma-live-logo{font-size:16px}
+ .sigma-live-heading{gap:8px}
+ .sigma-live-composer{left:12px;right:12px}
+ .sigma-live-composer form{padding:5px 6px;gap:2px}
+ .sigma-live-composer form button{width:34px;height:34px}
+ .sigma-live-composer form input{font-size:16px}
+}

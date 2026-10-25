@@ -25,3 +25,5 @@ test('Firebase CSP permits same-origin frame and JS without allowing unsafe inli
  assert.match(csp,/script-src 'self'/);
  assert.doesNotMatch(csp,/script-src[^;]*'unsafe-inline'/);
 });
+
+// Regression guard: never ship an empty iframe in the production Beta.

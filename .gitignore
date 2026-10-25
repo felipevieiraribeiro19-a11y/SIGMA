@@ -9,3 +9,5 @@ worker/.dev.vars
 *.log
 .openai/*.local.*
 .security-analysis.md
+
+dist-sigma-beta/

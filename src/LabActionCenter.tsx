@@ -63,7 +63,7 @@ export function LabActionCenter({user}:{user:User|null}){
   finally{setBusy(false);}
  }
  return <div className="lab-actions">
-  <p>Ações externas são opcionais e exigem duas etapas: <strong>preparar</strong> e <strong>confirmar</strong>. Não há execução por comando de chat, automação oculta ou repetição automática.</p>
+  <p>Ações externas são opcionais e exigem duas etapas: <strong>preparar</strong> e <strong>confirmar</strong>. Você também pode pedir pela conversa ou por voz e confirmar a proposta exibida.</p>
   <div className="lab-workspace-form">
    <label>Operação<select value={operation} onChange={e=>{setOperation(e.target.value as Op);setAction(null);}}>
     <option value="calendar.create">Criar evento no Google Calendar</option>

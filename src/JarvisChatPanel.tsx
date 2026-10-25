@@ -1,3 +1,6 @@
+import {SigmaVoice} from './SigmaVoice';
+import {ExternalChatAction} from './ExternalChatAction';
+import type {ActionData} from '../worker/src/lab-external-actions';
 import {useEffect,useRef,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {LabFormattedText} from './jarvis-lab-markdown';
@@ -6,6 +9,10 @@ import {assertLabReply,nextLabMessages,validLabApiBase,readLabWebSources,readLab
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
 export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:string|null}){
+ const [external,setExternal]=useState<ActionData|null>(null);
+ const [externalNotice,setExternalNotice]=useState('');
+ const [confirmSignal,setConfirmSignal]=useState(0);
+ const sendLock=useRef(false);
  const [history,setHistory]=useState<LabChatMessage[]>([]);
  const [draft,setDraft]=useState('');
  const [busy,setBusy]=useState(false);
@@ -52,7 +59,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const pending=useRef<AbortController|null>(null);
  const completionLoadVersion=useRef(0);
  useEffect(()=>()=>{pending.current?.abort();completionLoadVersion.current++;},[]);
- useEffect(()=>{pending.current?.abort();setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();sendLock.current=false;setExternal(null);setExternalNotice('');setConfirmSignal(0);setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -130,26 +137,27 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    :old.length<3?[...old,id]:old
   );
  }
- async function send(){
-  if(!user||!api||busy||memoryPreferenceBusy)return;
+ async function send(text=draft){
+  if(!user||!api||busy||memoryPreferenceBusy||sendLock.current)return;
+  if(/^confirmar a[çc][ãa]o[.!]?$/i.test(text.trim())&&external){setConfirmSignal(n=>n+1);return;}
   let messages:LabChatMessage[];
-  try{messages=nextLabMessages(history,draft);}
+  try{messages=nextLabMessages(history,text);}
   catch(e){setError(e instanceof Error?e.message:'Mensagem inválida.');return;}
-  if(selectedSources.some(p=>p==='calendar'||p==='drive')&&!googleToken){
+  if(selectedSources.some(p=>p==='calendar'||p==='drive'||p==='tasks')&&!googleToken){
    setError('Conecte primeiro a leitura Google em Agenda ou Integrações.');return;
   }
   let payload:ReturnType<typeof approvedChatRequest>;
   try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);
+  sendLock.current=true;setExternal(null);setExternalNotice('');setConfirmSignal(0);setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
    const response=await fetch(api+'/api/lab/chat',{
     method:'POST',
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',
-     ...(googleToken&&selectedSources.some(p=>p==='calendar'||p==='drive')?{'X-Google-Token':googleToken}:{})},
+     ...(googleToken&&selectedSources.some(p=>p==='calendar'||p==='drive'||p==='tasks')?{'X-Google-Token':googleToken}:{})},
     body:JSON.stringify(payload),signal:controller.signal,cache:'no-store'
    });
    const result:unknown=await response.json().catch(()=>null);
@@ -203,6 +211,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
     setProjectProposal(readLabProjectProposal(result));setProjectConfirmed(false);
     if(newTask)void refreshTaskProjects(newTask.projectTitleHint);
     setHistory([...messages,{role:'assistant',text:answer}]);
+    setExternal((result as {externalAction?:ActionData}).externalAction||null);
     setProjectsReceipt(nextProjects);
     setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);
     setAutoMemoryResult(autoResult);
@@ -211,7 +220,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   }catch(e){
    if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Erro de conexão.');
   }finally{
-   if(pending.current===controller){pending.current=null;setBusy(false);}
+   if(pending.current===controller){pending.current=null;sendLock.current=false;setBusy(false);}
   }
  }
  async function refreshTaskProjects(hint:string){
@@ -529,13 +538,16 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
     Consultar minha biblioteca de documentos (com fontes)
    </label>
    <p>Você decide quando compartilhar resultados de Agenda, Drive ou Notion com o Gemini. Os tokens nunca entram no texto enviado ao modelo.</p>
-   {(['calendar','drive','notion'] as const).map(provider=><label key={provider} className="lab-source-option">
+   {(['calendar','drive','notion','tasks'] as const).map(provider=><label key={provider} className="lab-source-option">
     <input type="checkbox" checked={selectedSources.includes(provider)} disabled={busy}
      onChange={()=>toggleSource(provider)}/>
-    {provider==='calendar'?'Agenda Google':provider==='drive'?'Google Drive':'Notion'}
+    {provider==='calendar'?'Agenda Google':provider==='drive'?'Google Drive':provider==='tasks'?'Google Tarefas':'Notion'}
    </label>)}
    {selectedSources.some(x=>x==='drive'||x==='calendar')&&!googleToken&&<small>Conecte o Google em Agenda ou Integrações antes de consultar esses serviços.</small>}
   </div>
+  {external&&user&&<ExternalChatAction key={JSON.stringify(external)} user={user} proposal={external} confirmSignal={confirmSignal} onNotice={setExternalNotice}/>}
+  {externalNotice&&<p role="status">{externalNotice}</p>}
+  <SigmaVoice key={user?.uid||'signed-out'} busy={!user||busy} answer={externalNotice||history.filter(m=>m.role==='assistant').at(-1)?.text||''} onText={text=>{setDraft(text);void send(text);}} onError={setError}/>
   <label htmlFor="lab-chat-input">Sua mensagem</label>
   <textarea id="lab-chat-input" rows={3} maxLength={2000}
    placeholder="Converse com o SIGMA sobre seus estudos, projetos ou tarefas…"

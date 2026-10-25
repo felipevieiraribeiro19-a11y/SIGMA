@@ -44,6 +44,7 @@ export async function connectLabGoogleRead():Promise<string>{
  const provider=new GoogleAuthProvider();
  provider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
  provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
+ provider.addScope('https://www.googleapis.com/auth/tasks.readonly');
  const result=await signInWithPopup(auth,provider);
  const token=GoogleAuthProvider.credentialFromResult(result)?.accessToken;
  if(!token||token.length>4096)throw Error('O Google não retornou o token para os serviços solicitados.');
@@ -55,6 +56,7 @@ export async function connectLabGoogleWrite():Promise<string>{
  const provider=new GoogleAuthProvider();
  provider.addScope('https://www.googleapis.com/auth/calendar.events');
  provider.addScope('https://www.googleapis.com/auth/drive.file');
+ provider.addScope('https://www.googleapis.com/auth/tasks');
  const result=await signInWithPopup(auth,provider);
  const token=GoogleAuthProvider.credentialFromResult(result)?.accessToken;
  if(!token||token.length>4096)throw Error('O Google não concedeu um token de escrita.');

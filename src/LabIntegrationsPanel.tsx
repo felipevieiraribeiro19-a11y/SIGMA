@@ -3,7 +3,7 @@ import type {User} from 'firebase/auth';
 import {connectLabGoogleRead} from './jarvis-lab-auth';
 import {validLabApiBase} from './jarvis-chat-protocol';
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
-type Provider='calendar'|'drive'|'notion';
+type Provider='calendar'|'drive'|'notion'|'tasks';
 type Item={id:string;title:string;detail:string;url?:string};
 export function LabIntegrationsPanel({user,googleToken,onGoogleToken}:{
  user:User|null;googleToken:string|null;onGoogleToken:(value:string|null)=>void
@@ -37,24 +37,25 @@ export function LabIntegrationsPanel({user,googleToken,onGoogleToken}:{
   finally{setBusy(false);}
  }
  return <div className="lab-integrations">
-  <p>Conectores de leitura preparados. Google exige autorização OAuth; Notion exige uma integração interna e compartilhar as páginas com ela. Nenhuma chave é solicitada nesta página.</p>
+  <p>Conecte os serviços que deseja consultar. Para criar eventos, tarefas ou notas, faça o pedido na conversa e confirme a proposta.</p>
   <div className="lab-integration-card">
-   <strong>Google Calendar e Drive</strong>
-   <p>Escopos mínimos: consultar eventos e metadados de arquivos. O SIGMA não altera compromissos nem arquivos.</p>
+   <strong>Google Agenda, Tarefas e Drive</strong>
+   <p>Escopos mínimos: consultar eventos e metadados de arquivos. Para gravar, autorize separadamente a proposta na conversa.</p>
    <button type="button" disabled={!user||busy} onClick={()=>void connect()}>{googleToken?'Renovar conexão Google':'Conectar leitura Google'}</button>
    <button type="button" disabled={!user||busy||!googleToken} onClick={()=>void check('calendar')}>Consultar próximos eventos</button>
+   <button type="button" disabled={!user||busy||!googleToken} onClick={()=>void check('tasks')}>Consultar tarefas Google</button>
    <button type="button" disabled={!user||busy||!googleToken} onClick={()=>void check('drive')}>Localizar arquivos recentes</button>
   </div>
   <div className="lab-integration-card">
    <strong>Notion</strong>
-   <p>Busca páginas liberadas para a integração; você adicionará o segredo NOTION_API_KEY ao Cloudflare antes da publicação final.</p>
+   <p>Busca as páginas que você compartilhar com a integração do SIGMA. Se o serviço informar que não está configurado, ainda falta conectar a integração Notion ao SIGMA.</p>
    <button type="button" disabled={!user||busy} onClick={()=>void check('notion')}>Buscar páginas compartilhadas</button>
    <label>ID de página para ler blocos (opcional)<input placeholder="UUID da página do Notion" value={notionPageId} onChange={e=>setNotionPageId(e.target.value)} /></label>
    <button type="button" disabled={!user||busy||!notionPageId.trim()} onClick={()=>void check('notion')}>Ler blocos dessa página</button>
   </div>
   {info&&<p role="status">{info}</p>}
   {error&&<p className="lab-error" role="alert">{error}</p>}
-  {(['calendar','drive','notion'] as Provider[]).map(p=>
+  {(['calendar','drive','notion','tasks'] as Provider[]).map(p=>
    results[p]&&<section key={p} aria-label={'Resultados de '+p}>
     <h3>{p} — {results[p]!.length} resultado(s)</h3>
     <ul>{results[p]!.map(row=><li key={row.id}>

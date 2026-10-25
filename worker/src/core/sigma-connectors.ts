@@ -1,6 +1,6 @@
 /** Read-only provider adapters. No credentials ever reach the Gemini prompt or logs. */
 import {HttpError} from '../validation';
-export type Provider='calendar'|'drive'|'notion';
+export type Provider='calendar'|'drive'|'notion'|'tasks';
 export type ConnectorItem={id:string;title:string;detail:string;url?:string;kind:Provider};
 const clean=(v:unknown,max=200)=>typeof v==='string'?v.replace(/[\x00-\x1f<>]/g,' ').trim().slice(0,max):'';
 export const GOOGLE_READ_SCOPES=[
@@ -13,10 +13,10 @@ export const GOOGLE_WRITE_SCOPES=[
 ] as const;
 export function validateProviders(value:unknown):Provider[]{
  if(value===undefined)return [];
- if(!Array.isArray(value)||value.length>3)throw new HttpError(400,'Seleção de integrações inválida.');
+ if(!Array.isArray(value)||value.length>4)throw new HttpError(400,'Seleção de integrações inválida.');
  const set=new Set<Provider>();
  for(const v of value){
-  if(v!=='calendar'&&v!=='drive'&&v!=='notion')throw new HttpError(400,'Integração desconhecida.');
+  if(v!=='calendar'&&v!=='drive'&&v!=='notion'&&v!=='tasks')throw new HttpError(400,'Integração desconhecida.');
   if(set.has(v))throw new HttpError(400,'Integração repetida.');
   set.add(v);
  }
@@ -40,10 +40,15 @@ async function jsonResult(response:Response,provider:Provider):Promise<Record<st
  return data as Record<string,unknown>;
 }
 const googleOrigin='https://www.googleapis.com';
-export async function readGoogle(provider:'calendar'|'drive',token:string,transport:typeof fetch=fetch,now=new Date()):Promise<ConnectorItem[]>{
+export async function readGoogle(provider:'calendar'|'drive'|'tasks',token:string,transport:typeof fetch=fetch,now=new Date()):Promise<ConnectorItem[]>{
  validGoogleToken(token);
  const params=new URLSearchParams();
  let url:string;
+ if(provider==='tasks'){
+  const response=await transport('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?showCompleted=false&maxResults=100',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)});
+  const data=await jsonResult(response,provider);
+  return (Array.isArray(data.items)?data.items:[]).map((x:Record<string,unknown>)=>({id:clean(x.id,128),title:clean(x.title,140),detail:clean(x.due,48),kind:provider})).filter(x=>x.id);
+ }
  if(provider==='calendar'){
   params.set('singleEvents','true');params.set('orderBy','startTime');params.set('maxResults','12');
   params.set('timeMin',now.toISOString());params.set('timeMax',new Date(now.getTime()+14*86400000).toISOString());

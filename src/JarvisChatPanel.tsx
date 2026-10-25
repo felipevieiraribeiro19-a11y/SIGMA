@@ -21,6 +21,23 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [webSources,setWebSources]=useState<LabWebSource[]>([]);
+ const [searchWeb,setSearchWeb]=useState(false);
+ const [webQuota,setWebQuota]=useState<{dailyRemaining:number;monthlyRemaining:number;minuteRemaining:number;resetAt:string|null}|null>(null);
+ async function refreshWebQuota(){
+  if(!user||!api)return;
+  try{
+   const token=await user.getIdToken();
+   const response=await fetch(api+'/api/lab/web-quota',{method:'GET',cache:'no-store',headers:{Authorization:'Bearer '+token}});
+   if(!response.ok)return;
+   const result:unknown=await response.json();
+   const q=result as Record<string,unknown>|null;
+   if(!q||!['dailyRemaining','monthlyRemaining','minuteRemaining'].every(k=>Number.isInteger(q[k])&&Number(q[k])>=0)||
+    (q.resetAt!==null&&typeof q.resetAt!=='string'))return;
+   setWebQuota({dailyRemaining:Number(q.dailyRemaining),monthlyRemaining:Number(q.monthlyRemaining),
+    minuteRemaining:Number(q.minuteRemaining),resetAt:q.resetAt as string|null});
+  }catch{/* Informações de cota opcionais; não bloquear a conversa. */}
+ }
+ useEffect(()=>{setWebQuota(null);setSearchWeb(false);if(user&&api)void refreshWebQuota();},[user?.uid]);
  const [selectedSources,setSelectedSources]=useState<string[]>([]);
  const [useLibrary,setUseLibrary]=useState(false);
  const [useProjects,setUseProjects]=useState(false);
@@ -161,7 +178,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    setError('Conecte primeiro a leitura Google em Agenda ou Integrações.');return;
   }
   let payload:ReturnType<typeof approvedChatRequest>;
-  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects);}
+  try{payload={...approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects),webSearch:searchWeb};}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
   sendLock.current=true;setExternal(null);setExternalNotice('');setConfirmSignal(0);setPrepareSignal(0);setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);
@@ -229,11 +246,12 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
     setProjectsReceipt(nextProjects);
     setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);
     setAutoMemoryResult(autoResult);
-    setDraft('');setUseProjects(false);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
+    setDraft('');setSearchWeb(false);setUseProjects(false);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
    }
   }catch(e){
    if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Erro de conexão.');
   }finally{
+   void refreshWebQuota();
    if(pending.current===controller){pending.current=null;sendLock.current=false;setBusy(false);}
   }
  }
@@ -563,6 +581,15 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   {externalNotice&&<p role="status">{externalNotice}</p>}
   <SigmaVoice key={user?.uid||'signed-out'} busy={!user||busy||savingProposal||taskSaving||projectSaving||completionSaving} answer={externalNotice||taskNotice||completionNotice||projectNotice||proposalNotice||history.filter(m=>m.role==='assistant').at(-1)?.text||''} onText={text=>{setDraft(text);void send(text);}} onError={setError}/>
   <details><summary>Comandos por voz</summary><p>Peça uma tarefa, projeto ou memória. Revise a proposta e diga: “confirmar tarefa”, “confirmar projeto”, “confirmar memória” ou “confirmar conclusão”.</p><p>Para Google ou Notion: diga “preparar ação”, autorize o serviço quando solicitado e diga “confirmar ação”. Para fechar a proposta: “cancelar ação”.</p></details>
+  <label className="lab-source-option">
+   <input type="checkbox" checked={searchWeb} disabled={busy} onChange={e=>setSearchWeb(e.target.checked)}/>
+   Pesquisar na internet nesta mensagem
+  </label>
+  {webQuota&&<small role="status">Pesquisas disponíveis: {webQuota.dailyRemaining} de 3 hoje, {webQuota.monthlyRemaining} de 30 neste mês.
+   {webQuota.minuteRemaining===0?' Aguarde um minuto entre pesquisas.':''}
+   {webQuota.resetAt&&webQuota.dailyRemaining===0?' Reinício: '+new Date(webQuota.resetAt).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})+'.':''}
+  </small>}
+  <small>A conversa comum não gasta pesquisas. Pedidos explícitos como “Pesquise…” também ativam a busca; se a cota acabar, você pode continuar conversando sem pesquisa.</small>
   <label htmlFor="lab-chat-input">Sua mensagem</label>
   <textarea id="lab-chat-input" rows={3} maxLength={2000}
    placeholder="Converse com o SIGMA sobre seus estudos, projetos ou tarefas…"

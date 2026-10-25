@@ -178,7 +178,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    setError('Conecte primeiro a leitura Google em Agenda ou Integrações.');return;
   }
   let payload:ReturnType<typeof approvedChatRequest>;
-  try{payload={...approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects),webSearch:searchWeb};}
+  try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects,searchWeb);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
   sendLock.current=true;setExternal(null);setExternalNotice('');setConfirmSignal(0);setPrepareSignal(0);setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);

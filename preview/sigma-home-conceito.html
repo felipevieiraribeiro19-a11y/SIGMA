@@ -57,6 +57,13 @@ button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus
 .orb-wrap .platform{z-index:1;bottom:2%;width:85%;left:7.5%;height:12%;border:1px solid #16a8ff99;box-shadow:0 0 25px #008dff88,inset 0 0 22px #007dff55}
 .orb-wrap .platform::before{content:"";position:absolute;inset:-15% -13%;border-radius:50%;border:1px solid #008bff66;box-shadow:0 0 14px #008dff77}
 .orb-wrap .platform::after{inset:20%;border-color:#7cefff;box-shadow:0 0 25px #21baff}
+
+/* V4: softer energy sphere, smaller proportions, no flat HUD rim */
+.orb-wrap{width:min(94vw,470px)!important}
+.orb-wrap .platform{bottom:5%!important;height:10%!important;box-shadow:0 0 38px #008dff99,inset 0 0 25px #007dff55!important}
+.orb-wrap .platform::after{box-shadow:0 0 28px #54dbff!important}
+.energy-canvas{filter:drop-shadow(0 0 21px rgba(0,132,255,.55))!important}
+@media(max-width:600px){.orb-wrap{width:min(94vw,450px)!important}}
 </style></head><body>
 <canvas id="network" aria-hidden="true"></canvas><div class="ambient"></div>
 <div class="shell">
@@ -114,36 +121,40 @@ let frame=0;function draw(){frame++;ctx.clearRect(0,0,w,h);const speed=state==='
 (()=>{'use strict';
 const cv=document.getElementById('energyCanvas'),scene=document.getElementById('orbWrap');if(!cv||!scene)return;
 const ctx=cv.getContext('2d',{alpha:true});if(!ctx)return;
-const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let seed=17329;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
-const filaments=Array.from({length:124},(_,i)=>({a:rand()*Math.PI*2,rx:.3+rand()*.65,ry:.12+rand()*.66,rot:rand()*Math.PI,ox:(rand()-.5)*.23,oy:(rand()-.5)*.23,w:.15+rand()*.66,h:rand()*Math.PI*2,alpha:.1+rand()*.52,speed:(rand()-.5)*.22,bright:i%7===0}));
-const spirals=Array.from({length:44},(_,i)=>({a:rand()*Math.PI*2,scale:.55+rand()*.45,rot:rand()*Math.PI*2,speed:.05+rand()*.12,alpha:.13+rand()*.4,bright:i%6===0}));
-const dust=Array.from({length:430},()=>{const a=rand()*Math.PI*2,r=Math.sqrt(rand())*.99;return{x:Math.cos(a)*r,y:Math.sin(a)*r,r:.25+rand()*.65,a:rand()*Math.PI*2,s:rand()*2}});
-const sparks=Array.from({length:65},(_,i)=>({a:rand()*Math.PI*2,p:rand(),speed:.008+rand()*.02,size:rand()*1.8+.5,idx:i%filaments.length}));
-let W=0,H=0,R=0,X=0,Y=0,dpr=1,t=0,frame=0,last=0;
-function resize(){const rect=cv.getBoundingClientRect();W=rect.width;H=rect.height;dpr=Math.min(devicePixelRatio||1,1.65);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);R=W*.305;X=W/2;Y=H*.475}
-window.addEventListener('resize',resize,{passive:true});resize();
-function radial(x,y,r,stops){const g=ctx.createRadialGradient(x,y,0,x,y,r);for(const [pos,color] of stops)g.addColorStop(pos,color);return g}
-function stroke(color,width,glow=0){ctx.strokeStyle=color;ctx.lineWidth=width;ctx.shadowBlur=glow;ctx.shadowColor='#00aaff';ctx.stroke();ctx.shadowBlur=0}
-function filamentPoint(f,u,tm){const a=u*6.28318+f.h+tm*f.speed,xx=Math.cos(a)*f.rx,yy=Math.sin(a)*f.ry,warpedX=xx+Math.sin(3*a+f.h)*.055*f.w,warpedY=yy+Math.cos(2*a+f.h)*.05*f.w;const co=Math.cos(f.rot),si=Math.sin(f.rot);return[X+R*(warpedX*co-warpedY*si+f.ox),Y+R*(warpedX*si+warpedY*co+f.oy)]}
-function spiralPoint(s,u,tm){const angle=s.a+u*10.5+tm*s.speed,rad=R*(.035+u*.91)*s.scale;return[X+Math.cos(angle)*rad,Y+Math.sin(angle)*rad]}
-function path(points){ctx.beginPath();for(let i=0;i<points.length;i++){const p=points[i];if(!i)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}}
-function render(ms){if(!last)last=ms;const delta=Math.min(40,ms-last);last=ms;const state=scene.dataset.state;const activity=state==='thinking'?2.6:state==='listening'?1.55:state==='speaking'?1.85:1;if(!reduced)t+=delta*.00028*activity;frame++;
-ctx.clearRect(0,0,W,H);
-ctx.fillStyle=radial(X,Y,R*1.6,[[0,'rgba(0,79,225,.1)'],[.52,'rgba(0,102,255,.1)'],[.79,'rgba(0,103,255,.07)'],[1,'rgba(0,103,255,0)']]);ctx.fillRect(X-R*1.6,Y-R*1.6,R*3.2,R*3.2);
-ctx.beginPath();ctx.arc(X,Y,R*1.013,0,Math.PI*2);ctx.fillStyle=radial(X-R*.08,Y-R*.12,R*1.3,[[0,'#051d49'],[.18,'#04142e'],[.43,'#020b21'],[.68,'#052554'],[.79,'#06498c'],[.9,'#0b6ac6'],[1,'#021a40']]);ctx.fill();
-ctx.save();ctx.beginPath();ctx.arc(X,Y,R*.997,0,Math.PI*2);ctx.clip();
-ctx.fillStyle=radial(X-R*.27,Y-R*.46,R*1.15,[[0,'rgba(48,167,255,.3)'],[.34,'rgba(0,68,190,.08)'],[1,'rgba(0,0,0,0)']]);ctx.fillRect(X-R,Y-R,R*2,R*2);
-for(let i=0;i<filaments.length;i++){const f=filaments[i];ctx.beginPath();for(let j=0;j<=70;j++){const p=filamentPoint(f,j/70,t);if(j===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}stroke(f.bright?'rgba(133,240,255,'+Math.min(.78,f.alpha+.19)+')':'rgba(25,147,255,'+f.alpha+')',f.bright?1.05:.42,f.bright?7:0)}
-for(let i=0;i<spirals.length;i++){const s=spirals[i];ctx.beginPath();for(let j=0;j<=62;j++){const p=spiralPoint(s,j/62,t);if(j===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}stroke(s.bright?'rgba(146,246,255,.85)':'rgba(19,156,255,'+s.alpha+')',s.bright?1.1:.6,s.bright?8:0)}
-for(let i=0;i<dust.length;i++){const p=dust[i],x=X+p.x*R,y=Y+p.y*R;ctx.beginPath();ctx.arc(x,y,p.r*(.7+.5*Math.sin(t*3+p.a)),0,Math.PI*2);ctx.fillStyle='rgba(75,188,255,'+(.17+.55*Math.abs(Math.sin(t+p.a)))+')';ctx.fill()}
-for(let i=0;i<sparks.length;i++){const s=sparks[i],p=filamentPoint(filaments[s.idx],(s.p+t*s.speed*2)%1,t);ctx.beginPath();ctx.arc(p[0],p[1],s.size,0,Math.PI*2);ctx.shadowColor='#4aeaff';ctx.shadowBlur=s.size>1.6?13:6;ctx.fillStyle='rgba(204,251,255,.9)';ctx.fill();ctx.shadowBlur=0}
-ctx.fillStyle=radial(X,Y,R*.34,[[0,'rgba(225,255,255,.99)'],[.025,'rgba(103,242,255,.95)'],[.12,'rgba(0,181,255,.45)'],[.42,'rgba(0,114,255,.12)'],[1,'rgba(0,104,255,0)']]);ctx.fillRect(X-R*.35,Y-R*.35,R*.7,R*.7);
-ctx.restore();
-for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(X,Y,R*(.978+i*.009),0,Math.PI*2);stroke(i===0?'rgba(185,250,255,.93)':i===1?'rgba(46,191,255,.88)':'rgba(15,124,255,'+(.4-i*.06)+')',i===0?1.3:i===1?1.5:.9,i<2?14:5)}
-for(let i=0;i<18;i++){const a=(i/18)*Math.PI*2+t*(i%2?-.07:.06);ctx.beginPath();ctx.arc(X,Y,R*(1+.006*Math.sin(i)),a,a+.08+((i*7)%6)*.018);stroke(i%3===0?'rgba(200,254,255,.85)':'rgba(37,164,255,.54)',i%3===0?1.7:.8,i%3===0?13:2)}
-for(let i=0;i<20;i++){const a=i*2.399+t*(i%2?-.16:.12),r=R*(.87+(i%5)*.028),x=X+Math.cos(a)*r,y=Y+Math.sin(a)*r;ctx.beginPath();ctx.arc(x,y,i%5===0?2.2:1.1,0,Math.PI*2);ctx.fillStyle='#b5f9ff';ctx.shadowBlur=12;ctx.shadowColor='#00bfff';ctx.fill();ctx.shadowBlur=0}
-if(!reduced)requestAnimationFrame(render)}
-requestAnimationFrame(render);
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let seed=748211;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
+const curves=Array.from({length:66},(_,i)=>({tilt:rand()*6.28,az:rand()*6.28,phase:rand()*6.28,r:.58+rand()*.47,thickness:.18+rand()*.62,bright:i%8===0,opacity:.18+rand()*.47,spin:(rand()-.5)*.13,arc:Math.PI*(.7+rand()*1.28),start:rand()*6.28}));
+const particles=Array.from({length:350},()=>({a:rand()*6.28,b:Math.acos(2*rand()-1),r:rand()*.96,phase:rand()*6.28,size:.35+rand()*.85}));
+const nodes=Array.from({length:39},(_,i)=>({idx:i%curves.length,u:rand(),phase:rand()*6.28,size:.7+rand()*1.8}));
+let W=0,H=0,R=0,X=0,Y=0,dpr=1,t=0,last=0;
+function resize(){const b=cv.getBoundingClientRect();W=b.width;H=b.height;dpr=Math.min(devicePixelRatio||1,1.6);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);R=W*.258;X=W*.5;Y=H*.46}
+addEventListener('resize',resize,{passive:true});resize();
+function radial(x,y,r,stops){const g=ctx.createRadialGradient(x,y,0,x,y,r);for(const [p,c] of stops)g.addColorStop(p,c);return g}
+function orbit(f,u){const theta=f.start+u*f.arc+t*f.spin;let a=Math.cos(theta)*f.r,b=Math.sin(theta)*f.r;
+const ca=Math.cos(f.tilt),sa=Math.sin(f.tilt),cb=Math.cos(f.az+t*.035),sb=Math.sin(f.az+t*.035);
+let x=a*ca-b*sa,y=a*sa+b*ca,z=Math.sin(theta+f.phase)*.23;
+const x2=x*cb-z*sb,z2=x*sb+z*cb;
+const y2=y*.85+z2*.35;const perspective=1/(1-z2*.12);
+return [X+R*x2*perspective,Y+R*y2*perspective,z2]}
+function drawCurve(f,glow){ctx.beginPath();const steps=48;for(let j=0;j<=steps;j++){const p=orbit(f,j/steps);if(j===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}
+ctx.strokeStyle=f.bright?(glow?'rgba(25,142,255,.35)':'rgba(190,248,255,.88)'):(glow?'rgba(0,119,255,.11)':'rgba(33,154,255,'+f.opacity+')');ctx.lineWidth=glow?(f.bright?5:2.2):(f.bright?1.2:f.thickness);ctx.shadowColor='#00aaff';ctx.shadowBlur=glow?12:(f.bright?7:0);ctx.stroke();ctx.shadowBlur=0}
+function draw(ms){if(!last)last=ms;const delta=Math.min(40,ms-last);last=ms;const activity=scene.dataset.state==='thinking'?2:scene.dataset.state==='listening'?1.45:1;if(!reduced)t+=delta*.00025*activity;ctx.clearRect(0,0,W,H);
+ctx.fillStyle=radial(X,Y,R*2.15,[[0,'rgba(0,78,232,.13)'],[.44,'rgba(0,90,255,.16)'],[.72,'rgba(0,83,214,.055)'],[1,'rgba(0,0,0,0)']]);ctx.fillRect(X-R*2.15,Y-R*2.15,R*4.3,R*4.3);
+for(let k=0;k<15;k++){const a=(k/15)*6.28+t*.025,r=R*1.9;ctx.beginPath();ctx.moveTo(X+Math.cos(a)*R*.7,Y+Math.sin(a)*R*.7);ctx.lineTo(X+Math.cos(a+.04)*r,Y+Math.sin(a+.04)*r);ctx.strokeStyle='rgba(12,121,255,'+(.012+(k%4===0?.022:0))+')';ctx.lineWidth=2+k%3;ctx.shadowBlur=10;ctx.shadowColor='#006bff';ctx.stroke();ctx.shadowBlur=0}
+ctx.beginPath();ctx.arc(X,Y,R*.99,0,6.283);ctx.fillStyle=radial(X-R*.08,Y-R*.1,R*1.23,[[0,'rgba(4,22,53,.97)'],[.38,'rgba(2,13,35,.94)'],[.63,'rgba(2,29,79,.94)'],[.83,'rgba(1,58,140,.93)'],[.96,'rgba(2,76,169,.76)'],[1,'rgba(0,40,112,.2)']]);ctx.fill();
+ctx.save();ctx.beginPath();ctx.arc(X,Y,R*.99,0,6.283);ctx.clip();ctx.globalCompositeOperation='lighter';
+ctx.fillStyle=radial(X-R*.1,Y-R*.5,R*1.2,[[0,'rgba(28,177,255,.24)'],[.48,'rgba(0,58,176,.035)'],[1,'rgba(0,0,0,0)']]);ctx.fillRect(X-R,Y-R,R*2,R*2);
+for(const f of curves)drawCurve(f,true);
+for(const f of curves)drawCurve(f,false);
+for(const p of particles){const a=p.a+t*.08,x=X+Math.sin(p.b)*Math.cos(a)*p.r*R,y=Y+Math.sin(p.b)*Math.sin(a)*p.r*R;ctx.beginPath();ctx.arc(x,y,p.size,0,6.283);ctx.fillStyle='rgba(110,211,255,'+(.15+.55*Math.abs(Math.sin(p.phase+t)))+')';ctx.fill()}
+for(const n of nodes){const p=orbit(curves[n.idx],(n.u+t*.025)%1);ctx.beginPath();ctx.arc(p[0],p[1],n.size,0,6.283);ctx.fillStyle='rgba(215,254,255,.93)';ctx.shadowColor='#3ecaff';ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0}
+for(let i=0;i<12;i++){ctx.beginPath();const ph=i*6.283/12+t*.085;for(let j=0;j<=95;j++){const u=j/95;const a=ph+u*5.1;const rad=R*(.04+u*.87);const x=X+Math.cos(a)*rad,y=Y+Math.sin(a)*rad*.91;if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.lineWidth=i%4===0?1.45:.55;ctx.strokeStyle=i%4===0?'rgba(133,235,255,.7)':'rgba(14,131,255,.23)';ctx.shadowBlur=i%4===0?12:2;ctx.shadowColor='#15aaff';ctx.stroke();ctx.shadowBlur=0}
+ctx.fillStyle=radial(X,Y,R*.58,[[0,'rgba(255,255,255,1)'],[.04,'rgba(230,255,255,1)'],[.085,'rgba(130,240,255,.95)'],[.13,'rgba(0,151,255,.52)'],[.4,'rgba(0,103,255,.14)'],[1,'rgba(0,104,255,0)']]);ctx.fillRect(X-R*.6,Y-R*.6,R*1.2,R*1.2);
+for(let k=0;k<8;k++){const a=k*Math.PI/4+t*.016;ctx.beginPath();ctx.moveTo(X-Math.cos(a)*R*.19,Y-Math.sin(a)*R*.19);ctx.lineTo(X+Math.cos(a)*R*.19,Y+Math.sin(a)*R*.19);ctx.strokeStyle=k%2?'rgba(60,198,255,.11)':'rgba(167,251,255,.21)';ctx.lineWidth=k%2?.7:1.1;ctx.stroke()}
+ctx.restore();ctx.globalCompositeOperation='lighter';
+for(let k=0;k<52;k++){const a=k*6.283/52+t*(k%2?-.015:.018);const len=.045+(k%7)*.01;ctx.beginPath();ctx.arc(X,Y,R*(.975+(k%5)*.005),a,a+len);ctx.strokeStyle=k%6===0?'rgba(206,255,255,.82)':'rgba(32,166,255,'+(.13+(k%5)*.11)+')';ctx.lineWidth=k%6===0?1.4:.8;ctx.shadowColor='#1faaff';ctx.shadowBlur=k%6===0?18:8;ctx.stroke();ctx.shadowBlur=0}
+for(let i=0;i<24;i++){const a=i*2.399+t*(i%2?-.08:.08),r=R*(.82+(i%5)*.036),x=X+Math.cos(a)*r,y=Y+Math.sin(a)*r;ctx.beginPath();ctx.arc(x,y,i%6===0?2.1:1.1,0,6.283);ctx.fillStyle=i%6===0?'rgba(240,255,255,.95)':'rgba(72,193,255,.65)';ctx.shadowBlur=12;ctx.shadowColor='#00bfff';ctx.fill();ctx.shadowBlur=0}
+ctx.globalCompositeOperation='source-over';
+if(!reduced)requestAnimationFrame(draw)}requestAnimationFrame(draw);
 })();
 </script></body></html>

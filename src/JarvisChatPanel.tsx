@@ -1,3 +1,4 @@
+import {voiceCommand} from './voice-commands';
 import {SigmaVoice} from './SigmaVoice';
 import {ExternalChatAction} from './ExternalChatAction';
 import type {ActionData} from '../worker/src/lab-external-actions';
@@ -12,6 +13,8 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const [external,setExternal]=useState<ActionData|null>(null);
  const [externalNotice,setExternalNotice]=useState('');
  const [confirmSignal,setConfirmSignal]=useState(0);
+ const [prepareSignal,setPrepareSignal]=useState(0);
+ const mutationLock=useRef(false);
  const sendLock=useRef(false);
  const [history,setHistory]=useState<LabChatMessage[]>([]);
  const [draft,setDraft]=useState('');
@@ -59,7 +62,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  const pending=useRef<AbortController|null>(null);
  const completionLoadVersion=useRef(0);
  useEffect(()=>()=>{pending.current?.abort();completionLoadVersion.current++;},[]);
- useEffect(()=>{pending.current?.abort();sendLock.current=false;setExternal(null);setExternalNotice('');setConfirmSignal(0);setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();sendLock.current=false;setExternal(null);setExternalNotice('');setConfirmSignal(0);setPrepareSignal(0);setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -139,7 +142,18 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  }
  async function send(text=draft){
   if(!user||!api||busy||memoryPreferenceBusy||sendLock.current)return;
-  if(/^confirmar a[çc][ãa]o[.!]?$/i.test(text.trim())&&external){setConfirmSignal(n=>n+1);return;}
+  const command=voiceCommand(text);
+  if(command){
+   setDraft('');setError('');
+   if(command==='external.prepare'&&external){setPrepareSignal(n=>n+1);return;}
+   if(command==='external.confirm'&&external){setConfirmSignal(n=>n+1);return;}
+   if(command==='external.cancel'&&external){setExternal(null);setExternalNotice('Proposta fechada. Nenhuma nova execução foi solicitada.');return;}
+   if(command==='task.create'&&taskProposal){await createApprovedTask(true);return;}
+   if(command==='task.complete'&&taskCompletion){await confirmTaskCompletion(true);return;}
+   if(command==='project.create'&&projectProposal){await createApprovedProject(true);return;}
+   if(command==='memory.save'&&proposalText){await saveApprovedProposal(true);return;}
+   setError('Não há proposta correspondente para confirmar. Faça o pedido e revise os dados primeiro.');return;
+  }
   let messages:LabChatMessage[];
   try{messages=nextLabMessages(history,text);}
   catch(e){setError(e instanceof Error?e.message:'Mensagem inválida.');return;}
@@ -150,7 +164,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  sendLock.current=true;setExternal(null);setExternalNotice('');setConfirmSignal(0);setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);
+  sendLock.current=true;setExternal(null);setExternalNotice('');setConfirmSignal(0);setPrepareSignal(0);setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -273,11 +287,11 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    if(version===completionLoadVersion.current)setCompletionLoading(false);
   }
  }
- async function confirmTaskCompletion(){
-  if(!user||!api||!taskCompletion||!completionApproved||completionSaving||completionLoading||busy)return;
+ async function confirmTaskCompletion(voiceConfirmed=false){
+  if(mutationLock.current||!user||!api||!taskCompletion||(!completionApproved&&!voiceConfirmed)||completionSaving||completionLoading||busy)return;
   const chosen=pendingTasks.find(t=>t.id===completionId);
   if(!chosen){setCompletionNotice('Selecione uma tarefa pendente válida.');return;}
-  setCompletionSaving(true);setCompletionNotice('');
+  mutationLock.current=true;setCompletionSaving(true);setCompletionNotice('');
   try{
    const token=await user.getIdToken();
    const response=await fetch(api+'/api/lab/workspace/'+encodeURIComponent(chosen.id)+'/complete',{
@@ -295,16 +309,16 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    setCompletionNotice('Tarefa "'+chosen.title+'" concluída e confirmada pelo SIGMA.');
    completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);
   }catch(e){setCompletionNotice(e instanceof Error?e.message:'Falha ao concluir tarefa.');}
-  finally{setCompletionSaving(false);}
+  finally{mutationLock.current=false;setCompletionSaving(false);}
  }
- async function createApprovedTask(){
-  if(!user||!api||!taskProposal||!taskApproved||taskSaving||busy)return;
+ async function createApprovedTask(voiceConfirmed=false){
+  if(mutationLock.current||!user||!api||!taskProposal||(!taskApproved&&!voiceConfirmed)||taskSaving||busy)return;
   const chosen=taskProjectId?taskProjects.find(p=>p.id===taskProjectId):null;
   if(taskProjectId&&!chosen){setTaskNotice('Selecione novamente um projeto válido.');return;}
   if(taskProposal.projectTitleHint&&!chosen){
    setTaskNotice('Escolha um projeto válido antes de salvar esta tarefa.');return;
   }
-  setTaskSaving(true);setTaskNotice('');
+  mutationLock.current=true;setTaskSaving(true);setTaskNotice('');
   try{
    const token=await user.getIdToken();
    const task={kind:'task',title:taskProposal.title.trim(),notes:taskProposal.notes,
@@ -327,11 +341,11 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
     (chosen?' no projeto "'+chosen.title+'"':'')+'. Consulte-a na Gestão integrada.');
    setTaskProposal(null);setTaskApproved(false);setTaskProjects([]);setTaskProjectId('');
   }catch(e){setTaskNotice(e instanceof Error?e.message:'Falha ao salvar tarefa.');}
-  finally{setTaskSaving(false);}
+  finally{mutationLock.current=false;setTaskSaving(false);}
  }
- async function createApprovedProject(){
-  if(!user||!api||!projectProposal||!projectConfirmed||projectSaving||busy)return;
-  setProjectSaving(true);setProjectNotice('');
+ async function createApprovedProject(voiceConfirmed=false){
+  if(mutationLock.current||!user||!api||!projectProposal||(!projectConfirmed&&!voiceConfirmed)||projectSaving||busy)return;
+  mutationLock.current=true;setProjectSaving(true);setProjectNotice('');
   try{
    const token=await user.getIdToken();
    const response=await fetch(api+'/api/lab/workspace/projects',{
@@ -350,11 +364,11 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
     'Consulte-o na seção Gestão integrada.');
    setProjectProposal(null);setProjectConfirmed(false);
   }catch(e){setProjectNotice(e instanceof Error?e.message:'Não foi possível criar o projeto.');}
-  finally{setProjectSaving(false);}
+  finally{mutationLock.current=false;setProjectSaving(false);}
  }
- async function saveApprovedProposal(){
-  if(!user||!api||savingProposal||!proposalApproved)return;
-  setSavingProposal(true);setProposalNotice('');
+ async function saveApprovedProposal(voiceConfirmed=false){
+  if(mutationLock.current||!user||!api||savingProposal||(!proposalApproved&&!voiceConfirmed))return;
+  mutationLock.current=true;setSavingProposal(true);setProposalNotice('');
   try{
    const token=await user.getIdToken();
    const response=await fetch(api+'/api/lab/memory',{method:'POST',
@@ -365,19 +379,19 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    setProposalText('');setProposalApproved(false);
    setProposalNotice('Memória aprovada e salva na sua conta.');
   }catch(e){setProposalNotice(e instanceof Error?e.message:'Falha ao salvar.');}
-  finally{setSavingProposal(false);}
+  finally{mutationLock.current=false;setSavingProposal(false);}
  }
  function toggleSource(value:string){
   setSelectedSources(old=>old.includes(value)?old.filter(x=>x!==value):[...old,value]);
  }
  return <div className="lab-chat">
-  <h3>Conversa com Gemini + pesquisa + memória opcional</h3>
-  <p>Conversa temporária: não fica salva e não acessa Agenda ou Drive sem autorização. Projetos e tarefas podem ser propostos pelo Gemini, mas só serão salvos após revisão e confirmação separadas. Pesquisa na web somente quando habilitada. Use exemplos fictícios e evite dados pessoais.</p>
+  <h3>Fale com o SIGMA</h3>
+  <p>Conversa temporária: não fica salva e não acessa Agenda ou Drive sem autorização. Projetos e tarefas podem ser propostos pelo Gemini, mas só serão salvos após revisão e confirmação separadas. Pesquisa na web somente quando habilitada. Você pode ditar e confirmar propostas por voz.</p>
   {!api&&<p className="lab-chat-notice" role="status">Integração em preparação: o Worker isolado ainda não foi publicado e validado.</p>}
-  {api&&!user&&<p className="lab-chat-notice" role="status">Faça login Google acima para habilitar os testes de conversa.</p>}
+  {api&&!user&&<p className="lab-chat-notice" role="status">Entre com Google para conversar com o SIGMA.</p>}
   {history.length>0&&<div className="lab-chat-dialog" aria-label="Mensagens desta sessão">
    {history.map((m,i)=><div className={'lab-chat-bubble '+(m.role==='user'?'lab-chat-user':'lab-chat-assistant')} key={i}>
-    <strong>{m.role==='user'?'Você (exemplo)':'SIGMA'}</strong>
+    <strong>{m.role==='user'?'Você':'SIGMA'}</strong>
     <LabFormattedText text={m.text}/>
    </div>)}
   </div>}
@@ -545,9 +559,10 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    </label>)}
    {selectedSources.some(x=>x==='drive'||x==='calendar')&&!googleToken&&<small>Conecte o Google em Agenda ou Integrações antes de consultar esses serviços.</small>}
   </div>
-  {external&&user&&<ExternalChatAction key={JSON.stringify(external)} user={user} proposal={external} confirmSignal={confirmSignal} onNotice={setExternalNotice}/>}
+  {external&&user&&<ExternalChatAction key={JSON.stringify(external)} user={user} proposal={external} confirmSignal={confirmSignal} prepareSignal={prepareSignal} onNotice={setExternalNotice}/>}
   {externalNotice&&<p role="status">{externalNotice}</p>}
-  <SigmaVoice key={user?.uid||'signed-out'} busy={!user||busy} answer={externalNotice||history.filter(m=>m.role==='assistant').at(-1)?.text||''} onText={text=>{setDraft(text);void send(text);}} onError={setError}/>
+  <SigmaVoice key={user?.uid||'signed-out'} busy={!user||busy||savingProposal||taskSaving||projectSaving||completionSaving} answer={externalNotice||taskNotice||completionNotice||projectNotice||proposalNotice||history.filter(m=>m.role==='assistant').at(-1)?.text||''} onText={text=>{setDraft(text);void send(text);}} onError={setError}/>
+  <details><summary>Comandos por voz</summary><p>Peça uma tarefa, projeto ou memória. Revise a proposta e diga: “confirmar tarefa”, “confirmar projeto”, “confirmar memória” ou “confirmar conclusão”.</p><p>Para Google ou Notion: diga “preparar ação”, autorize o serviço quando solicitado e diga “confirmar ação”. Para fechar a proposta: “cancelar ação”.</p></details>
   <label htmlFor="lab-chat-input">Sua mensagem</label>
   <textarea id="lab-chat-input" rows={3} maxLength={2000}
    placeholder="Converse com o SIGMA sobre seus estudos, projetos ou tarefas…"
@@ -557,7 +572,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar mensagem'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setExternal(null);setExternalNotice('');setPrepareSignal(0);setConfirmSignal(0);setPrepareSignal(0);setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

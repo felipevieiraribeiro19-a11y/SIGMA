@@ -1,0 +1,24 @@
+name: SIGMA - validar nova interface
+on:
+  pull_request:
+    branches: [sigma-work-integracao]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package*.json'
+      - '.github/workflows/sigma-home-check.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm run check:worker

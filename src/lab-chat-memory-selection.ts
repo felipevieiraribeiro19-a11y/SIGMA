@@ -20,8 +20,8 @@ export function approvedChatRequest(messages:LabChatMessage[],ids:string[],auto=
   throw Error('Selecione no máximo três memórias diferentes.');
  if(auto&&ids.length)throw Error('Escolha seleção manual ou busca contextual, não ambas.');
  const unique=new Set(connectors);
- if(unique.size!==connectors.length||connectors.length>3||
-  connectors.some(x=>!['calendar','drive','notion'].includes(x)))
+ if(unique.size!==connectors.length||connectors.length>4||
+  connectors.some(x=>!['calendar','drive','notion','tasks'].includes(x)))
   throw Error('Integrações selecionadas inválidas.');
  const memory=auto?{memoryMode:'relevant' as const}:
   ids.length?{memoryIds:ids.slice()}:{};

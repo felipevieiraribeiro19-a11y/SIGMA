@@ -1,7 +1,7 @@
 name: SIGMA Beta - publicar site principal autorizado
 
 # Autorização expressa em 24/10/2026 para atualizar diretamente a Beta já publicada.
-# Somente PR #27 (orbe SVG nativo, sem imagem colada) pode publicar; nenhuma alteração de Worker, banco ou regras.
+# Voz e integrações autorizadas pelo proprietário em 24/10/2026. Worker publicado separadamente, preservando dados.
 on:
   pull_request:
     branches: [sigma-beta-preparacao-20261024]
@@ -18,8 +18,8 @@ jobs:
   validar:
     if: >-
       github.event_name == 'pull_request' &&
-      github.event.pull_request.number == 27 &&
-      github.head_ref == 'sigma-orbe-nativo-vetorial-20261024' &&
+      
+      github.head_ref == 'sigma-voz-integracoes-20261024' &&
       github.base_ref == 'sigma-beta-preparacao-20261024' &&
       github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     runs-on: ubuntu-latest
@@ -51,8 +51,8 @@ jobs:
 
   publicar:
     if: >-
-      github.event.pull_request.number == 27 &&
-      github.head_ref == 'sigma-orbe-nativo-vetorial-20261024' &&
+      
+      github.head_ref == 'sigma-voz-integracoes-20261024' &&
       github.base_ref == 'sigma-beta-preparacao-20261024' &&
       github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     needs: validar
@@ -82,5 +82,5 @@ jobs:
           service_account: sigma-github-deploy@sigma-61328.iam.gserviceaccount.com
           create_credentials_file: true
           export_environment_variables: true
-      - name: Atualizar somente interface do Firebase Hosting principal (orbe nativo SVG animado)
+      - name: Atualizar somente interface do Firebase Hosting principal (voz e integrações)
         run: npx --yes firebase-tools@15.34.0 deploy --only hosting --config firebase.beta.json --project sigma-61328 --non-interactive

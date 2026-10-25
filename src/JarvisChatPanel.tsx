@@ -404,7 +404,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
  }
  return <div className="lab-chat">
   <h3>Fale com o SIGMA</h3>
-  <p>Conversa temporária: não fica salva e não acessa Agenda ou Drive sem autorização. Projetos e tarefas podem ser propostos pelo Gemini, mas só serão salvos após revisão e confirmação separadas. Pesquisa na web somente quando habilitada. Você pode ditar e confirmar propostas por voz.</p>
+  <p>Diga o que precisa. Tarefas simples são registradas automaticamente no SIGMA; você só precisa revisar quando houver dúvida sobre qual projeto usar. Ações externas e alterações delicadas continuam com proteção. O histórico desta conversa não é salvo automaticamente.</p>
   {!api&&<p className="lab-chat-notice" role="status">Integração em preparação: o Worker isolado ainda não foi publicado e validado.</p>}
   {api&&!user&&<p className="lab-chat-notice" role="status">Entre com Google para conversar com o SIGMA.</p>}
   {history.length>0&&<div className="lab-chat-dialog" aria-label="Mensagens desta sessão">
@@ -456,7 +456,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   {projectNotice&&<p role="status">{projectNotice}</p>}
   {taskProposal&&<div className="lab-learning-proposal" aria-label="Proposta de tarefa, não salva">
    <strong>Proposta de tarefa — nada salvo ainda</strong>
-   <p>Revise os dados, escolha o projeto e marque a autorização. Não há envio de lembrete externo nem criação automática.</p>
+   <p>O SIGMA não identificou com segurança o projeto informado. Revise somente esta exceção. Tarefas comuns são criadas diretamente pela conversa.</p>
    <label>Tarefa<input maxLength={160} value={taskProposal.title}
     onChange={e=>{setTaskProposal({...taskProposal,title:e.target.value});setTaskApproved(false);}}/></label>
    <label>Observações<textarea rows={2} maxLength={1500} value={taskProposal.notes}
@@ -580,7 +580,7 @@ export function JarvisChatPanel({user,googleToken}:{user:User|null;googleToken?:
   {external&&user&&<ExternalChatAction key={JSON.stringify(external)} user={user} proposal={external} confirmSignal={confirmSignal} prepareSignal={prepareSignal} onNotice={setExternalNotice}/>}
   {externalNotice&&<p role="status">{externalNotice}</p>}
   <SigmaVoice key={user?.uid||'signed-out'} busy={!user||busy||savingProposal||taskSaving||projectSaving||completionSaving} answer={externalNotice||taskNotice||completionNotice||projectNotice||proposalNotice||history.filter(m=>m.role==='assistant').at(-1)?.text||''} onText={text=>{setDraft(text);void send(text);}} onError={setError}/>
-  <details><summary>Comandos por voz</summary><p>Peça uma tarefa, projeto ou memória. Revise a proposta e diga: “confirmar tarefa”, “confirmar projeto”, “confirmar memória” ou “confirmar conclusão”.</p><p>Para Google ou Notion: diga “preparar ação”, autorize o serviço quando solicitado e diga “confirmar ação”. Para fechar a proposta: “cancelar ação”.</p></details>
+  <details><summary>Comandos por voz</summary><p>Diga “Crie uma tarefa para pesquisar sobre vinhos” e ela será salva diretamente. Se indicar um projeto não identificado, o SIGMA pedirá revisão. Para concluir ou editar tarefas, o fluxo protegido continua ativo.</p><p>Para Google ou Notion: diga “preparar ação”, autorize o serviço quando solicitado e diga “confirmar ação”. Para fechar a proposta: “cancelar ação”.</p></details>
   <label className="lab-source-option">
    <input type="checkbox" checked={searchWeb} disabled={busy} onChange={e=>setSearchWeb(e.target.checked)}/>
    Pesquisar na internet nesta mensagem

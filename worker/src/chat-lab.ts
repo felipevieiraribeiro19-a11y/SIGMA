@@ -566,7 +566,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
    // Perguntas gerais sobre fatos atuais continuam como conversa, sem Tavily.
    const latestText=messages[messages.length-1].text;
    const naturalIntent=searchIntent(latestText);
-   const searchRequested=!externalIntent(latestText)&&
+   const createTaskIntent=explicitTaskIntent(latestText);
+   const searchRequested=!createTaskIntent&&!externalIntent(latestText)&&
     (requestedWebSearch===true||naturalIntent.explicit);
    let sources:WebSource[]=[];
    if(searchRequested){
@@ -597,7 +598,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
     :searchRequested?'Nenhuma fonte atual foi obtida. Não apresente informação como se fosse verificada em tempo real.':'';
    const projectProposalEnabled=env.LAB_BRAIN_ENABLED==='true'&&
     env.LAB_WORKSPACE_ENABLED==='true'&&!!env.LAB_WORKSPACE;
-   const taskIntent=explicitTaskIntent(messages[messages.length-1].text);
+   const taskIntent=createTaskIntent;
    const completeIntent=taskCompleteIntent(messages[messages.length-1].text);
    const dates=localTaskDates();
    const externalEnabled=env.LAB_ACTIONS_ENABLED==='true'&&env.LAB_CONNECTORS_ENABLED==='true';
@@ -634,9 +635,59 @@ export function makeLabChatWorker(deps:Dependencies={}){
      modelParts.some(p=>p.thought&&p.functionCall!==undefined)))
     throw new HttpError(502,'Proposta de tarefa não autorizada pelo pedido atual.');
    const taskProposal=taskRequest?readTaskProposal(modelCalls[0].functionCall):null;
+   let savedTask:{id:string;title:string;dueDate:string;projectId:string;created:boolean}|null=null;
+   let manualTaskProposal=taskProposal;
+   // Comando direto autenticado é autorização suficiente para uma inclusão não destrutiva.
+   // Projetos mencionados precisam ser encontrados com correspondência exata na conta.
+   if(taskProposal&&taskIntent){
+    const workspace=env.LAB_WORKSPACE!.get(env.LAB_WORKSPACE!.idFromName(uid));
+    const normalized=latestText.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const explicitProject=/\b(?:no|na|ao|nesse|neste|para o|para a)\s+(?:meu\s+|minha\s+)?projeto\b/.test(normalized);
+    let projectId='';
+    let canCreate=!explicitProject;
+    if(explicitProject&&taskProposal.projectTitleHint){
+     const fetched=await workspace.fetch('https://lab-workspace.internal/projects',{method:'GET'});
+     if(!fetched.ok)throw new HttpError(503,'Não consegui consultar os projetos antes de salvar a tarefa.');
+     const parsed=await fetched.json() as {projects?:Array<{id:string;title:string;status:string}>};
+     if(!Array.isArray(parsed.projects)||parsed.projects.length>50)
+      throw new HttpError(503,'Lista de projetos inválida.');
+     const tidy=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+     const matches=parsed.projects.filter(p=>p&&typeof p.title==='string'&&
+      typeof p.id==='string'&&p.status==='active'&&
+      tidy(p.title)===tidy(taskProposal.projectTitleHint)&&normalized.includes(tidy(p.title)));
+     if(matches.length===1){projectId=matches[0].id;canCreate=true;}
+    }
+    if(canCreate){
+     const safeTask={kind:'task',title:taskProposal.title,notes:taskProposal.notes,
+      done:false,amount:0,minutes:0,priority:taskProposal.priority,
+      ...(taskProposal.dueDate?{dueDate:taskProposal.dueDate}:{}),
+      ...(projectId?{projectId}:{})};
+     const fingerprintText=latestText.normalize('NFKC').trim().toLocaleLowerCase('pt-BR')+
+      '|'+taskProposal.title+'|'+taskProposal.dueDate+'|'+projectId;
+     const fingerprint=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',
+      new TextEncoder().encode(fingerprintText)))).map(x=>x.toString(16).padStart(2,'0')).join('');
+     const saved=await workspace.fetch('https://lab-workspace.internal/entries/auto-create',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task:safeTask,fingerprint})
+     });
+     const confirmed=await saved.json() as {entry?:{id?:unknown;kind?:unknown;title?:unknown;dueDate?:unknown;projectId?:unknown};created?:unknown;error?:unknown};
+     if(!saved.ok)throw new HttpError(saved.status,typeof confirmed.error==='string'?confirmed.error:'Não consegui salvar a tarefa. Confira sua lista antes de repetir.');
+     if(typeof confirmed.entry?.id!=='string'||confirmed.entry.kind!=='task'||
+      confirmed.entry.title!==taskProposal.title||
+      (projectId&&confirmed.entry.projectId!==projectId)||
+      typeof confirmed.created!=='boolean')
+      throw new HttpError(503,'Não foi possível verificar a gravação. Confira suas tarefas.');
+     savedTask={id:confirmed.entry.id,title:taskProposal.title,
+      dueDate:taskProposal.dueDate,projectId,created:confirmed.created};
+     manualTaskProposal=null;
+    }
+   }
    const projectProposal=projectProposalEnabled&&!taskRequest&&!completeRequest&&!externalRequest?readProjectProposal(modelParts):null;
    const answer=externalAction?'Preparei a proposta. Revise os dados abaixo e confirme a ação para salvar.':taskCompletion?'Identifique a tarefa exata na lista abaixo e confirme a conclusão. Nada foi alterado.':
-    taskProposal?taskPreviewText(taskProposal):
+    savedTask?(savedTask.created?'Tarefa criada: ':'Tarefa já estava registrada: ')+
+     '“'+savedTask.title+'”'+(savedTask.dueDate?' para '+savedTask.dueDate:'')+
+     '. Você já pode vê-la em Tarefas.':
+    manualTaskProposal?taskPreviewText(manualTaskProposal):
     projectProposal?projectPreviewText(projectProposal):
     modelParts.filter(p=>!p.thought).map(p=>p.text||'').join('').trim();
    if(!answer)throw new HttpError(502,'Gemini não retornou uma resposta em texto.');
@@ -644,7 +695,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
    return reply({text:answer,persisted:false,executed:false,provider:'gemini',
     ...(externalAction?{externalAction}:{}),
     ...(projectProposal?{projectProposal}:{}),
-    ...(taskProposal?{taskProposal}:{}),
+    ...(manualTaskProposal?{taskProposal:manualTaskProposal}:{}),
+    ...(savedTask?{savedTask}:{}),
     ...(taskCompletion?{taskCompletion}:{}),
     ...(taskReadReceipt?{tasks:taskReadReceipt}:{}),
     ...(projectContextReceipt?{projects:projectContextReceipt}:{}),

@@ -20,7 +20,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       
-      (github.head_ref == 'sigma-voz-confirmacoes-20261025' || github.head_ref == 'sigma-automacao-tarefas-20261025' || github.head_ref == 'sigma-home-beta-20261025') &&
+      (github.head_ref == 'sigma-voz-confirmacoes-20261025' || github.head_ref == 'sigma-automacao-tarefas-20261025' || github.head_ref == 'sigma-home-beta-20261025' || github.head_ref == 'sigma-orbe-hotfix-20261025') &&
       github.base_ref == 'sigma-beta-preparacao-20261024' &&
       github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     runs-on: ubuntu-latest
@@ -53,7 +53,7 @@ jobs:
   publicar:
     if: >-
       
-      (github.head_ref == 'sigma-voz-confirmacoes-20261025' || github.head_ref == 'sigma-automacao-tarefas-20261025' || github.head_ref == 'sigma-home-beta-20261025') &&
+      (github.head_ref == 'sigma-voz-confirmacoes-20261025' || github.head_ref == 'sigma-automacao-tarefas-20261025' || github.head_ref == 'sigma-home-beta-20261025' || github.head_ref == 'sigma-orbe-hotfix-20261025') &&
       github.base_ref == 'sigma-beta-preparacao-20261024' &&
       github.event.pull_request.head.repo.full_name == 'felipevieiraribeiro19-a11y/SIGMA'
     needs: validar

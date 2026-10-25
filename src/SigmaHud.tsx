@@ -10,6 +10,7 @@ import {LabRealMemory} from './LabRealMemory';
 import {validLabApiBase} from './jarvis-chat-protocol';
 import './sigma-hud.css';
 import {SigmaOrb} from './SigmaOrb';
+import {SigmaHome} from './SigmaHome';
 
 type Page='home'|'chat'|'study'|'projects'|'tasks'|'agenda'|'finance'|'library'|'integrations'|'settings';
 type Briefing={
@@ -39,6 +40,7 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
  googleReadToken:string|null;onGoogleReadToken:(value:string|null)=>void;
 }){
  const [page,setPage]=useState<Page>('home');
+ const [homeMessage,setHomeMessage]=useState<string|null>(null);
  const [menuOpen,setMenuOpen]=useState(false);
  const [briefing,setBriefing]=useState<Briefing|null>(null);
  const [projects,setProjects]=useState<Project[]>([]);
@@ -74,7 +76,7 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
  const name=user?.displayName?.trim().split(/\s+/)[0]||'';
  const completed=briefing?briefing.tasksCompletedToday:null;
  const pageTitle=nav.find(n=>n.id===page)?.label||'SIGMA';
- return <div className="sigma-hud">
+ return <div className={'sigma-hud'+(page==='home'?' sigma-home-mode':'')}>
   <aside className={`sigma-hud-sidebar ${menuOpen?'is-open':''}`} aria-label="Navegação principal">
    <div className="sigma-hud-brand"><span className="sigma-hud-mark" aria-hidden="true"/><div><strong>SIGMA</strong><small>SISTEMA INTELIGENTE DE GESTÃO</small></div><button className="sigma-menu-close" type="button" onClick={()=>setMenuOpen(false)} aria-label="Fechar menu"><X size={20}/></button></div>
    <nav>{nav.map(item=><button type="button" key={item.id} className={page===item.id?'active':''} aria-current={page===item.id?'page':undefined} onClick={()=>navigate(item.id)}><item.icon size={19}/><span>{item.label}</span></button>)}</nav>
@@ -93,7 +95,8 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
    {authError&&<p role="alert" className="sigma-hud-notice sigma-hud-error">{authError}</p>}
    {authBrowserDiagnostic&&<p role="status" className="sigma-hud-notice sigma-hud-error">{authBrowserDiagnostic}</p>}
    <main>
-    {page==='home'&&<div className="sigma-hud-home">
+    {page==='home'&&<SigmaHome user={user} onMenu={()=>setMenuOpen(true)} onNavigate={navigate} onLogin={onLogin} onSend={text=>{setHomeMessage(text);navigate('chat');}}/>}
+    {false&&page==='home'&&<div className="sigma-hud-home">
      <div className="sigma-hud-hero">
       <div className="sigma-hud-hero-left">
        <p className="sigma-hud-eyebrow">CENTRAL PESSOAL <span>•</span> {today}</p>
@@ -131,7 +134,7 @@ export function SigmaHud({user,authReady,loggingIn,onLogin,authError,authBrowser
      </div>
      <p className="sigma-hud-footnote">Os números são consultados na sua conta, nunca simulados. O histórico desta conversa ainda não é salvo automaticamente.</p>
     </div>}
-    <section className="sigma-hud-page" hidden={page!=='chat'}><div className="sigma-hud-page-heading"><h1>Conversa com SIGMA</h1><p>Seu assistente pessoal, com controle sobre memórias e ações.</p></div><div className="sigma-hud-module"><JarvisChatPanel user={user} googleToken={googleReadToken}/></div></section>
+    <section className="sigma-hud-page" hidden={page!=='chat'}><div className="sigma-hud-page-heading"><h1>Conversa com SIGMA</h1><p>Seu assistente pessoal, com controle sobre memórias e ações.</p></div><div className="sigma-hud-module"><JarvisChatPanel user={user} googleToken={googleReadToken} incomingText={homeMessage} onIncomingConsumed={()=>setHomeMessage(null)}/></div></section>
     {(['study','projects','tasks','finance'] as Page[]).includes(page)&&<section className="sigma-hud-page"><div className="sigma-hud-page-heading"><h1>{pageTitle}</h1><p>{page==='study'?'Seu desempenho, registros e ciclos de estudo.':page==='projects'?'Organize seus objetivos e acompanhe o progresso.':page==='tasks'?'Gerencie tarefas, prazos e prioridades.':'Acompanhe os lançamentos registrados no SIGMA.'}</p></div><div className="sigma-hud-module"><LabEcosystemPanel key={page} user={user} view={page as 'study'|'projects'|'tasks'|'finance'}/></div></section>}
     {page==='agenda'&&<section className="sigma-hud-page"><div className="sigma-hud-page-heading"><h1>Agenda</h1><p>Conecte sua agenda Google para consultar compromissos reais. O SIGMA não inventa eventos.</p></div><div className="sigma-hud-module"><LabIntegrationsPanel user={user} googleToken={googleReadToken} onGoogleToken={onGoogleReadToken}/></div></section>}
     {page==='library'&&<section className="sigma-hud-page"><div className="sigma-hud-page-heading"><h1>Biblioteca</h1><p>Seus documentos e fontes de consulta.</p></div><div className="sigma-hud-module"><LabDocumentsPanel user={user}/></div></section>}

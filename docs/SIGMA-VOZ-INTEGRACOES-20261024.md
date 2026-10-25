@@ -14,3 +14,12 @@ Publicação no site principal autorizada pelo proprietário. Base: sigma-beta-p
 - Histórico de chat permanece apenas na sessão; memórias/registros confirmados usam os armazenamentos já existentes.
 
 Validação local: build:beta, check:worker e 307 testes aprovados. Não equivale à validação de microfone no iPhone nem à autorização real dos serviços.
+
+## Continuação — 25/10/2026
+
+- Confirmações literais por voz/ditado para tarefas, conclusão, projetos e memórias internas. Comandos negados, citações e frases ambíguas não confirmam.
+- “Preparar ação”, “confirmar ação” e “cancelar ação” operam somente a proposta externa visível.
+- Retornos de gravação interna são lidos em voz alta quando respostas faladas estão ligadas.
+- Corrigido disparo de pesquisa web por “no Google Drive/Tarefas”. Comandos externos não geram busca pública.
+- Limpar sessão também fecha a proposta externa.
+- Validação: compilação Beta e 310 testes passaram. As autorizações dos provedores ainda são necessárias; Notion não tem chave configurada.

@@ -43,6 +43,20 @@ button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus
 @media(max-width:600px){.top{height:76px}.brand{gap:10px}.brand h1{font-size:22px;letter-spacing:.22em}.brand small{font-size:7px;letter-spacing:.18em}.top-actions{gap:6px}.top-actions .preview-chip{display:none}.center{min-height:0;padding:12px 0}.orb-wrap{width:min(93vw,430px)}.status{margin-top:8px}.status h2{font-size:18px}.status p{font-size:9px}.composer{gap:3px;padding:7px 8px;min-height:59px}.composer .icon-btn{width:32px;height:32px;flex-basis:32px}.composer .icon-btn svg{width:18px;height:18px}.composer input[type=text]{font-size:13px}.bottom{padding-bottom:max(14px,env(safe-area-inset-bottom))}}
 @media(max-height:720px){.orb-wrap{width:min(61vh,400px)}.center{min-height:0}.top{height:65px}.status{margin-top:2px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition:none!important}}
+
+/* Native procedural plasma orb; no raster/image layer */
+.orb-wrap{isolation:isolate;filter:none}
+.orb-wrap::before{opacity:.25}
+.orb-wrap .halo,.orb-wrap .halo2{display:none!important}
+.energy-canvas{position:absolute;inset:-15%;width:130%;height:130%;pointer-events:none;z-index:3;filter:drop-shadow(0 0 16px rgba(0,132,255,.5))}
+.orb-wrap .orb{position:absolute;inset:11%;width:78%;height:78%;z-index:5;border:0!important;border-radius:50%;background:transparent!important;box-shadow:none!important;filter:none!important;animation:none!important;overflow:visible}
+.orb-wrap .orb::before,.orb-wrap .orb::after,.orb-wrap .orb svg{display:none!important}
+.orb-wrap .orb:hover{transform:scale(1.01)}
+.orb-wrap[data-state="listening"] .energy-canvas{filter:drop-shadow(0 0 28px rgba(0,210,255,.82))}
+.orb-wrap[data-state="thinking"] .energy-canvas{filter:drop-shadow(0 0 30px rgba(0,110,255,.95))}
+.orb-wrap .platform{z-index:1;bottom:2%;width:85%;left:7.5%;height:12%;border:1px solid #16a8ff99;box-shadow:0 0 25px #008dff88,inset 0 0 22px #007dff55}
+.orb-wrap .platform::before{content:"";position:absolute;inset:-15% -13%;border-radius:50%;border:1px solid #008bff66;box-shadow:0 0 14px #008dff77}
+.orb-wrap .platform::after{inset:20%;border-color:#7cefff;box-shadow:0 0 25px #21baff}
 </style></head><body>
 <canvas id="network" aria-hidden="true"></canvas><div class="ambient"></div>
 <div class="shell">
@@ -50,7 +64,7 @@ button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus
 <main class="center">
 <div class="orb-wrap" id="orbWrap" data-state="idle">
 <div class="halo"></div><div class="halo halo2"></div>
-<button class="orb" id="orb" aria-label="Iniciar conversa com SIGMA" aria-pressed="false">
+<canvas id="energyCanvas" class="energy-canvas" aria-hidden="true"></canvas><button class="orb" id="orb" aria-label="Iniciar conversa com SIGMA" aria-pressed="false">
 <svg viewBox="0 0 200 200" aria-hidden="true">
 <defs><linearGradient id="filament" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5edfff" stop-opacity=".25"/><stop offset="30%" stop-color="#d2fbff"/><stop offset="65%" stop-color="#13aaff"/><stop offset="100%" stop-color="#80efff" stop-opacity=".75"/></linearGradient></defs>
 <ellipse cx="100" cy="100" rx="89" ry="37" transform="rotate(-29 100 100)"/>
@@ -94,5 +108,42 @@ const canvas=el('network'),ctx=canvas.getContext('2d');if(!ctx)return;let w=0,h=
 function resize(){const d=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=Math.floor(w*d);canvas.height=Math.floor(h*d);ctx.setTransform(d,0,0,d,0,0);const count=Math.min(100,Math.max(45,Math.floor(w*h/10000)));points=Array.from({length:count},()=>({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.26,vy:(Math.random()-.5)*.26,r:Math.random()*1.8+.7,phase:Math.random()*6.28}))}
 resize();window.addEventListener('resize',resize);
 let frame=0;function draw(){frame++;ctx.clearRect(0,0,w,h);const speed=state==='thinking'?2.4:state==='listening'?1.6:1;for(const p of points){if(!reduced){p.x+=p.vx*speed;p.y+=p.vy*speed;if(p.x<0||p.x>w)p.vx*=-1;if(p.y<0||p.y>h)p.vy*=-1}p.phase+=.012*speed}const limit=Math.min(185,w*.33);for(let i=0;i<points.length;i++){const a=points[i];for(let j=i+1;j<points.length;j++){const b=points[j],dx=a.x-b.x,dy=a.y-b.y,dist=Math.hypot(dx,dy);if(dist<limit){ctx.strokeStyle='rgba(10,150,255,'+(0.21*(1-dist/limit))+')';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}}ctx.beginPath();ctx.fillStyle='rgba(48,181,255,'+(0.44+.38*Math.sin(a.phase))+')';ctx.shadowBlur=11;ctx.shadowColor='#00aaff';ctx.arc(a.x,a.y,a.r,0,Math.PI*2);ctx.fill()}ctx.shadowBlur=0;if(!reduced)requestAnimationFrame(draw)}draw();
+})();
+</script>
+<script>
+(()=>{'use strict';
+const cv=document.getElementById('energyCanvas'),scene=document.getElementById('orbWrap');if(!cv||!scene)return;
+const ctx=cv.getContext('2d',{alpha:true});if(!ctx)return;
+const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let seed=17329;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
+const filaments=Array.from({length:124},(_,i)=>({a:rand()*Math.PI*2,rx:.3+rand()*.65,ry:.12+rand()*.66,rot:rand()*Math.PI,ox:(rand()-.5)*.23,oy:(rand()-.5)*.23,w:.15+rand()*.66,h:rand()*Math.PI*2,alpha:.1+rand()*.52,speed:(rand()-.5)*.22,bright:i%7===0}));
+const spirals=Array.from({length:44},(_,i)=>({a:rand()*Math.PI*2,scale:.55+rand()*.45,rot:rand()*Math.PI*2,speed:.05+rand()*.12,alpha:.13+rand()*.4,bright:i%6===0}));
+const dust=Array.from({length:430},()=>{const a=rand()*Math.PI*2,r=Math.sqrt(rand())*.99;return{x:Math.cos(a)*r,y:Math.sin(a)*r,r:.25+rand()*.65,a:rand()*Math.PI*2,s:rand()*2}});
+const sparks=Array.from({length:65},(_,i)=>({a:rand()*Math.PI*2,p:rand(),speed:.008+rand()*.02,size:rand()*1.8+.5,idx:i%filaments.length}));
+let W=0,H=0,R=0,X=0,Y=0,dpr=1,t=0,frame=0,last=0;
+function resize(){const rect=cv.getBoundingClientRect();W=rect.width;H=rect.height;dpr=Math.min(devicePixelRatio||1,1.65);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);R=W*.305;X=W/2;Y=H*.475}
+window.addEventListener('resize',resize,{passive:true});resize();
+function radial(x,y,r,stops){const g=ctx.createRadialGradient(x,y,0,x,y,r);for(const [pos,color] of stops)g.addColorStop(pos,color);return g}
+function stroke(color,width,glow=0){ctx.strokeStyle=color;ctx.lineWidth=width;ctx.shadowBlur=glow;ctx.shadowColor='#00aaff';ctx.stroke();ctx.shadowBlur=0}
+function filamentPoint(f,u,tm){const a=u*6.28318+f.h+tm*f.speed,xx=Math.cos(a)*f.rx,yy=Math.sin(a)*f.ry,warpedX=xx+Math.sin(3*a+f.h)*.055*f.w,warpedY=yy+Math.cos(2*a+f.h)*.05*f.w;const co=Math.cos(f.rot),si=Math.sin(f.rot);return[X+R*(warpedX*co-warpedY*si+f.ox),Y+R*(warpedX*si+warpedY*co+f.oy)]}
+function spiralPoint(s,u,tm){const angle=s.a+u*10.5+tm*s.speed,rad=R*(.035+u*.91)*s.scale;return[X+Math.cos(angle)*rad,Y+Math.sin(angle)*rad]}
+function path(points){ctx.beginPath();for(let i=0;i<points.length;i++){const p=points[i];if(!i)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}}
+function render(ms){if(!last)last=ms;const delta=Math.min(40,ms-last);last=ms;const state=scene.dataset.state;const activity=state==='thinking'?2.6:state==='listening'?1.55:state==='speaking'?1.85:1;if(!reduced)t+=delta*.00028*activity;frame++;
+ctx.clearRect(0,0,W,H);
+ctx.fillStyle=radial(X,Y,R*1.6,[[0,'rgba(0,79,225,.1)'],[.52,'rgba(0,102,255,.1)'],[.79,'rgba(0,103,255,.07)'],[1,'rgba(0,103,255,0)']]);ctx.fillRect(X-R*1.6,Y-R*1.6,R*3.2,R*3.2);
+ctx.beginPath();ctx.arc(X,Y,R*1.013,0,Math.PI*2);ctx.fillStyle=radial(X-R*.08,Y-R*.12,R*1.3,[[0,'#051d49'],[.18,'#04142e'],[.43,'#020b21'],[.68,'#052554'],[.79,'#06498c'],[.9,'#0b6ac6'],[1,'#021a40']]);ctx.fill();
+ctx.save();ctx.beginPath();ctx.arc(X,Y,R*.997,0,Math.PI*2);ctx.clip();
+ctx.fillStyle=radial(X-R*.27,Y-R*.46,R*1.15,[[0,'rgba(48,167,255,.3)'],[.34,'rgba(0,68,190,.08)'],[1,'rgba(0,0,0,0)']]);ctx.fillRect(X-R,Y-R,R*2,R*2);
+for(let i=0;i<filaments.length;i++){const f=filaments[i];ctx.beginPath();for(let j=0;j<=70;j++){const p=filamentPoint(f,j/70,t);if(j===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}stroke(f.bright?'rgba(133,240,255,'+Math.min(.78,f.alpha+.19)+')':'rgba(25,147,255,'+f.alpha+')',f.bright?1.05:.42,f.bright?7:0)}
+for(let i=0;i<spirals.length;i++){const s=spirals[i];ctx.beginPath();for(let j=0;j<=62;j++){const p=spiralPoint(s,j/62,t);if(j===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}stroke(s.bright?'rgba(146,246,255,.85)':'rgba(19,156,255,'+s.alpha+')',s.bright?1.1:.6,s.bright?8:0)}
+for(let i=0;i<dust.length;i++){const p=dust[i],x=X+p.x*R,y=Y+p.y*R;ctx.beginPath();ctx.arc(x,y,p.r*(.7+.5*Math.sin(t*3+p.a)),0,Math.PI*2);ctx.fillStyle='rgba(75,188,255,'+(.17+.55*Math.abs(Math.sin(t+p.a)))+')';ctx.fill()}
+for(let i=0;i<sparks.length;i++){const s=sparks[i],p=filamentPoint(filaments[s.idx],(s.p+t*s.speed*2)%1,t);ctx.beginPath();ctx.arc(p[0],p[1],s.size,0,Math.PI*2);ctx.shadowColor='#4aeaff';ctx.shadowBlur=s.size>1.6?13:6;ctx.fillStyle='rgba(204,251,255,.9)';ctx.fill();ctx.shadowBlur=0}
+ctx.fillStyle=radial(X,Y,R*.34,[[0,'rgba(225,255,255,.99)'],[.025,'rgba(103,242,255,.95)'],[.12,'rgba(0,181,255,.45)'],[.42,'rgba(0,114,255,.12)'],[1,'rgba(0,104,255,0)']]);ctx.fillRect(X-R*.35,Y-R*.35,R*.7,R*.7);
+ctx.restore();
+for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(X,Y,R*(.978+i*.009),0,Math.PI*2);stroke(i===0?'rgba(185,250,255,.93)':i===1?'rgba(46,191,255,.88)':'rgba(15,124,255,'+(.4-i*.06)+')',i===0?1.3:i===1?1.5:.9,i<2?14:5)}
+for(let i=0;i<18;i++){const a=(i/18)*Math.PI*2+t*(i%2?-.07:.06);ctx.beginPath();ctx.arc(X,Y,R*(1+.006*Math.sin(i)),a,a+.08+((i*7)%6)*.018);stroke(i%3===0?'rgba(200,254,255,.85)':'rgba(37,164,255,.54)',i%3===0?1.7:.8,i%3===0?13:2)}
+for(let i=0;i<20;i++){const a=i*2.399+t*(i%2?-.16:.12),r=R*(.87+(i%5)*.028),x=X+Math.cos(a)*r,y=Y+Math.sin(a)*r;ctx.beginPath();ctx.arc(x,y,i%5===0?2.2:1.1,0,Math.PI*2);ctx.fillStyle='#b5f9ff';ctx.shadowBlur=12;ctx.shadowColor='#00bfff';ctx.fill();ctx.shadowBlur=0}
+if(!reduced)requestAnimationFrame(render)}
+requestAnimationFrame(render);
 })();
 </script></body></html>

@@ -16,7 +16,7 @@ import {LabDocumentIndex} from './lab-document-index';
 import {LabGoogleOAuthVault} from './lab-google-oauth';
 import {handleAuthenticatedGoogleOAuth,handleGoogleOAuthCallback} from './core/google-oauth-api';
 import {fetchDriveDocumentPage,fetchNotionDocumentPage} from './core/document-source-readers';
-import {EXTERNAL_TOOL,externalProposal,externalInstruction} from './core/external-proposal';
+import {EXTERNAL_TOOL,externalProposal,externalInstruction,externalIntent} from './core/external-proposal';
 import {LabExternalActionStore} from './lab-external-actions';
 import {executeApprovedExternalAction} from './core/sigma-action-executors';
 import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,type Provider} from './core/sigma-connectors';
@@ -558,7 +558,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
    if(!limit.ok)throw new HttpError(503,'Não foi possível controlar a cota do laboratório.');
    // Etapa 15: sem consulta quando a conversa não pede informações atuais.
    // O segredo Tavily só existe no Worker LAB; nenhum token sai ao navegador.
-   const intent=searchIntent(messages[messages.length-1].text);
+   const intent=externalIntent(messages[messages.length-1].text)?{needed:false,explicit:false}:searchIntent(messages[messages.length-1].text);
    let sources:WebSource[]=[];
    if(intent.needed){
     if(env.LAB_WEB_ENABLED!=='true'||!env.TAVILY_API_KEY){

@@ -28,14 +28,20 @@ test('recusa datas inexistentes, fuso ausente e conteúdo excessivo',()=>{
 });
 test('proposta externa exige intenção e jamais executa ao receber ferramenta',async()=>{
  const origin='https://sigma-61328.web.app';let calls=0;
- const env={ALLOWED_ORIGIN:origin,ALLOWED_UID:'owner',FIREBASE_PROJECT_ID:'sigma-61328',GEMINI_API_KEY:'fake',GEMINI_MODEL:'fake',LAB_CHAT_ENABLED:'true',LAB_BRAIN_ENABLED:'true',LAB_WORKSPACE_ENABLED:'true',LAB_CONNECTORS_ENABLED:'true',LAB_ACTIONS_ENABLED:'true',LAB_WORKSPACE:{},LAB_QUOTA:{idFromName:(x:string)=>x,get:()=>({fetch:async()=>new Response(null,{status:204})})}} as any;
+ const env={ALLOWED_ORIGIN:origin,ALLOWED_UID:'owner',FIREBASE_PROJECT_ID:'sigma-61328',GEMINI_API_KEY:'fake',GEMINI_MODEL:'fake',LAB_CHAT_ENABLED:'true',LAB_WEB_ENABLED:'true',TAVILY_API_KEY:'fake-search',LAB_BRAIN_ENABLED:'true',LAB_WORKSPACE_ENABLED:'true',LAB_CONNECTORS_ENABLED:'true',LAB_ACTIONS_ENABLED:'true',LAB_WORKSPACE:{},LAB_QUOTA:{idFromName:(x:string)=>x,get:()=>({fetch:async()=>new Response(null,{status:204})})}} as any;
  const call={name:'propose_external_action',args:{operation:'drive.note.create',title:'Ideias',content:'Minha ideia'}};
  const worker=makeLabChatWorker({verify:async()=> 'owner',fetch:(async(url)=>{calls++;assert.match(String(url),/generativelanguage/);return Response.json({candidates:[{content:{parts:[{functionCall:call}]}}]});}) as typeof fetch});
- const res=await worker.fetch(new Request('https://worker.test/api/lab/chat',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',text:'Salve minha ideia no Drive'}]})}),env);
+ const res=await worker.fetch(new Request('https://worker.test/api/lab/chat',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',text:'Salve minha ideia no Google Drive'}]})}),env);
  assert.equal(res.status,200);const body=await res.json() as any;assert.equal(body.executed,false);assert.equal(body.externalAction.content,'Minha ideia');assert.equal(calls,1);
  assert.throws(()=>externalProposal(call,'O que é Google Drive?'));
 });
 test('consulta Tasks limpa texto e não retorna autorização',async()=>{
  const rows=await readGoogle('tasks','test-token',(async()=>Response.json({items:[{id:'a',title:'<Teste>',due:'2026-10-26T00:00:00.000Z'}]})) as typeof fetch);
  assert.equal(rows[0].title,'Teste');assert.equal(rows[0].kind,'tasks');assert.ok(!JSON.stringify(rows).includes('test-token'));
+});
+
+import {searchIntent} from '../worker/src/web-search';
+test('nomes dos serviços Google não acionam pesquisa pública',()=>{
+ for(const text of ['Crie no Google Tarefas minha tarefa','Salve no Google Drive uma nota','Crie na Google Agenda um evento'])assert.equal(searchIntent(text).needed,false);
+ assert.equal(searchIntent('Pesquise no Google os editais').needed,true);
 });

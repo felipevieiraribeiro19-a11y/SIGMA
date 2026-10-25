@@ -43,6 +43,37 @@ test('pergunta geral não pesquisa na web nem vaza chave ao cliente',async()=>{
  assert.equal(body.web,undefined);
  assert.equal(JSON.stringify(body).includes('fake-tavily'),false);
 });
+test('conversa sobre assunto atual não aciona pesquisa automaticamente',async()=>{
+ const calls={searched:0,gemini:0};
+ const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:makeTransport(calls)});
+ const response=await worker.fetch(request('Como posso estudar para concursos atualmente?'),env);
+ assert.equal(response.status,200);
+ assert.equal(calls.searched,0);
+ assert.equal(calls.gemini,1);
+});
+test('seleção explícita do modo pesquisa faz busca mesmo sem palavra-chave',async()=>{
+ const calls={searched:0,gemini:0};
+ const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:makeTransport(calls)});
+ const selected=new Request('https://lab.invalid/api/lab/chat',{
+  method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Authorization:'Bearer fictional'},
+  body:JSON.stringify({messages:[{role:'user',text:'Quais os editais abertos?'}],webSearch:true})
+ });
+ const response=await worker.fetch(selected,env);
+ assert.equal(response.status,200);
+ assert.equal(calls.searched,1);
+ assert.equal(calls.gemini,1);
+});
+test('seleção inválida de busca é recusada antes de consumir recursos',async()=>{
+ const calls={searched:0,gemini:0};
+ const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:makeTransport(calls)});
+ const invalid=new Request('https://lab.invalid/api/lab/chat',{
+  method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Authorization:'Bearer fictional'},
+  body:JSON.stringify({messages:[{role:'user',text:'Oi'}],webSearch:'sim'})
+ });
+ assert.equal((await worker.fetch(invalid,env)).status,400);
+ assert.equal(calls.searched,0);
+ assert.equal(calls.gemini,0);
+});
 test('pesquisa explícita consome Tavily e devolve apenas fontes públicas HTTPS',async()=>{
  const calls={searched:0,gemini:0,lastQuery:''};
  const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:makeTransport(calls)});
@@ -92,11 +123,52 @@ test('cota de pesquisa é independente e limita o número por minuto',async()=>{
  assert.equal((await quota.fetch(new Request(url,{method:'POST'}))).status,429);
  assert.equal((await quota.fetch(new Request('https://lab-quota.internal/unknown',{method:'POST'}))).status,404);
 });
-test('limite negado não gera custo externo',async()=>{
+test('pesquisa negada não gasta mensagem normal nem gera custo externo',async()=>{
  const calls={searched:0,gemini:0};
- const limited={...env,LAB_QUOTA:{idFromName:()=> 'id',get:()=>({fetch:async (url:string)=>new Response(null,{status:url.endsWith('/web-search')?429:204})})}};
+ const seen:string[]=[];
+ const limited={...env,LAB_QUOTA:{idFromName:()=> 'id',get:()=>({fetch:async (url:string)=>{
+  seen.push(url);
+  return new Response(null,{status:url.endsWith('/web-search')?429:204});
+ }})}};
  const worker=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:makeTransport(calls)});
- assert.equal((await worker.fetch(request('Pesquise notícias de concursos atuais.'),limited)).status,429);
+ const response=await worker.fetch(request('Pesquise notícias de concursos atuais.'),limited);
+ assert.equal(response.status,429);
+ assert.match((await response.json()).error,/cota de pesquisas|Cota de pesquisas/);
+ assert.deepEqual(seen,['https://lab-quota.internal/web-search']);
+ assert.equal(calls.searched,0);assert.equal(calls.gemini,0);
+ const ordinary=await worker.fetch(request('Explique juros compostos.'),limited);
+ assert.equal(ordinary.status,200);
+ assert.equal(calls.gemini,1);
+});
+test('status de pesquisas é read-only, autenticado e mostra saldos',async()=>{
+ const stored=new Map<string,unknown>();
+ const store={get:async(key:string)=>stored.get(key),transaction:async(fn:(tx:any)=>Promise<unknown>)=>fn({
+  get:async(key:string)=>stored.get(key),put:async(key:string,val:unknown)=>{stored.set(key,val);}
+ })};
+ const quota=new LabChatQuota({storage:store} as any);
+ const status=async()=>quota.fetch(new Request('https://lab-quota.internal/web-search/status'));
+ let response=await status();
+ assert.equal(response.status,200);
+ let body=await response.json();
+ assert.equal(body.dailyRemaining,3);assert.equal(body.monthlyRemaining,30);
+ assert.equal(body.minuteRemaining,1);assert.equal(body.resetAt,null);
+ assert.equal((await quota.fetch(new Request('https://lab-quota.internal/web-search',{method:'POST'}))).status,204);
+ response=await status();body=await response.json();
+ assert.equal(body.dailyRemaining,2);assert.equal(body.monthlyRemaining,29);
+ assert.equal(body.minuteRemaining,0);
+ assert.ok(Date.parse(body.resetAt)>Date.now());
+ assert.equal((await quota.fetch(new Request('https://lab-quota.internal/web-search/status',{method:'POST'}))).status,405);
+ const count=(await status()).status;
+ assert.equal(count,200);
+ const calls={searched:0,gemini:0};
+ const secured=makeLabChatWorker({verify:async()=>env.ALLOWED_UID,fetch:makeTransport(calls)});
+ const privateEnv={...env,LAB_QUOTA:{idFromName:(id:string)=>id,get:()=>({fetch:(url:string)=>quota.fetch(new Request(url))})}};
+ const req=new Request('https://lab.invalid/api/lab/web-quota',{method:'GET',headers:{Origin:origin,Authorization:'Bearer fictional'}});
+ const publicStatus=await secured.fetch(req,privateEnv);
+ assert.equal(publicStatus.status,200);
+ assert.equal((await publicStatus.json()).dailyRemaining,2);
+ const wrongUser=makeLabChatWorker({verify:async()=> 'wrong'});
+ assert.equal((await wrongUser.fetch(req,privateEnv)).status,403);
  assert.equal(calls.searched,0);assert.equal(calls.gemini,0);
 });
 test('fontes inválidas não viram links ativos na interface',()=>{

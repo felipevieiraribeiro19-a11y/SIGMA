@@ -878,6 +878,22 @@
   // Keep the utterance alive and surface errors instead of failing silently.
   let currentUtterance=null, speechTimer=null, speechToken=0;
   function clearSpeechTimer(){if(speechTimer){clearTimeout(speechTimer);speechTimer=null}}
+  // Safari on iPhone may silently suppress speechSynthesis even after a tap.
+  // For the initial greeting, play an audio stream as media instead.
+  let mobileGreeting=null;
+  const isiPhone=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  function playMobileGreeting(done){
+    if(mobileGreeting){mobileGreeting.pause();mobileGreeting=null}
+    const audio=new Audio('/voice/greeting.mp3');
+    audio.preload='auto';audio.volume=1;
+    mobileGreeting=audio;
+    let ended=false;
+    const finish=()=>{if(ended)return;ended=true;mobileGreeting=null;if(done)done()};
+    audio.addEventListener('ended',finish,{once:true});
+    audio.addEventListener('error',()=>{feedback.textContent='Áudio indisponível neste momento. Verifique o volume de mídia do iPhone.';state('listening')},{once:true});
+    const p=audio.play();
+    if(p&&typeof p.catch==='function')p.catch(()=>{feedback.textContent='O iPhone bloqueou a reprodução. Abra no Safari, aumente o volume e toque novamente.';state('listening')});
+  }
   function say(text,done){
     const token=++speechToken;
     clearSpeechTimer();
@@ -926,7 +942,7 @@
       state('listening');
     }
   }
-  function stop(){active=false;speechToken++;clearSpeechTimer();currentUtterance=null;if(recognition){try{recognition.abort()}catch(e){}recognition=null}if('speechSynthesis' in window)speechSynthesis.cancel();state('idle');feedback.textContent=''}
+  function stop(){active=false;if(mobileGreeting){mobileGreeting.pause();mobileGreeting=null}speechToken++;clearSpeechTimer();currentUtterance=null;if(recognition){try{recognition.abort()}catch(e){}recognition=null}if('speechSynthesis' in window)speechSynthesis.cancel();state('idle');feedback.textContent=''}
   function listen(){if(!active)return;const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!Recognition){state('listening');feedback.textContent='A escuta automática pode não funcionar neste navegador. Você pode digitar ou usar o ditado do teclado.';return}
     try{recognition=new Recognition();recognition.lang='pt-BR';recognition.interimResults=false;recognition.continuous=false;
@@ -935,7 +951,7 @@
       recognition.onend=()=>{recognition=null};state('listening');recognition.start();
     }catch(e){state('listening');feedback.textContent='Escuta indisponível aqui. Experimente digitar sua mensagem.'}
   }
-  function start(){if(active){stop();return}active=true;feedback.textContent='';state('speaking');window.SigmaOrb.pulse(1);say('Olá, senhor. O que posso fazer por você?',()=>{if(active)listen()})}
+  function start(){if(active){stop();return}active=true;feedback.textContent='';state('speaking');window.SigmaOrb.pulse(1);const done=()=>{if(active)listen()};if(isiPhone)playMobileGreeting(done);else say('Olá, senhor. O que posso fazer por você?',done)}
   function simulate(text){if(!text.trim())return;active=true;state('thinking');feedback.textContent='Você: '+text;
     setTimeout(()=>{if(!active)return;state('speaking');const reply='Entendido. Esta é uma demonstração visual. Depois da sua aprovação, conectaremos esta interface às funções reais do SIGMA.';
       feedback.textContent='SIGMA: '+reply;say(reply,()=>{if(active)listen()})},900)}

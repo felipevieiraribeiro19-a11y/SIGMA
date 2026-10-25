@@ -60,9 +60,9 @@ button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus
 
 /* V4: softer energy sphere, smaller proportions, no flat HUD rim */
 .orb-wrap{width:min(94vw,470px)!important}
-.orb-wrap .platform{bottom:5%!important;height:10%!important;box-shadow:0 0 38px #008dff99,inset 0 0 25px #007dff55!important}
+.orb-wrap .platform{bottom:3%!important;height:11%!important;box-shadow:0 0 32px #008dff99,inset 0 0 20px #007dff55!important}
 .orb-wrap .platform::after{box-shadow:0 0 28px #54dbff!important}
-.energy-canvas{filter:drop-shadow(0 0 21px rgba(0,132,255,.55))!important}
+.energy-canvas{filter:drop-shadow(0 0 20px rgba(0,132,255,.52))!important}
 @media(max-width:600px){.orb-wrap{width:min(94vw,450px)!important}}
 </style></head><body>
 <canvas id="network" aria-hidden="true"></canvas><div class="ambient"></div>
@@ -118,43 +118,151 @@ let frame=0;function draw(){frame++;ctx.clearRect(0,0,w,h);const speed=state==='
 })();
 </script>
 <script>
+/* SIGMA orbital energy engine · Native WebGL, no textures, no stock imagery */
 (()=>{'use strict';
-const cv=document.getElementById('energyCanvas'),scene=document.getElementById('orbWrap');if(!cv||!scene)return;
-const ctx=cv.getContext('2d',{alpha:true});if(!ctx)return;
+const canvas=document.getElementById('energyCanvas'),wrap=document.getElementById('orbWrap');
+const gl=canvas.getContext('webgl',{alpha:true,antialias:true,premultipliedAlpha:false,powerPreference:'default',preserveDrawingBuffer:false});
+if(!gl){document.getElementById('statusSub').textContent='WEBGL NÃO DISPONÍVEL NESTE NAVEGADOR';return}
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let seed=748211;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
-const curves=Array.from({length:66},(_,i)=>({tilt:rand()*6.28,az:rand()*6.28,phase:rand()*6.28,r:.58+rand()*.47,thickness:.18+rand()*.62,bright:i%8===0,opacity:.18+rand()*.47,spin:(rand()-.5)*.13,arc:Math.PI*(.7+rand()*1.28),start:rand()*6.28}));
-const particles=Array.from({length:350},()=>({a:rand()*6.28,b:Math.acos(2*rand()-1),r:rand()*.96,phase:rand()*6.28,size:.35+rand()*.85}));
-const nodes=Array.from({length:39},(_,i)=>({idx:i%curves.length,u:rand(),phase:rand()*6.28,size:.7+rand()*1.8}));
-let W=0,H=0,R=0,X=0,Y=0,dpr=1,t=0,last=0;
-function resize(){const b=cv.getBoundingClientRect();W=b.width;H=b.height;dpr=Math.min(devicePixelRatio||1,1.6);cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);R=W*.258;X=W*.5;Y=H*.46}
+const VERT_BG='attribute vec2 a_pos;varying vec2 v_uv;void main(){v_uv=a_pos*.5+.5;gl_Position=vec4(a_pos,0.,1.);}';
+const FRAG_BG=String.raw`
+precision highp float;
+varying vec2 v_uv;
+uniform float u_time,u_active,u_ratio;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
+void main(){
+vec2 p=(v_uv-vec2(.5,.535))*vec2(2.0,2.0*u_ratio);
+float r=length(p),ang=atan(p.y,p.x),time=u_time*.15;
+float n=noise(p*3.1+time*.35);
+float distortion=(n-.5)*.065;
+float rr=r+distortion;
+float inside=1.-smoothstep(.865,.885,rr);
+float halo=exp(-pow(max(0.,r-.85)*5.2,2.))*.26+exp(-r*r*1.55)*.055;
+vec3 col=vec3(.006,.08,.19)*halo;
+float sphere=inside;
+vec3 base=mix(vec3(.002,.009,.039),vec3(.004,.036,.13),smoothstep(.10,.83,rr));
+base+=vec3(.001,.027,.09)*pow(max(0.,1.-r),1.4);
+base+=vec3(.005,.09,.22)*exp(-pow((r-.81)*7.2,2.));
+col+=base*sphere;
+float rim=exp(-pow((rr-.862)*155.,2.));
+float rimGlow=exp(-pow((rr-.856)*24.,2.));
+col+=vec3(.015,.23,.60)*rimGlow*.53+vec3(.26,.82,1.)*rim*.6;
+float depth=sqrt(max(.0,1.-r*r/.76));
+float swirl=0.;
+float detail=0.;
+for(int i=0;i<14;i++){
+float fi=float(i);
+float a=ang+(noise(p*2.5+fi*.47)-.5)*.35;
+float twist=10.8+fi*.36;
+float phase=a*2.0+rr*twist+fi*.81-time*(.65+mod(fi,3.)*.09);
+float line=pow(max(0.,1.-abs(sin(phase))),35.);
+float gate=.32+.68*noise(p*6.3+vec2(fi*1.7,time*.13));
+float intensity=line*gate*(.13+mod(fi,4.)*.09);
+swirl+=intensity;
+float micro=pow(max(0.,1.-abs(sin(phase*1.53+fi*1.7))),66.);
+detail+=micro*.045;
+}
+float irregular=noise(p*9.1+time*.12);
+float wave=sin(ang*3.0+rr*16.0-time*1.2+irregular*2.0);
+float branch=pow(max(0.,1.-abs(wave)),22.)*.19;
+float spiralMask=(.15+.85*smoothstep(.03,.28,rr))*(1.-smoothstep(.75,.93,rr));
+col+=(vec3(.01,.37,.91)*(swirl+detail+branch))*(spiralMask*sphere);
+float nebula=noise(p*12.2+time*.3)*noise(p*7.3-time*.12);
+col+=vec3(.005,.07,.22)*nebula*.27*sphere;
+float core=exp(-r*r*210.);
+float coreGlow=exp(-r*r*27.);
+col+=vec3(.14,.62,1.)*coreGlow*.42+vec3(.8,.97,1.)*core*1.6;
+float twinkle=0.;
+for(int i=0;i<24;i++){
+float fi=float(i);
+vec2 sp=vec2(hash(vec2(fi,17.))-.5,hash(vec2(fi,39.))-.5)*1.67;
+float d=length(p-sp);
+float s=exp(-d*d*(900.+mod(fi,3.)*420.));
+twinkle+=s*(.18+.15*sin(time*4.+fi));
+}
+col+=vec3(.13,.62,1.)*twinkle*inside;
+col*=1.+(u_active-.0)*.13;
+float alpha=clamp(max(inside*.98,halo*.5+rimGlow*.5),0.,1.);
+gl_FragColor=vec4(col,alpha);
+}
+`;
+const VERT_ENERGY=String.raw`
+attribute vec3 a_xyz;attribute vec4 a_col;
+uniform float u_time,u_active,u_point,u_ratio;
+varying vec4 v_color;
+void main(){
+float t=u_time*.095;
+float ct=cos(t),st=sin(t);
+float cp=cos(t*.54),sp=sin(t*.54);
+vec3 p=a_xyz;
+p=vec3(p.x*ct+p.z*st,p.y,-p.x*st+p.z*ct);
+p=vec3(p.x,p.y*cp-p.z*sp,p.y*sp+p.z*cp);
+float persp=1.0/(1.0-p.z*.14);
+vec2 xy=p.xy*persp*.845;
+gl_Position=vec4(xy.x,xy.y/u_ratio,0.,1.);
+float depth=.63+.37*(p.z*.5+.5);
+v_color=vec4(a_col.rgb,a_col.a*depth*(1.+u_active*.22));
+gl_PointSize=u_point*(.8+.6*(p.z*.5+.5));
+}
+`;
+const FRAG_LINE='precision mediump float;varying vec4 v_color;void main(){gl_FragColor=v_color;}';
+const FRAG_POINT=String.raw`
+precision mediump float;varying vec4 v_color;
+void main(){vec2 q=gl_PointCoord*2.-1.;float d=dot(q,q);float halo=exp(-d*5.)*.4;float core=exp(-d*30.);float a=(halo+core)*v_color.a;gl_FragColor=vec4(v_color.rgb*(.4+core*1.2),a);}
+`;
+function shader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}
+function program(v,f){const p=gl.createProgram();gl.attachShader(p,shader(gl.VERTEX_SHADER,v));gl.attachShader(p,shader(gl.FRAGMENT_SHADER,f));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));return p}
+let bg,lines,points;try{bg=program(VERT_BG,FRAG_BG);lines=program(VERT_ENERGY,FRAG_LINE);points=program(VERT_ENERGY,FRAG_POINT)}catch(err){document.getElementById('statusSub').textContent='ERRO AO INICIAR GRÁFICOS WEBGL';return}
+let seed=91831;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
+const path=[],spark=[];
+function pushLine(a,b,color,opacity){path.push(...a,...color,opacity,...b,...color,opacity)}
+function pushSpark(p,rgb,a){spark.push(...p,...rgb,a)}
+function sphere(a,b,r){return [Math.cos(a)*Math.sin(b)*r,Math.sin(a)*Math.sin(b)*r,Math.cos(b)*r]}
+for(let arm=0;arm<19;arm++){
+const phase=arm*2.39996,twist=2.5+rnd()*3.5,tilt=(rnd()-.5)*1.15,off=rnd()*6.28;
+let last=null;
+for(let j=0;j<=175;j++){
+const u=j/175,r=.065+u*.9,theta=phase+u*twist*6.283;
+const x=Math.cos(theta)*r,y=Math.sin(theta)*r,z=.35*Math.sin(theta*.7+off)*(1.-r*.5)+tilt*r*.34;
+const p=[x,y,z],alpha=(arm%5===0?.63:.19+rnd()*.16)*(.35+.65*Math.sin(Math.PI*u));
+if(last)pushLine(last,p,arm%5===0?[.30,.84,1.]:[.02,.42,.95],alpha);
+if(j%19===0&&arm%3===0)pushSpark(p,[.58,.94,1.],.7);
+last=p;
+}}
+for(let i=0;i<115;i++){
+const a=rnd()*6.283,b=rnd()*Math.PI,rot=rnd()*6.283;
+const r=.56+rnd()*.42,arc=.45+rnd()*3.1,offset=rnd()*6.283;
+const bright=i%9===0,color=bright?[.37,.91,1.]:[.04,.38,.92],alpha=bright?.59:.08+rnd()*.18;
+let prev=null;
+for(let j=0;j<=62;j++){
+const u=j/62,theta=offset+arc*u;
+const ca=Math.cos(theta),sa=Math.sin(theta);
+const xx=ca*r,yy=sa*r*.64,zz=Math.sin(theta*.83+rot)*.26;
+const p=[xx*Math.cos(a)-yy*Math.sin(a),xx*Math.sin(a)+yy*Math.cos(a),zz*Math.cos(b)+xx*Math.sin(b)*.42];
+if(prev)pushLine(prev,p,color,alpha*Math.sin(Math.PI*(.1+.8*u)));
+if(j===31&&bright)pushSpark(p,[.72,.96,1.],.95);
+prev=p;
+}}
+for(let i=0;i<480;i++){const a=rnd()*6.283,b=Math.acos(2*rnd()-1),r=Math.sqrt(rnd())*.96;const p=sphere(a,b,r);pushSpark(p,i%7===0?[.6,.93,1.]:[.08,.48,.96],i%7===0?.7:.17+rnd()*.25)}
+for(let i=0;i<48;i++){const a=rnd()*6.283,b=rnd()*Math.PI,r=.79+rnd()*.19;pushSpark(sphere(a,b,r),[.75,.97,1.],.85)}
+const lineData=new Float32Array(path),sparkData=new Float32Array(spark);
+const lineBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,lineBuffer);gl.bufferData(gl.ARRAY_BUFFER,lineData,gl.STATIC_DRAW);
+const pointBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,pointBuffer);gl.bufferData(gl.ARRAY_BUFFER,sparkData,gl.STATIC_DRAW);
+const quadBuffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quadBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+function setUniform(p,time,active,ratio,point){gl.uniform1f(gl.getUniformLocation(p,'u_time'),time);gl.uniform1f(gl.getUniformLocation(p,'u_active'),active);gl.uniform1f(gl.getUniformLocation(p,'u_ratio'),ratio);if(point!==undefined)gl.uniform1f(gl.getUniformLocation(p,'u_point'),point)}
+function drawBuffer(p,buffer,primitive,count,time,active,ratio,size){gl.useProgram(p);setUniform(p,time,active,ratio,size);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);const pos=gl.getAttribLocation(p,'a_xyz'),col=gl.getAttribLocation(p,'a_col');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,3,gl.FLOAT,false,28,0);gl.enableVertexAttribArray(col);gl.vertexAttribPointer(col,4,gl.FLOAT,false,28,12);gl.drawArrays(primitive,0,count)}
+let w=0,h=0,ratio=1,last=0,time=0,frames=0;
+function resize(){const b=canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,1.5);w=Math.round(b.width*d);h=Math.round(b.height*d);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;gl.viewport(0,0,w,h)}ratio=h/w}
 addEventListener('resize',resize,{passive:true});resize();
-function radial(x,y,r,stops){const g=ctx.createRadialGradient(x,y,0,x,y,r);for(const [p,c] of stops)g.addColorStop(p,c);return g}
-function orbit(f,u){const theta=f.start+u*f.arc+t*f.spin;let a=Math.cos(theta)*f.r,b=Math.sin(theta)*f.r;
-const ca=Math.cos(f.tilt),sa=Math.sin(f.tilt),cb=Math.cos(f.az+t*.035),sb=Math.sin(f.az+t*.035);
-let x=a*ca-b*sa,y=a*sa+b*ca,z=Math.sin(theta+f.phase)*.23;
-const x2=x*cb-z*sb,z2=x*sb+z*cb;
-const y2=y*.85+z2*.35;const perspective=1/(1-z2*.12);
-return [X+R*x2*perspective,Y+R*y2*perspective,z2]}
-function drawCurve(f,glow){ctx.beginPath();const steps=48;for(let j=0;j<=steps;j++){const p=orbit(f,j/steps);if(j===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}
-ctx.strokeStyle=f.bright?(glow?'rgba(25,142,255,.35)':'rgba(190,248,255,.88)'):(glow?'rgba(0,119,255,.11)':'rgba(33,154,255,'+f.opacity+')');ctx.lineWidth=glow?(f.bright?5:2.2):(f.bright?1.2:f.thickness);ctx.shadowColor='#00aaff';ctx.shadowBlur=glow?12:(f.bright?7:0);ctx.stroke();ctx.shadowBlur=0}
-function draw(ms){if(!last)last=ms;const delta=Math.min(40,ms-last);last=ms;const activity=scene.dataset.state==='thinking'?2:scene.dataset.state==='listening'?1.45:1;if(!reduced)t+=delta*.00025*activity;ctx.clearRect(0,0,W,H);
-ctx.fillStyle=radial(X,Y,R*2.15,[[0,'rgba(0,78,232,.13)'],[.44,'rgba(0,90,255,.16)'],[.72,'rgba(0,83,214,.055)'],[1,'rgba(0,0,0,0)']]);ctx.fillRect(X-R*2.15,Y-R*2.15,R*4.3,R*4.3);
-for(let k=0;k<15;k++){const a=(k/15)*6.28+t*.025,r=R*1.9;ctx.beginPath();ctx.moveTo(X+Math.cos(a)*R*.7,Y+Math.sin(a)*R*.7);ctx.lineTo(X+Math.cos(a+.04)*r,Y+Math.sin(a+.04)*r);ctx.strokeStyle='rgba(12,121,255,'+(.012+(k%4===0?.022:0))+')';ctx.lineWidth=2+k%3;ctx.shadowBlur=10;ctx.shadowColor='#006bff';ctx.stroke();ctx.shadowBlur=0}
-ctx.beginPath();ctx.arc(X,Y,R*.99,0,6.283);ctx.fillStyle=radial(X-R*.08,Y-R*.1,R*1.23,[[0,'rgba(4,22,53,.97)'],[.38,'rgba(2,13,35,.94)'],[.63,'rgba(2,29,79,.94)'],[.83,'rgba(1,58,140,.93)'],[.96,'rgba(2,76,169,.76)'],[1,'rgba(0,40,112,.2)']]);ctx.fill();
-ctx.save();ctx.beginPath();ctx.arc(X,Y,R*.99,0,6.283);ctx.clip();ctx.globalCompositeOperation='lighter';
-ctx.fillStyle=radial(X-R*.1,Y-R*.5,R*1.2,[[0,'rgba(28,177,255,.24)'],[.48,'rgba(0,58,176,.035)'],[1,'rgba(0,0,0,0)']]);ctx.fillRect(X-R,Y-R,R*2,R*2);
-for(const f of curves)drawCurve(f,true);
-for(const f of curves)drawCurve(f,false);
-for(const p of particles){const a=p.a+t*.08,x=X+Math.sin(p.b)*Math.cos(a)*p.r*R,y=Y+Math.sin(p.b)*Math.sin(a)*p.r*R;ctx.beginPath();ctx.arc(x,y,p.size,0,6.283);ctx.fillStyle='rgba(110,211,255,'+(.15+.55*Math.abs(Math.sin(p.phase+t)))+')';ctx.fill()}
-for(const n of nodes){const p=orbit(curves[n.idx],(n.u+t*.025)%1);ctx.beginPath();ctx.arc(p[0],p[1],n.size,0,6.283);ctx.fillStyle='rgba(215,254,255,.93)';ctx.shadowColor='#3ecaff';ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0}
-for(let i=0;i<12;i++){ctx.beginPath();const ph=i*6.283/12+t*.085;for(let j=0;j<=95;j++){const u=j/95;const a=ph+u*5.1;const rad=R*(.04+u*.87);const x=X+Math.cos(a)*rad,y=Y+Math.sin(a)*rad*.91;if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.lineWidth=i%4===0?1.45:.55;ctx.strokeStyle=i%4===0?'rgba(133,235,255,.7)':'rgba(14,131,255,.23)';ctx.shadowBlur=i%4===0?12:2;ctx.shadowColor='#15aaff';ctx.stroke();ctx.shadowBlur=0}
-ctx.fillStyle=radial(X,Y,R*.58,[[0,'rgba(255,255,255,1)'],[.04,'rgba(230,255,255,1)'],[.085,'rgba(130,240,255,.95)'],[.13,'rgba(0,151,255,.52)'],[.4,'rgba(0,103,255,.14)'],[1,'rgba(0,104,255,0)']]);ctx.fillRect(X-R*.6,Y-R*.6,R*1.2,R*1.2);
-for(let k=0;k<8;k++){const a=k*Math.PI/4+t*.016;ctx.beginPath();ctx.moveTo(X-Math.cos(a)*R*.19,Y-Math.sin(a)*R*.19);ctx.lineTo(X+Math.cos(a)*R*.19,Y+Math.sin(a)*R*.19);ctx.strokeStyle=k%2?'rgba(60,198,255,.11)':'rgba(167,251,255,.21)';ctx.lineWidth=k%2?.7:1.1;ctx.stroke()}
-ctx.restore();ctx.globalCompositeOperation='lighter';
-for(let k=0;k<52;k++){const a=k*6.283/52+t*(k%2?-.015:.018);const len=.045+(k%7)*.01;ctx.beginPath();ctx.arc(X,Y,R*(.975+(k%5)*.005),a,a+len);ctx.strokeStyle=k%6===0?'rgba(206,255,255,.82)':'rgba(32,166,255,'+(.13+(k%5)*.11)+')';ctx.lineWidth=k%6===0?1.4:.8;ctx.shadowColor='#1faaff';ctx.shadowBlur=k%6===0?18:8;ctx.stroke();ctx.shadowBlur=0}
-for(let i=0;i<24;i++){const a=i*2.399+t*(i%2?-.08:.08),r=R*(.82+(i%5)*.036),x=X+Math.cos(a)*r,y=Y+Math.sin(a)*r;ctx.beginPath();ctx.arc(x,y,i%6===0?2.1:1.1,0,6.283);ctx.fillStyle=i%6===0?'rgba(240,255,255,.95)':'rgba(72,193,255,.65)';ctx.shadowBlur=12;ctx.shadowColor='#00bfff';ctx.fill();ctx.shadowBlur=0}
-ctx.globalCompositeOperation='source-over';
-if(!reduced)requestAnimationFrame(draw)}requestAnimationFrame(draw);
+gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+function draw(ms){if(!last)last=ms;const delta=Math.min(40,ms-last);last=ms;const state=wrap.dataset.state,activity=state==='thinking'?2:state==='listening'?1.5:state==='speaking'?1.8:1;if(!reduced)time+=delta*.001*activity;
+resize();gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+gl.useProgram(bg);setUniform(bg,time,activity-1,ratio);gl.bindBuffer(gl.ARRAY_BUFFER,quadBuffer);const p=gl.getAttribLocation(bg,'a_pos');gl.enableVertexAttribArray(p);gl.vertexAttribPointer(p,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6);
+drawBuffer(lines,lineBuffer,gl.LINES,lineData.length/7,time,activity-1,ratio);
+drawBuffer(points,pointBuffer,gl.POINTS,sparkData.length/7,time,activity-1,ratio,7);
+gl.disable(gl.BLEND);
+if(!reduced)requestAnimationFrame(draw)}
+requestAnimationFrame(draw);
 })();
 </script></body></html>

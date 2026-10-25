@@ -57,7 +57,7 @@ export class LabWorkspaceStore{
  async fetch(request:Request):Promise<Response>{
   const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
   const {pathname}=new URL(request.url);
-  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset)|\/[0-9a-f-]{36}(?:\/complete)?)?$/.test(pathname)&&
+  if(!/^\/entries(?:\/(?:briefing|cycle|cycle\/reset|auto-create)|\/[0-9a-f-]{36}(?:\/complete)?)?$/.test(pathname)&&
    !/^\/projects(?:\/[0-9a-f-]{36})?$/.test(pathname))return json({error:'Rota inexistente.'},404);
   const id=pathname.startsWith('/entries/')?pathname.slice(9):null;
   try{
@@ -152,6 +152,44 @@ export class LabWorkspaceStore{
     return json({config,reset:true,historyPreserved:true});
    }
    if(pathname.startsWith('/entries/cycle'))throw new HttpError(405,'Método não permitido.');
+   // A solicitação autenticada do chat é a autorização para criar uma tarefa simples.
+   // A transação guarda a chave por 10 minutos para não duplicar em reenvios da mesma fala.
+   if(pathname==='/entries/auto-create'){
+    if(request.method!=='POST')throw new HttpError(405,'Método inválido para criação automática.');
+    const raw=await request.json() as unknown;
+    if(!raw||typeof raw!=='object'||Array.isArray(raw)||
+      Object.keys(raw).some(k=>k!=='task'&&k!=='fingerprint'))
+     throw new HttpError(400,'Pedido de tarefa inválido.');
+    const {task,fingerprint}=raw as Record<string,unknown>;
+    if(typeof fingerprint!=='string'||!/^[a-f0-9]{64}$/.test(fingerprint))
+     throw new HttpError(400,'Identificador de repetição inválido.');
+    const data=entryPayload(task);
+    if(data.kind!=='task'||data.done||data.amount!==0||data.minutes!==0)
+     throw new HttpError(400,'Somente criação de tarefa pendente é permitida.');
+    const result=await this.state.storage.transaction(async tx=>{
+     const now=Date.now(),entries=(await tx.get<WorkspaceEntry[]>('entries'))||[];
+     const previous=(await tx.get<Array<{fingerprint:string;entryId:string;at:number}>>('task-replays'))||[];
+     const recent=previous.filter(r=>Number.isFinite(r.at)&&now-r.at>=0&&now-r.at<600000).slice(-50);
+     const replay=recent.find(r=>r.fingerprint===fingerprint);
+     if(replay){
+      const row=entries.find(x=>x.id===replay.entryId);
+      if(row)return {entry:row,created:false};
+     }
+     if(entries.length>=250)throw new HttpError(409,'Limite de registros atingido.');
+     if(data.projectId){
+      const projects=(await tx.get<Project[]>('projects'))||[];
+      const project=projects.find(p=>p.id===data.projectId);
+      if(!project||project.status!=='active')
+       throw new HttpError(409,'Projeto não disponível para adicionar esta tarefa.');
+     }
+     const at=new Date().toISOString();
+     const row:WorkspaceEntry={...data,id:crypto.randomUUID(),createdAt:at,updatedAt:at};
+     await tx.put('entries',[...entries,row]);
+     await tx.put('task-replays',[...recent,{fingerprint,entryId:row.id,at:now}].slice(-50));
+     return {entry:row,created:true};
+    });
+    return json(result,result.created?201:200);
+   }
    if(pathname==='/entries/briefing'&&request.method==='GET'){
     const entries=await this.state.storage.transaction(async tx=>(await tx.get<WorkspaceEntry[]>('entries'))||[]);
     return json(buildDailyBriefing(entries));

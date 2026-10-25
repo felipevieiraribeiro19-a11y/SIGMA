@@ -4,7 +4,7 @@ import {speakReply} from './media';
 type Recognition={lang:string;continuous:boolean;interimResults:boolean;onresult:((e:{results:ArrayLike<{isFinal:boolean;0:{transcript:string}}>})=>void)|null;onerror:((e:{error:string})=>void)|null;onend:(()=>void)|null;start:()=>void;stop:()=>void;abort:()=>void};
 type Constructor=new()=>Recognition;
 export function SigmaVoice({busy,answer,onText,onError}:{busy:boolean;answer:string;onText:(text:string)=>void;onError:(text:string)=>void}){
- const [listening,setListening]=useState(false),[spoken,setSpoken]=useState(false),[partial,setPartial]=useState('');
+ const [listening,setListening]=useState(false),[spoken,setSpoken]=useState(true),[partial,setPartial]=useState('');
  const active=useRef<Recognition|null>(null),live=useRef(true),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const callback=useRef(onText);callback.current=onText;
  useEffect(()=>{live.current=true;const stop=()=>{if(document.hidden){active.current?.abort();window.speechSynthesis?.cancel();}};document.addEventListener('visibilitychange',stop);return()=>{live.current=false;active.current?.abort();if(timer.current)clearTimeout(timer.current);window.speechSynthesis?.cancel();document.removeEventListener('visibilitychange',stop);};},[]);

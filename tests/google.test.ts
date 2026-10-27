@@ -105,3 +105,13 @@ test('chat com autorização recebe apenas contexto da agenda quando solicitado'
  assert.doesNotMatch(prompt,/AFO - LRF\.pdf/);
  assert.doesNotMatch(prompt,/token-secreto/);
 });
+
+
+test('JSON inválido da agenda não derruba leitura do Drive', async()=>{
+ const result=await googleContext('token',transport(()=>new Response('invalid',{status:200}),driveOk));
+ assert.deepEqual(result.errors,['agenda']);assert.equal(result.materiais.length,2);
+});
+test('Drive vazio é explícito e autorização expirada pede reconexão',()=>{
+ assert.match(googlePrompt({agenda:[],materiais:[],expired:false,errors:[],calendarRequested:false,driveRequested:true})!,/nenhum PDF/);
+ assert.match(googlePrompt({agenda:[],materiais:[],expired:true,errors:['agenda','materiais']})!,/reconectar/);
+});

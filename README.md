@@ -4,7 +4,7 @@
 
 Um assistente pessoal geral inspirado no Jarvis: conversa natural, memória, conhecimento documental, integrações com serviços, planejamento e ações. **Não há área principal imposta ao produto.** Todos os módulos de vida (estudos, finanças, trabalho, rotina, família e qualquer outro) compartilham o mesmo núcleo.
 
-A arquitetura e os critérios de conclusão estão em **[docs/JARVIS-ARQUITETURA.md](docs/JARVIS-ARQUITETURA.md)**.
+A arquitetura e os critérios de conclusão estão em **[docs/arquivo/JARVIS-ARQUITETURA.md](docs/arquivo/JARVIS-ARQUITETURA.md)**.
 
 ## O que existe hoje, sem propaganda
 
@@ -23,7 +23,21 @@ A arquitetura e os critérios de conclusão estão em **[docs/JARVIS-ARQUITETURA
 | Biblioteca RAG, agentes proativos, outros modelos | **Planejado, não implementado** |
 | Controles de finanças/estudo como banco de dados | **Não implementados** nesta etapa; não confundir relatos com lançamentos |
 
-A aplicação segue operando em https://sigma-61328.web.app na versão previamente publicada. **A branch \`sigma-jarvis-arquitetura\` é trabalho de desenvolvimento, não foi publicada automaticamente.**
+A aplicação segue operando em https://sigma-61328.web.app na versão previamente publicada. **A linha de desenvolvimento é \`sigma-work-integracao\`; nada é publicado automaticamente por push.**
+
+## Estrutura do repositório (pós-limpeza)
+
+```
+src/          interface do Beta publicado (entrada: src/jarvis-lab.tsx)
+worker/src/   Worker Cloudflare: index.ts (sigma-cerebro) e chat-lab.ts (LAB)
+tests/        suíte única: npm test (309 testes, sem rede)
+scripts/      geração do HTML offline do laboratório
+docs/arquivo/ relatórios e auditorias históricas
+.github/workflows/  4 workflows: Verify, preview, publicar Beta, worker
+```
+
+`dist-*` não é versionado: o build é gerado pelo CI ou por `npm run build`.
+`npm run dev` sobe a interface Beta em `/sigma-beta.html`; `npm run build` compila a Beta.
 
 ## Arquitetura em construção
 
@@ -51,7 +65,7 @@ A aplicação segue operando em https://sigma-61328.web.app na versão previamen
 
 ## Laboratório Jarvis para iPhone (ainda NÃO publicado)
 
-A build isolada `npm run build:lab` prepara uma interface demonstrativa com memória fictícia, revisão de tarefas e teste opcional de login Google. O pacote sai em `dist-jarvis-lab`, sem copiar a configuração de produção. GitHub Actions valida e anexa o pacote, sem publicá-lo. Um fluxo **manual** separado prepara o canal temporário `jarvis-lab`, mas não roda sem confirmação expressa. Instruções e restrições: [docs/JARVIS-LAB-IPHONE.md](docs/JARVIS-LAB-IPHONE.md).
+A build isolada `npm run build:lab` prepara uma interface demonstrativa com memória fictícia, revisão de tarefas e teste opcional de login Google. O pacote sai em `dist-jarvis-lab`, sem copiar a configuração de produção. GitHub Actions valida e anexa o pacote, sem publicá-lo. Um fluxo **manual** separado prepara o canal temporário `jarvis-lab`, mas não roda sem confirmação expressa. Instruções e restrições: [docs/arquivo/JARVIS-LAB-IPHONE.md](docs/arquivo/JARVIS-LAB-IPHONE.md).
 
 ## Construção e execução de testes
 
@@ -74,15 +88,15 @@ Não crie credenciais do Firebase no GitHub; os deploys existentes usam federaç
 - Histórico existente é armazenado em Firestore e continua seguindo as regras de privacidade. Não utilizar conversas como registros estruturados confiáveis.
 - Mudanças em regras Firestore precisam de testes e confirmação deliberada, nunca publicação incidental.
 - \`firestore.memory.rules.candidate\` **nega escrita direta do cliente**, passou por 14 verificações no Firestore Emulator e não está referenciado por firebase.json. Continua não publicado; o backend seguro de execução ainda precisa ser desenvolvido.
-- Critérios de liberação e limites da exclusão: \`docs/MEMORIA-CONTROLES.md\`.
-- Para informações sobre recursos de leitura Google: \`docs/GOOGLE-AGENDA-DRIVE.md\`.
-- Critérios de segurança e simulação do fluxo de ações: \`docs/FLUXO-ACOES-JARVIS.md\`.
-- Consulta autenticada e painel de revisão, desativados por padrão: \`docs/REVISAO-ACOES-SEGURA.md\`.
-- Laboratório integrado de auditoria e autorizações simuladas: `docs/AUDITORIA-ACOES.md`.
-- Runtime local do Cloudflare com 16 verificações reais de Durable Object e reinício: `docs/CLOUDFLARE-LAB-LOCAL.md`. Nenhuma publicação remota.
-- Simulação de execução com estados confirmada/falha/incerta e consulta segura para reconciliar: `docs/EXECUCAO-SIMULADA.md`.
-- Executor fictício validado no Cloudflare local com 135 testes automatizados e 27 checagens HTTP: `docs/EXECUTOR-CLOUDFLARE-VALIDADO.md`.
-- Para recursos atuais e orçamento de serviços: \`docs/CUSTOS.md\`.
-- Histórico antigo de desenvolvimento: \`docs/STATUS.md\` (algumas seções descrevem protótipos desatualizados).
+- Critérios de liberação e limites da exclusão: \`docs/arquivo/MEMORIA-CONTROLES.md\`.
+- Para informações sobre recursos de leitura Google: \`docs/arquivo/GOOGLE-AGENDA-DRIVE.md\`.
+- Critérios de segurança e simulação do fluxo de ações: \`docs/arquivo/FLUXO-ACOES-JARVIS.md\`.
+- Consulta autenticada e painel de revisão, desativados por padrão: \`docs/arquivo/REVISAO-ACOES-SEGURA.md\`.
+- Laboratório integrado de auditoria e autorizações simuladas: `docs/arquivo/AUDITORIA-ACOES.md`.
+- Runtime local do Cloudflare com 16 verificações reais de Durable Object e reinício: `docs/arquivo/CLOUDFLARE-LAB-LOCAL.md`. Nenhuma publicação remota.
+- Simulação de execução com estados confirmada/falha/incerta e consulta segura para reconciliar: `docs/arquivo/EXECUCAO-SIMULADA.md`.
+- Executor fictício validado no Cloudflare local com 135 testes automatizados e 27 checagens HTTP: `docs/arquivo/EXECUTOR-CLOUDFLARE-VALIDADO.md`.
+- Para recursos atuais e orçamento de serviços: \`docs/arquivo/CUSTOS.md\`.
+- Histórico antigo de desenvolvimento: \`docs/arquivo/STATUS.md\` (algumas seções descrevem protótipos desatualizados).
 
 **Objetivo da fase:** criar o núcleo correto e testável do Jarvis. Não prometer que todas as capacidades estão operacionais antes que existam integração real, consentimento, execução e teste ponta a ponta.

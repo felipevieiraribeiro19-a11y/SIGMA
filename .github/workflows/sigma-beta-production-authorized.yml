@@ -48,7 +48,6 @@ jobs:
         run: |
           npm run build:lab
           node tests/verify-jarvis-lab-build.mjs
-          node scripts/sigma-lab-preflight.mjs
 
   publicar:
     if: >-

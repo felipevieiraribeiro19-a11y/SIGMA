@@ -11,3 +11,7 @@ worker/.dev.vars
 .security-analysis.md
 
 dist-sigma-beta/
+
+# artefato gerado pelos workflows (nao versionar)
+dist-worker-lab/
+dist-jarvis-lab/

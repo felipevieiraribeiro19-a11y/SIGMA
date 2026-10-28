@@ -7,7 +7,7 @@ on:
     paths:
       - 'src/**'
       - 'public/**'
-      - 'index.html'
+      - 'sigma-beta.html'
       - 'package*.json'
       - 'tsconfig.json'
       - 'firebase.json'

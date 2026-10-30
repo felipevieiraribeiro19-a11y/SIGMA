@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.*
+!.env.lab
 !.env.example
 .dev.vars
 worker/.dev.vars

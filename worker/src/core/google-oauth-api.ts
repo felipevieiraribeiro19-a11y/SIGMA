@@ -2,6 +2,7 @@
 import {HttpError} from '../validation';
 import {challenge,confirmScopes,exchangeGoogleCode,googleAuthorizeUrl,noStore,
  oauthConfig,randomUrl,validPreset,type ScopePreset} from './google-oauth';
+import {validGoogleToken,type Provider} from './sigma-connectors';
 
 export interface LabGoogleOauthEnv{
  GOOGLE_OAUTH_ENABLED?:string;
@@ -27,6 +28,40 @@ const bound=(env:LabGoogleOauthEnv,uid:string):DurableObjectStub=>{
   throw new HttpError(503,'Conexão Google permanente ainda desativada no laboratório.');
  return env.GOOGLE_OAUTH_VAULT.get(env.GOOGLE_OAUTH_VAULT.idFromName(uid));
 };
+
+/**
+ * Preset do cofre para cada conector. Drive usa apenas metadados nesta etapa:
+ * leitura de conteúdo continua fora até decisão explícita.
+ */
+/** Notion não usa OAuth do Google: fica fora do mapa. */
+type GoogleProvider=Exclude<Provider,'notion'>;
+const PRESET_BY_PROVIDER:Record<GoogleProvider,ScopePreset>={
+ calendar:'calendar',drive:'drive_metadata',tasks:'calendar'
+};
+/**
+ * Resolve o token Google de uma requisição autenticada.
+ * 1. Cabeçalho X-Google-Token tem prioridade: o fluxo efêmero anterior não muda.
+ * 2. Sem cabeçalho, usa o access token renovado pelo cofre (autorização única).
+ * Devolve '' quando o cofre está desligado ou a conta nunca conectou, para que o
+ * chamador siga com a mensagem atual de "conecte sua conta".
+ */
+export async function resolveGoogleToken(
+ request:Request,env:LabGoogleOauthEnv,uid:string,provider:GoogleProvider
+):Promise<string>{
+ const header=request.headers.get('X-Google-Token');
+ if(header!==null)return validGoogleToken(header);
+ if(env.GOOGLE_OAUTH_ENABLED!=='true'||!env.GOOGLE_OAUTH_VAULT)return '';
+ const stub=env.GOOGLE_OAUTH_VAULT.get(env.GOOGLE_OAUTH_VAULT.idFromName(uid));
+ try{
+  const value=await internal(stub,'/access','POST',{preset:PRESET_BY_PROVIDER[provider]});
+  const token=value.accessToken;
+  return typeof token==='string'&&token.length>=5?token:'';
+ }catch(error){
+  if(error instanceof HttpError&&error.status===401)
+   throw new HttpError(401,'Sua conexão Google precisa ser reconectada no painel de integrações.');
+  return '';
+ }
+}
 export async function handleAuthenticatedGoogleOAuth(
  request:Request,env:LabGoogleOauthEnv,uid:string
 ):Promise<Response>{

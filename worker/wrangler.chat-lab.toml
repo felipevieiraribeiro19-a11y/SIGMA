@@ -9,6 +9,16 @@ FIREBASE_PROJECT_ID = "sigma-61328"
 # URL REAL confirmada no Hosting, sem a barra final. Atualizar caso o canal mude.
 ALLOWED_ORIGIN = "https://sigma-61328--jarvis-lab-pw5dmfbc.web.app"
 GEMINI_MODEL = "gemini-3.5-flash-lite"
+
+# Roteador de modelos. Ausente = Gemini, comportamento anterior sem mudanças.
+# Valores aceitos: gemini | deepseek | openai | anthropic.
+# A chave do provedor escolhido precisa existir como secret; sem ela o Worker
+# volta para o Gemini em vez de falhar. Provedores diferentes de Gemini
+# respondem apenas texto (sem propostas de tarefa/projeto) nesta etapa.
+# LAB_PROVIDER = "deepseek"
+# DEEPSEEK_MODEL = "deepseek-flash"
+# OPENAI_MODEL = "gpt-6-luna"
+# ANTHROPIC_MODEL = "claude-sonnet-4-5"
 LAB_CHAT_ENABLED = "false"
 # Etapa 15: pesquisa paga/em cotas somente com habilitação explícita.
 LAB_WEB_ENABLED = "false"

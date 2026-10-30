@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.*
+!.env.lab
 !.env.example
 .dev.vars
 worker/.dev.vars
@@ -11,3 +12,7 @@ worker/.dev.vars
 .security-analysis.md
 
 dist-sigma-beta/
+
+# artefato gerado pelos workflows (nao versionar)
+dist-worker-lab/
+dist-jarvis-lab/

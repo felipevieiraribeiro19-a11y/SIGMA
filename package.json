@@ -4,12 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "dev": "vite --host 0.0.0.0 --config vite.beta.config.ts --mode lab",
+    "build": "npm run build:beta",
     "test": "node --import tsx --test tests/*.test.ts tests/*.test.tsx",
     "check:worker": "tsc --noEmit -p worker/tsconfig.json",
-    "build:lab": "tsc --noEmit && vite build --config vite.lab.config.ts",
-    "build:beta": "tsc --noEmit && vite build --config vite.beta.config.ts"
+    "build:lab": "tsc --noEmit && vite build --config vite.lab.config.ts --mode lab",
+    "build:beta": "tsc --noEmit && vite build --config vite.beta.config.ts --mode lab",
+    "smoke": "node scripts/smoke-lab.mjs",
+    "check:lab": "node scripts/check-lab-config.mjs",
+    "smoke:prod": "node scripts/smoke-prod.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

@@ -6,6 +6,7 @@
  */
 import {createRemoteJWKSet,jwtVerify} from 'jose';
 import {HttpError,validateMessages,quotaDecision} from './validation';
+import {resolveModelRoute,buildChatRequest,parseChatReply,supportsTools} from './core/providers';
 import {buildGeminiRequest} from './core/models';
 import {searchIntent,searchTavily,webSearchQuery,type WebSource} from './web-search';
 import {LabMemoryStore} from './lab-memory';
@@ -14,12 +15,12 @@ import {relevantLabMemory} from './core/lab-memory-relevance';
 import {LabWorkspaceStore} from './lab-workspace';
 import {LabDocumentIndex} from './lab-document-index';
 import {LabGoogleOAuthVault} from './lab-google-oauth';
-import {handleAuthenticatedGoogleOAuth,handleGoogleOAuthCallback} from './core/google-oauth-api';
+import {handleAuthenticatedGoogleOAuth,handleGoogleOAuthCallback,resolveGoogleToken} from './core/google-oauth-api';
 import {fetchDriveDocumentPage,fetchNotionDocumentPage} from './core/document-source-readers';
 import {EXTERNAL_TOOL,externalProposal,externalInstruction,externalIntent} from './core/external-proposal';
 import {LabExternalActionStore} from './lab-external-actions';
 import {executeApprovedExternalAction} from './core/sigma-action-executors';
-import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,type Provider} from './core/sigma-connectors';
+import {readGoogle,readNotion,validateProviders,providerPrompt,type Provider} from './core/sigma-connectors';
 import {proposeContinuousLearning} from './core/continuous-learning';
 import {SIGMA_MODULES} from './core/ecosystem-manifest';
 import {PROJECT_TOOL_DECLARATION,projectToolInstruction,readProjectProposal,projectPreviewText} from './core/project-proposal-tool';
@@ -53,6 +54,14 @@ export interface LabChatEnv {
  LAB_CHAT_ENABLED:string;
  GEMINI_API_KEY?:string;
  GEMINI_MODEL:string;
+ /** Opcional. Ausente = Gemini, exatamente como antes. */
+ LAB_PROVIDER?:string;
+ DEEPSEEK_API_KEY?:string;
+ DEEPSEEK_MODEL?:string;
+ OPENAI_API_KEY?:string;
+ OPENAI_MODEL?:string;
+ ANTHROPIC_API_KEY?:string;
+ ANTHROPIC_MODEL?:string;
  LAB_WEB_ENABLED?:string;
  TAVILY_API_KEY?:string;
  LAB_QUOTA:DurableObjectNamespace;
@@ -220,7 +229,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
        throw new HttpError(503,'Conectores externos ainda desligados.');
       // Recheck ephemeral OAuth permission on every step; no tokens are stored.
       const auth=source==='drive'?
-       validGoogleToken(request.headers.get('X-Google-Token')):env.NOTION_API_KEY||'';
+       await resolveGoogleToken(request,env,uid,'drive'):env.NOTION_API_KEY||'';
       if(source==='notion'&&(auth.length<10||auth.length>500))
        throw new HttpError(503,'Notion não configurado no laboratório.');
       if(action==='start'){
@@ -348,7 +357,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
      if(confirmBody!=='{"confirmed":true}')throw new HttpError(400,'Confirme exatamente esta ação.');
      const row=statusResult.action!;
      const google= row.data.operation==='notion.page.create' ? null :
-      validGoogleToken(request.headers.get('X-Google-Token'));
+      await resolveGoogleToken(request,env,uid,
+       row.data.operation.startsWith('drive.')?'drive':'calendar');
      if(row.data.operation==='notion.page.create'&&!(env.NOTION_API_KEY||'').trim())
       throw new HttpError(503,'Configure o segredo da integração Notion.');
      const quota=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))
@@ -374,7 +384,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
      const provider=selected as Provider;
      const items=provider==='notion'?
        await readNotion(env.NOTION_API_KEY||'',deps.fetch||fetch,new URL(request.url).searchParams.get('pageId')||undefined):
-       await readGoogle(provider,validGoogleToken(request.headers.get('X-Google-Token')),deps.fetch||fetch);
+       await readGoogle(provider,await resolveGoogleToken(request,env,uid,provider),deps.fetch||fetch);
      return reply({provider,items,readonly:true});
     }
    }
@@ -501,7 +511,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
     const collected=await Promise.all(selectedProviders.map(async provider=>{
      const items=provider==='notion'?
       await readNotion(env.NOTION_API_KEY||'',deps.fetch||fetch):
-      await readGoogle(provider,validGoogleToken(request.headers.get('X-Google-Token')),deps.fetch||fetch);
+      await readGoogle(provider,await resolveGoogleToken(request,env,uid,provider),deps.fetch||fetch);
      return {provider,items};
     }));
     connectorContext=collected.map(x=>providerPrompt(x.provider,x.items)).join('\n');
@@ -596,12 +606,38 @@ export function makeLabChatWorker(deps:Dependencies={}){
       ' | '+source.url+' | Data: '+(source.publishedDate||'não informada')+
       ' | Trecho: '+source.excerpt).join('\\n')
     :searchRequested?'Nenhuma fonte atual foi obtida. Não apresente informação como se fosse verificada em tempo real.':'';
+   // Rota de modelo. Sem LAB_PROVIDER, ou com Gemini, o caminho abaixo é o de sempre.
+   const modelRoute=resolveModelRoute(env);
+   const routedProvider=modelRoute.route.provider;
+   const useRouter=routedProvider!=='gemini';
+   // Propostas de tarefa/projeto dependem de function calling no formato Gemini.
    const projectProposalEnabled=env.LAB_BRAIN_ENABLED==='true'&&
-    env.LAB_WORKSPACE_ENABLED==='true'&&!!env.LAB_WORKSPACE;
+    env.LAB_WORKSPACE_ENABLED==='true'&&!!env.LAB_WORKSPACE&&supportsTools(routedProvider);
    const taskIntent=createTaskIntent;
    const completeIntent=taskCompleteIntent(messages[messages.length-1].text);
    const dates=localTaskDates();
    const externalEnabled=env.LAB_ACTIONS_ENABLED==='true'&&env.LAB_CONNECTORS_ENABLED==='true';
+   let modelParts:{text?:string;thought?:boolean;functionCall?:unknown}[];
+   if(useRouter){
+    // Caminho novo: provedor alternativo, somente texto.
+    const contextBlocks=[approvedMemoryContext,onlineContext,connectorContext,
+     libraryContext,projectContext,taskContext].filter(Boolean).join('\n\n');
+    const chatMessages=messages.map((m,i)=>({
+     role:m.role,
+     text:i===messages.length-1&&contextBlocks?m.text+'\n\n'+contextBlocks:m.text
+    }));
+    const built=buildChatRequest(modelRoute.route,{
+     system:LAB_SYSTEM_IDENTITY+(externalEnabled?' '+externalInstruction(dates.today):''),
+     messages:chatMessages,
+     maxOutputTokens:1100,
+     timeoutMs:25000
+    });
+    const routed=await(deps.fetch||fetch)(built.url,built.init);
+    if(routed.status===429)throw new HttpError(429,'Cota do provedor de modelo esgotada no momento.');
+    if(!routed.ok)throw new HttpError(502,'Provedor de modelo indisponível neste teste.');
+    const payload=await routed.json().catch(()=>null);
+    modelParts=parseChatReply(routedProvider,payload).parts;
+   }else{
    const model=buildGeminiRequest(env.GEMINI_MODEL,env.GEMINI_API_KEY,{
     systemInstruction:{parts:[{text:LAB_SYSTEM_IDENTITY+(externalEnabled?' '+externalInstruction(dates.today):'')+
      (projectProposalEnabled?' '+projectToolInstruction()+' '+taskToolInstruction(dates.today,dates.tomorrow)+' '+taskCompletionInstruction():'')}]},
@@ -618,7 +654,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const response=await result.json() as {candidates?:{content?:{
     parts?:{text?:string;thought?:boolean;functionCall?:unknown}[]
    }}[]};
-   const modelParts=response.candidates?.[0]?.content?.parts||[];
+   modelParts=response.candidates?.[0]?.content?.parts||[];
+   }
    // The model may propose only one operation; it never executes writes.
    const modelCalls=modelParts.filter(p=>p.functionCall!==undefined);
    const taskCallName=(modelCalls[0]?.functionCall as {name?:unknown}|undefined)?.name;
@@ -692,7 +729,10 @@ export function makeLabChatWorker(deps:Dependencies={}){
     modelParts.filter(p=>!p.thought).map(p=>p.text||'').join('').trim();
    if(!answer)throw new HttpError(502,'Gemini não retornou uma resposta em texto.');
    if(answer.length>12000)throw new HttpError(502,'Resposta grande demais.');
-   return reply({text:answer,persisted:false,executed:false,provider:'gemini',
+   return reply({text:answer,persisted:false,executed:false,provider:routedProvider,
+    ...(useRouter?{toolProposalsDisabled:true}:{}),
+    // Provedor pedido sem chave cai no Gemini; a interface avisa em vez de esconder.
+    ...(modelRoute.fellBack?{modelFallback:{requested:modelRoute.requested,used:routedProvider}}:{}),
     ...(externalAction?{externalAction}:{}),
     ...(projectProposal?{projectProposal}:{}),
     ...(manualTaskProposal?{taskProposal:manualTaskProposal}:{}),

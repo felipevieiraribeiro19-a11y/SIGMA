@@ -3,7 +3,13 @@ import type {User} from 'firebase/auth';
 import {validLabApiBase} from './jarvis-chat-protocol';
 
 const api=validLabApiBase(import.meta.env.VITE_JARVIS_LAB_API);
-type Entry={id:string;text:string;createdAt:string;updatedAt:string};
+export type EntryKind='fato'|'preferencia'|'correcao'|'rotina';
+type Entry={id:string;text:string;kind:EntryKind;createdAt:string;updatedAt:string};
+const KINDS:EntryKind[]=['fato','preferencia','correcao','rotina'];
+const KIND_LABEL:Record<EntryKind,string>={fato:'Fato',preferencia:'Preferência',correcao:'Correção',rotina:'Rotina'};
+/** Registros antigos não têm kind; o servidor já normaliza, isto é a segunda barreira. */
+const safeKind=(value:unknown):EntryKind=>
+ typeof value==='string'&&(KINDS as string[]).includes(value)?value as EntryKind:'fato';
 type ApiBody={entries?:Entry[];entry?:Entry;error?:string};
 function safeEntries(value:unknown):Entry[]{
  const raw=(value as ApiBody|null)?.entries;
@@ -13,7 +19,7 @@ function safeEntries(value:unknown):Entry[]{
    typeof entry.text!=='string'||entry.text.length>500||
    typeof entry.createdAt!=='string'||typeof entry.updatedAt!=='string')
    throw Error('Registro de memória inválido.');
-  return entry;
+  return {...entry,kind:safeKind((entry as {kind?:unknown}).kind)};
  });
 }
 /**
@@ -23,25 +29,27 @@ function safeEntries(value:unknown):Entry[]{
 export function LabRealMemory({user}:{user:User|null}){
  const [entries,setEntries]=useState<Entry[]>([]);
  const [draft,setDraft]=useState('');
+ const [draftKind,setDraftKind]=useState<EntryKind>('fato');
  const [confirmed,setConfirmed]=useState(false);
  const [connected,setConnected]=useState(false);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [editing,setEditing]=useState<string|null>(null);
  const [editText,setEditText]=useState('');
+ const [editKind,setEditKind]=useState<EntryKind>('fato');
  const [eraseConfirmed,setEraseConfirmed]=useState(false);
  useEffect(()=>{
-  setEntries([]);setDraft('');setConfirmed(false);setConnected(false);
+  setEntries([]);setDraft('');setDraftKind('fato');setConfirmed(false);setConnected(false);
   setEditing(null);setError('');setEraseConfirmed(false);
  },[user?.uid]);
 
- async function call(method:string,path='',text?:string):Promise<unknown>{
+ async function call(method:string,path='',text?:string,kind?:EntryKind):Promise<unknown>{
   if(!user||!api)throw Error('Faça login Google para usar a memória.');
   const token=await user.getIdToken();
   const res=await fetch(api+'/api/lab/memory'+path,{
    method,cache:'no-store',
    headers:{Authorization:'Bearer '+token,...(text===undefined?{}:{'Content-Type':'application/json'})},
-   ...(text===undefined?{}:{body:JSON.stringify({text})})
+   ...(text===undefined?{}:{body:JSON.stringify({text,...(kind?{kind}:{})})})
   });
   const body=await res.json().catch(()=>null) as ApiBody|null;
   if(!res.ok)throw Error(typeof body?.error==='string'?body.error:'Memória indisponível.');
@@ -61,9 +69,9 @@ export function LabRealMemory({user}:{user:User|null}){
   if(!confirmed||draft.trim().length<3||busy)return;
   setBusy(true);setError('');
   try{
-   await call('POST','',draft.trim());
+   await call('POST','',draft.trim(),draftKind);
    const body=await call('GET');
-   setEntries(safeEntries(body));setDraft('');setConfirmed(false);
+   setEntries(safeEntries(body));setDraft('');setDraftKind('fato');setConfirmed(false);
   }catch(e){setError(e instanceof Error?e.message:'Falha ao salvar.');}
   finally{setBusy(false);}
  }
@@ -71,7 +79,7 @@ export function LabRealMemory({user}:{user:User|null}){
   if(editText.trim().length<3||busy)return;
   setBusy(true);setError('');
   try{
-   await call('PATCH','/'+id,editText.trim());
+   await call('PATCH','/'+id,editText.trim(),editKind);
    const body=await call('GET');
    setEntries(safeEntries(body));setEditing(null);setEditText('');
   }catch(e){setError(e instanceof Error?e.message:'Falha ao atualizar.');}
@@ -96,7 +104,7 @@ export function LabRealMemory({user}:{user:User|null}){
  }
  return <section className="lab-real-memory" aria-label="Memória pessoal">
   <h3>Memória pessoal</h3>
-  <p>As informações são guardadas somente após você aprovar o registro. Quando habilitada, esta memória permanece entre visitas e pode ser editada ou apagada. Não é histórico de conversas. Se você ativar a consulta contextual no chat, as notas relevantes poderão ser enviadas ao Gemini nas próximas perguntas.</p>
+  <p>As informações são guardadas somente após você aprovar o registro. Quando habilitada, esta memória permanece entre visitas e pode ser editada ou apagada. Não é histórico de conversas. Se você ativar a consulta contextual no chat, as notas relevantes poderão ser enviadas ao provedor de IA nas próximas perguntas.</p>
   <p className="lab-memory-warning">Use apenas dados fictícios nos primeiros testes. Não registre senhas ou informações sensíveis.</p>
   {!user&&<p>Entre com Google para consultar a memória experimental.</p>}
   {!api&&<p>Integração com o laboratório ainda não preparada.</p>}
@@ -105,6 +113,11 @@ export function LabRealMemory({user}:{user:User|null}){
   </button>}
   {connected&&<div>
    <p role="status">{entries.length} de 30 registros. Não há gravação automática.</p>
+   <label htmlFor="lab-memory-kind">Tipo da memória</label>
+   <select id="lab-memory-kind" value={draftKind} disabled={busy}
+    onChange={e=>{setDraftKind(safeKind(e.target.value));setConfirmed(false);}}>
+    {KINDS.map(kind=><option key={kind} value={kind}>{KIND_LABEL[kind]}</option>)}
+   </select>
    <label htmlFor="lab-memory-draft">Nova memória aprovada por você</label>
    <textarea id="lab-memory-draft" rows={3} maxLength={500}
     placeholder="Informação que você deseja que o SIGMA lembre…"
@@ -117,6 +130,10 @@ export function LabRealMemory({user}:{user:User|null}){
    {entries.length===0&&<p>Nenhuma memória registrada.</p>}
    <ul className="lab-memory-entries">{entries.map(item=><li key={item.id}>
     {editing===item.id?<div>
+     <select value={editKind} disabled={busy} aria-label="Tipo da memória"
+      onChange={e=>setEditKind(safeKind(e.target.value))}>
+      {KINDS.map(kind=><option key={kind} value={kind}>{KIND_LABEL[kind]}</option>)}
+     </select>
      <textarea rows={3} maxLength={500} value={editText} disabled={busy}
       onChange={e=>setEditText(e.target.value)}/>
      <div className="lab-memory-actions">
@@ -124,8 +141,8 @@ export function LabRealMemory({user}:{user:User|null}){
        onClick={()=>void edit(item.id)}>Salvar correção</button>
       <button type="button" disabled={busy} onClick={()=>setEditing(null)}>Cancelar</button>
      </div>
-    </div>:<><p>{item.text}</p><div className="lab-memory-actions">
-      <button type="button" disabled={busy} onClick={()=>{setEditing(item.id);setEditText(item.text);}}>Editar</button>
+    </div>:<><p><small className="lab-memory-kind">{KIND_LABEL[item.kind]}</small> {item.text}</p><div className="lab-memory-actions">
+      <button type="button" disabled={busy} onClick={()=>{setEditing(item.id);setEditText(item.text);setEditKind(item.kind);}}>Editar</button>
       <button type="button" disabled={busy} className="memory-delete" onClick={()=>void remove(item.id)}>Excluir</button>
      </div></>}
    </li>)}</ul>

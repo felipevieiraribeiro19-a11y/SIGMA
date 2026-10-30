@@ -45,6 +45,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
  const [librarySources,setLibrarySources]=useState<{key:string;title:string;source:string;url:string;contentStatus:string}[]|null>(null);
  const [integrationReceipt,setIntegrationReceipt]=useState<Record<string,number>|null>(null);
  const [proposalText,setProposalText]=useState('');
+ const [proposalKind,setProposalKind]=useState<'fato'|'preferencia'|'correcao'|'rotina'>('fato');
  const [proposalApproved,setProposalApproved]=useState(false);
  const [savingProposal,setSavingProposal]=useState(false);
  const [proposalNotice,setProposalNotice]=useState('');
@@ -79,7 +80,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
  const pending=useRef<AbortController|null>(null);
  const completionLoadVersion=useRef(0);
  useEffect(()=>()=>{pending.current?.abort();completionLoadVersion.current++;},[]);
- useEffect(()=>{pending.current?.abort();sendLock.current=false;setExternal(null);setExternalNotice('');setConfirmSignal(0);setPrepareSignal(0);setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);},[user?.uid]);
+ useEffect(()=>{pending.current?.abort();sendLock.current=false;setExternal(null);setExternalNotice('');setConfirmSignal(0);setPrepareSignal(0);setHistory([]);setDraft('');setError('');setWebSources([]);setMemoryChoices([]);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setConsultedMemoryCount(0);setAutoMemory(false);setAutoMemoryResult(null);setSelectedSources([]);setUseLibrary(false);setUseProjects(false);setProjectsReceipt(null);setLibrarySources(null);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalKind('fato');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);},[user?.uid]);
  useEffect(()=>{
   let live=true;
   setAutoMemory(false);
@@ -217,9 +218,12 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
       truncated:safeProjectReceipt.truncated}:null;
    const rawReceipt=structured?.integrations;
    const newReceipt=rawReceipt&&typeof rawReceipt==='object'&&!Array.isArray(rawReceipt)?rawReceipt as Record<string,number>:null;
-   const rawSuggestion=(structured?.learningProposal as {text?:unknown;requiresApproval?:unknown}|null);
+   const rawSuggestion=(structured?.learningProposal as {text?:unknown;kind?:unknown;requiresApproval?:unknown}|null);
    const nextSuggestion=rawSuggestion?.requiresApproval===true&&typeof rawSuggestion.text==='string'
     ?rawSuggestion.text.slice(0,500):'';
+   const nextKind=typeof rawSuggestion?.kind==='string'&&
+    ['fato','preferencia','correcao','rotina'].includes(rawSuggestion.kind)
+     ?rawSuggestion.kind as 'fato'|'preferencia'|'correcao'|'rotina':'fato';
    const memoryData=(result as {memory?:{consulted?:unknown;count?:unknown;mode?:unknown}}|null)?.memory;
    const consulted=memoryData?.consulted===true&&
     typeof memoryData.count==='number'&&
@@ -244,7 +248,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
     setHistory([...messages,{role:'assistant',text:answer}]);
     setExternal((result as {externalAction?:ActionData}).externalAction||null);
     setProjectsReceipt(nextProjects);
-    setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalApproved(false);
+    setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalKind(nextKind);setProposalApproved(false);
     setAutoMemoryResult(autoResult);
     setDraft('');setSearchWeb(false);setUseProjects(false);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
    }
@@ -391,10 +395,10 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
    const token=await user.getIdToken();
    const response=await fetch(api+'/api/lab/memory',{method:'POST',
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-    body:JSON.stringify({text:proposalText.trim()}),cache:'no-store'});
+    body:JSON.stringify({text:proposalText.trim(),kind:proposalKind}),cache:'no-store'});
    const body:any=await response.json().catch(()=>null);
    if(!response.ok)throw Error(body?.error||'Não foi possível salvar a memória.');
-   setProposalText('');setProposalApproved(false);
+   setProposalText('');setProposalKind('fato');setProposalApproved(false);
    setProposalNotice('Memória aprovada e salva na sua conta.');
   }catch(e){setProposalNotice(e instanceof Error?e.message:'Falha ao salvar.');}
   finally{mutationLock.current=false;setSavingProposal(false);}
@@ -519,10 +523,19 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
   {proposalText&&<div className="lab-learning-proposal">
    <strong>Aprendizado contínuo — sugestão, não salva</strong>
    <p>O SIGMA identificou uma informação que talvez valha guardar. Revise, corrija ou descarte.</p>
+   <label>Tipo
+    <select value={proposalKind} disabled={savingProposal}
+     onChange={e=>{setProposalKind(e.target.value as 'fato'|'preferencia'|'correcao'|'rotina');setProposalApproved(false);}}>
+     <option value="fato">Fato</option>
+     <option value="preferencia">Preferência</option>
+     <option value="correcao">Correção</option>
+     <option value="rotina">Rotina</option>
+    </select>
+   </label>
    <textarea maxLength={500} rows={3} value={proposalText} onChange={e=>{setProposalText(e.target.value);setProposalApproved(false);}}/>
    <label><input type="checkbox" checked={proposalApproved} onChange={e=>setProposalApproved(e.target.checked)}/> Aprovo salvar exatamente este texto na memória permanente.</label>
    <button type="button" disabled={!proposalApproved||savingProposal||proposalText.trim().length<3} onClick={()=>void saveApprovedProposal()}>Confirmar e salvar</button>
-   <button type="button" onClick={()=>{setProposalText('');setProposalApproved(false);}}>Descartar</button>
+   <button type="button" onClick={()=>{setProposalText('');setProposalKind('fato');setProposalApproved(false);}}>Descartar</button>
   </div>}
   {proposalNotice&&<p role="status">{proposalNotice}</p>}
   {webSources.length>0&&<div className="lab-chat-sources" aria-label="Links encontrados na última pesquisa">
@@ -605,7 +618,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
    <button type="button" disabled={!api||!user||busy||!draft.trim()} onClick={()=>void send()}>
     {busy?'Conversando…':autoMemory?'Enviar com busca contextual':selectedMemoryIds.length>0?'Enviar com '+selectedMemoryIds.length+' memória(s)':'Enviar mensagem'}
    </button>
-   <button type="button" disabled={busy||history.length===0} onClick={()=>{setExternal(null);setExternalNotice('');setPrepareSignal(0);setConfirmSignal(0);setPrepareSignal(0);setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);}}>Limpar sessão local</button>
+   <button type="button" disabled={busy||history.length===0} onClick={()=>{setExternal(null);setExternalNotice('');setPrepareSignal(0);setConfirmSignal(0);setPrepareSignal(0);setHistory([]);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);setIntegrationReceipt(null);setProjectsReceipt(null);setProposalText('');setProposalKind('fato');setProposalApproved(false);setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);}}>Limpar sessão local</button>
   </div>
   {error&&<p className="lab-error" role="alert">{error}</p>}
  </div>;

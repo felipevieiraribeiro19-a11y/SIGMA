@@ -5,11 +5,29 @@
  */
 import {HttpError} from './validation';
 
+/**
+ * Tipo do registro, para que o longo prazo seja legível no prompt.
+ * Entradas gravadas antes deste campo existir são lidas como 'fato'.
+ */
+export type LabMemoryKind='fato'|'preferencia'|'correcao'|'rotina';
+export const LAB_MEMORY_KINDS:LabMemoryKind[]=['fato','preferencia','correcao','rotina'];
 export type LabMemoryEntry={
- id:string; text:string; createdAt:string; updatedAt:string
+ id:string; text:string; kind:LabMemoryKind; createdAt:string; updatedAt:string
 };
 export const LAB_MEMORY_LIMIT=30;
 export const LAB_MEMORY_MAX_LENGTH=500;
+
+/** Leitura tolerante: o que foi gravado antes de existir `kind` vale como 'fato'. */
+export function normalizeLabMemoryKind(value:unknown):LabMemoryKind{
+ return typeof value==='string'&&(LAB_MEMORY_KINDS as string[]).includes(value)
+  ?value as LabMemoryKind:'fato';
+}
+export function parseLabMemoryKind(value:unknown):LabMemoryKind|undefined{
+ if(value===undefined)return undefined;
+ if(typeof value!=='string'||!(LAB_MEMORY_KINDS as string[]).includes(value))
+  throw new HttpError(400,'Tipo de memória desconhecido.');
+ return value as LabMemoryKind;
+}
 
 export function validateLabMemoryText(value:unknown):string{
  if(typeof value!=='string')throw new HttpError(400,'Memória deve ser texto.');
@@ -25,11 +43,12 @@ export function validateLabMemoryId(value:unknown):string{
   throw new HttpError(400,'Identificador inválido.');
  return value;
 }
-export function parseLabMemoryPayload(value:unknown):string{
- if(!value||typeof value!=='object'||Array.isArray(value)||
-   Object.keys(value).length!==1||!Object.hasOwn(value,'text'))
-  throw new HttpError(400,'Envie somente o campo text.');
- return validateLabMemoryText((value as {text:unknown}).text);
+export function parseLabMemoryPayload(value:unknown):{text:string;kind?:LabMemoryKind}{
+ if(!value||typeof value!=='object'||Array.isArray(value)||!Object.hasOwn(value,'text')||
+   Object.keys(value).some(key=>key!=='text'&&key!=='kind'))
+  throw new HttpError(400,'Envie somente os campos text e kind.');
+ const body=value as {text:unknown;kind?:unknown};
+ return {text:validateLabMemoryText(body.text),kind:parseLabMemoryKind(body.kind)};
 }
 type Store={transaction:<T>(cb:(tx:{
  get:<V>(key:string)=>Promise<V|undefined>;
@@ -69,15 +88,16 @@ export class LabMemoryStore{
     (await tx.get<LabMemoryEntry[]>('entries'))||[]);
    if(request.method==='GET'&&path==='/entries'){
     const entries=await read();
-    return json({entries:entries.slice().sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))});
+    return json({entries:entries.map(entry=>({...entry,kind:normalizeLabMemoryKind(entry.kind)}))
+     .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))});
    }
    if(request.method==='POST'&&path==='/entries'){
-    const text=parseLabMemoryPayload(await request.json());
+    const {text,kind}=parseLabMemoryPayload(await request.json());
     const entry=await this.state.storage.transaction(async tx=>{
      const rows=(await tx.get<LabMemoryEntry[]>('entries'))||[];
      if(rows.length>=LAB_MEMORY_LIMIT)throw new HttpError(409,'Limite de 30 memórias atingido.');
      const stamp=new Date().toISOString();
-     const created:LabMemoryEntry={id:crypto.randomUUID(),text,createdAt:stamp,updatedAt:stamp};
+     const created:LabMemoryEntry={id:crypto.randomUUID(),text,kind:kind??'fato',createdAt:stamp,updatedAt:stamp};
      await tx.put('entries',[...rows,created]);
      return created;
     });
@@ -85,12 +105,14 @@ export class LabMemoryStore{
    }
    if(request.method==='PATCH'&&path.startsWith('/entries/')){
     const id=validateLabMemoryId(path.slice(9));
-    const text=parseLabMemoryPayload(await request.json());
+    const {text,kind}=parseLabMemoryPayload(await request.json());
     const entry=await this.state.storage.transaction(async tx=>{
      const rows=(await tx.get<LabMemoryEntry[]>('entries'))||[];
      const index=rows.findIndex(x=>x.id===id);
      if(index<0)throw new HttpError(404,'Memória não encontrada.');
-     const updated={...rows[index],text,updatedAt:new Date().toISOString()};
+     const updated={...rows[index],text,
+      kind:kind??normalizeLabMemoryKind(rows[index].kind),
+      updatedAt:new Date().toISOString()};
      await tx.put('entries',rows.map((x,i)=>i===index?updated:x));
      return updated;
     });

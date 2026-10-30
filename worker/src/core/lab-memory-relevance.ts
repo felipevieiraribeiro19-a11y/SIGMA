@@ -4,7 +4,7 @@
  * another model or search engine for retrieval.
  */
 import {HttpError} from '../validation';
-import type {LabMemoryEntry} from '../lab-memory';
+import {normalizeLabMemoryKind,type LabMemoryEntry} from '../lab-memory';
 
 const STOP=new Set([
  'a','as','o','os','e','ou','de','do','da','dos','das','em','no','na','nos','nas',
@@ -41,7 +41,7 @@ export function relevantLabMemory(entries:unknown,question:string):LabMemoryEntr
   if(!raw||typeof raw.id!=='string'||typeof raw.text!=='string'||
    raw.text.length<3||raw.text.length>500)
    throw new HttpError(503,'Registro inválido na memória.');
-  const row=raw as unknown as LabMemoryEntry;
+  const row={...raw,kind:normalizeLabMemoryKind(raw.kind)} as unknown as LabMemoryEntry;
   const note=new Set(keyTerms(raw.text));
   const common=terms.filter(t=>note.has(t));
   if(common.length===0)continue;

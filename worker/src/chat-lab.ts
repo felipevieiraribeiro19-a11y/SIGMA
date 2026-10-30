@@ -14,12 +14,12 @@ import {relevantLabMemory} from './core/lab-memory-relevance';
 import {LabWorkspaceStore} from './lab-workspace';
 import {LabDocumentIndex} from './lab-document-index';
 import {LabGoogleOAuthVault} from './lab-google-oauth';
-import {handleAuthenticatedGoogleOAuth,handleGoogleOAuthCallback} from './core/google-oauth-api';
+import {handleAuthenticatedGoogleOAuth,handleGoogleOAuthCallback,resolveGoogleToken} from './core/google-oauth-api';
 import {fetchDriveDocumentPage,fetchNotionDocumentPage} from './core/document-source-readers';
 import {EXTERNAL_TOOL,externalProposal,externalInstruction,externalIntent} from './core/external-proposal';
 import {LabExternalActionStore} from './lab-external-actions';
 import {executeApprovedExternalAction} from './core/sigma-action-executors';
-import {readGoogle,readNotion,validateProviders,providerPrompt,validGoogleToken,type Provider} from './core/sigma-connectors';
+import {readGoogle,readNotion,validateProviders,providerPrompt,type Provider} from './core/sigma-connectors';
 import {proposeContinuousLearning} from './core/continuous-learning';
 import {SIGMA_MODULES} from './core/ecosystem-manifest';
 import {PROJECT_TOOL_DECLARATION,projectToolInstruction,readProjectProposal,projectPreviewText} from './core/project-proposal-tool';
@@ -220,7 +220,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
        throw new HttpError(503,'Conectores externos ainda desligados.');
       // Recheck ephemeral OAuth permission on every step; no tokens are stored.
       const auth=source==='drive'?
-       validGoogleToken(request.headers.get('X-Google-Token')):env.NOTION_API_KEY||'';
+       await resolveGoogleToken(request,env,uid,'drive'):env.NOTION_API_KEY||'';
       if(source==='notion'&&(auth.length<10||auth.length>500))
        throw new HttpError(503,'Notion não configurado no laboratório.');
       if(action==='start'){
@@ -348,7 +348,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
      if(confirmBody!=='{"confirmed":true}')throw new HttpError(400,'Confirme exatamente esta ação.');
      const row=statusResult.action!;
      const google= row.data.operation==='notion.page.create' ? null :
-      validGoogleToken(request.headers.get('X-Google-Token'));
+      await resolveGoogleToken(request,env,uid,
+       row.data.operation.startsWith('drive.')?'drive':'calendar');
      if(row.data.operation==='notion.page.create'&&!(env.NOTION_API_KEY||'').trim())
       throw new HttpError(503,'Configure o segredo da integração Notion.');
      const quota=await env.LAB_QUOTA.get(env.LAB_QUOTA.idFromName(uid))
@@ -374,7 +375,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
      const provider=selected as Provider;
      const items=provider==='notion'?
        await readNotion(env.NOTION_API_KEY||'',deps.fetch||fetch,new URL(request.url).searchParams.get('pageId')||undefined):
-       await readGoogle(provider,validGoogleToken(request.headers.get('X-Google-Token')),deps.fetch||fetch);
+       await readGoogle(provider,await resolveGoogleToken(request,env,uid,provider),deps.fetch||fetch);
      return reply({provider,items,readonly:true});
     }
    }
@@ -501,7 +502,7 @@ export function makeLabChatWorker(deps:Dependencies={}){
     const collected=await Promise.all(selectedProviders.map(async provider=>{
      const items=provider==='notion'?
       await readNotion(env.NOTION_API_KEY||'',deps.fetch||fetch):
-      await readGoogle(provider,validGoogleToken(request.headers.get('X-Google-Token')),deps.fetch||fetch);
+      await readGoogle(provider,await resolveGoogleToken(request,env,uid,provider),deps.fetch||fetch);
      return {provider,items};
     }));
     connectorContext=collected.map(x=>providerPrompt(x.provider,x.items)).join('\n');

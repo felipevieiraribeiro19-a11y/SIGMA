@@ -104,7 +104,9 @@ Isso publica **apenas** o Worker de laboratório. O `sigma-cerebro` de produçã
 5. **Feche a aba, abra de novo, repita o passo 4.** Se continuar "Conectado" sem novo consentimento, o item está resolvido.
 6. Repita para *Drive (nomes e datas)*.
 
-O que **não** vai funcionar ainda, e é esperado: o chat continuar pedindo o token da sessão. O código já tem o cofre populado, mas a conversa ainda não o consulta — é a mudança **1.2** do plano (`chat-lab.ts`, ~20 linhas), que eu faço na próxima etapa.
+Depois do passo 5, o chat e as integrações passam a usar o cofre automaticamente: sem `X-Google-Token` na requisição, o servidor pega o access token renovado. Se você fechar a aba e voltar no dia seguinte, deve funcionar sem reconectar nada — desde que o refresh token não tenha expirado (ver os 7 dias abaixo).
+
+Para conferir: peça no chat algo que dependa da agenda (por exemplo "o que tenho essa semana?") com o conector *calendar* selecionado, **sem** abrir o fluxo de consentimento antes.
 
 ---
 

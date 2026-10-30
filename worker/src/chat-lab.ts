@@ -6,6 +6,7 @@
  */
 import {createRemoteJWKSet,jwtVerify} from 'jose';
 import {HttpError,validateMessages,quotaDecision} from './validation';
+import {resolveModelRoute,buildChatRequest,parseChatReply,supportsTools} from './core/providers';
 import {buildGeminiRequest} from './core/models';
 import {searchIntent,searchTavily,webSearchQuery,type WebSource} from './web-search';
 import {LabMemoryStore} from './lab-memory';
@@ -53,6 +54,14 @@ export interface LabChatEnv {
  LAB_CHAT_ENABLED:string;
  GEMINI_API_KEY?:string;
  GEMINI_MODEL:string;
+ /** Opcional. Ausente = Gemini, exatamente como antes. */
+ LAB_PROVIDER?:string;
+ DEEPSEEK_API_KEY?:string;
+ DEEPSEEK_MODEL?:string;
+ OPENAI_API_KEY?:string;
+ OPENAI_MODEL?:string;
+ ANTHROPIC_API_KEY?:string;
+ ANTHROPIC_MODEL?:string;
  LAB_WEB_ENABLED?:string;
  TAVILY_API_KEY?:string;
  LAB_QUOTA:DurableObjectNamespace;
@@ -597,12 +606,38 @@ export function makeLabChatWorker(deps:Dependencies={}){
       ' | '+source.url+' | Data: '+(source.publishedDate||'não informada')+
       ' | Trecho: '+source.excerpt).join('\\n')
     :searchRequested?'Nenhuma fonte atual foi obtida. Não apresente informação como se fosse verificada em tempo real.':'';
+   // Rota de modelo. Sem LAB_PROVIDER, ou com Gemini, o caminho abaixo é o de sempre.
+   const modelRoute=resolveModelRoute(env);
+   const routedProvider=modelRoute.route.provider;
+   const useRouter=routedProvider!=='gemini';
+   // Propostas de tarefa/projeto dependem de function calling no formato Gemini.
    const projectProposalEnabled=env.LAB_BRAIN_ENABLED==='true'&&
-    env.LAB_WORKSPACE_ENABLED==='true'&&!!env.LAB_WORKSPACE;
+    env.LAB_WORKSPACE_ENABLED==='true'&&!!env.LAB_WORKSPACE&&supportsTools(routedProvider);
    const taskIntent=createTaskIntent;
    const completeIntent=taskCompleteIntent(messages[messages.length-1].text);
    const dates=localTaskDates();
    const externalEnabled=env.LAB_ACTIONS_ENABLED==='true'&&env.LAB_CONNECTORS_ENABLED==='true';
+   let modelParts:{text?:string;thought?:boolean;functionCall?:unknown}[];
+   if(useRouter){
+    // Caminho novo: provedor alternativo, somente texto.
+    const contextBlocks=[approvedMemoryContext,onlineContext,connectorContext,
+     libraryContext,projectContext,taskContext].filter(Boolean).join('\n\n');
+    const chatMessages=messages.map((m,i)=>({
+     role:m.role,
+     text:i===messages.length-1&&contextBlocks?m.text+'\n\n'+contextBlocks:m.text
+    }));
+    const built=buildChatRequest(modelRoute.route,{
+     system:LAB_SYSTEM_IDENTITY+(externalEnabled?' '+externalInstruction(dates.today):''),
+     messages:chatMessages,
+     maxOutputTokens:1100,
+     timeoutMs:25000
+    });
+    const routed=await(deps.fetch||fetch)(built.url,built.init);
+    if(routed.status===429)throw new HttpError(429,'Cota do provedor de modelo esgotada no momento.');
+    if(!routed.ok)throw new HttpError(502,'Provedor de modelo indisponível neste teste.');
+    const payload=await routed.json().catch(()=>null);
+    modelParts=parseChatReply(routedProvider,payload).parts;
+   }else{
    const model=buildGeminiRequest(env.GEMINI_MODEL,env.GEMINI_API_KEY,{
     systemInstruction:{parts:[{text:LAB_SYSTEM_IDENTITY+(externalEnabled?' '+externalInstruction(dates.today):'')+
      (projectProposalEnabled?' '+projectToolInstruction()+' '+taskToolInstruction(dates.today,dates.tomorrow)+' '+taskCompletionInstruction():'')}]},
@@ -619,7 +654,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
    const response=await result.json() as {candidates?:{content?:{
     parts?:{text?:string;thought?:boolean;functionCall?:unknown}[]
    }}[]};
-   const modelParts=response.candidates?.[0]?.content?.parts||[];
+   modelParts=response.candidates?.[0]?.content?.parts||[];
+   }
    // The model may propose only one operation; it never executes writes.
    const modelCalls=modelParts.filter(p=>p.functionCall!==undefined);
    const taskCallName=(modelCalls[0]?.functionCall as {name?:unknown}|undefined)?.name;
@@ -693,7 +729,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
     modelParts.filter(p=>!p.thought).map(p=>p.text||'').join('').trim();
    if(!answer)throw new HttpError(502,'Gemini não retornou uma resposta em texto.');
    if(answer.length>12000)throw new HttpError(502,'Resposta grande demais.');
-   return reply({text:answer,persisted:false,executed:false,provider:'gemini',
+   return reply({text:answer,persisted:false,executed:false,provider:routedProvider,
+    ...(useRouter?{toolProposalsDisabled:true}:{}),
     ...(externalAction?{externalAction}:{}),
     ...(projectProposal?{projectProposal}:{}),
     ...(manualTaskProposal?{taskProposal:manualTaskProposal}:{}),

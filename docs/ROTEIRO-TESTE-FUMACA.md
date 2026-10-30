@@ -1,95 +1,103 @@
-# Teste de fumaça do Worker de laboratório
+# Testes de fumaça
 
-Depois de publicar (`wrangler deploy`), rode isto para saber em 30 segundos se o que você publicou está de pé — sem abrir o navegador.
+Dois scripts, mesma lógica, alvos diferentes. Nenhum precisa de dependência nova, nenhum imprime token.
+
+| Script | Alvo | Comando |
+|---|---|---|
+| `smoke-lab.mjs` | Worker de **laboratório** | `npm run smoke` |
+| `smoke-prod.mjs` | Worker de **produção** | `npm run smoke:prod` |
+
+Ambos deduzem o endereço do respectivo `wrangler*.toml`. `--url` só é necessário se o Worker tiver outro nome.
+
+---
+
+## Produção — `npm run smoke:prod`
+
+### Sem credencial (seguro, pode rodar sempre)
 
 ```bash
-npm run smoke -- --url https://sigma-jarvis-cerebro-lab.felipevieiraribeiro19.workers.dev
+npm run smoke:prod
 ```
-
-## O que ele verifica sem nenhuma credencial
 
 | Verificação | Esperado |
 |---|---|
 | Origem não autorizada | 403 |
-| Preflight CORS | 204 |
+| Preflight CORS | 204 + origem correta no cabeçalho |
 | Chamada sem token | 401 |
 | Rota desconhecida | 404 |
+| Método errado | 405 |
+| Sem JSON no corpo | 415 (ou 401: o Worker autentica antes do corpo) |
 
-Isso já responde "o Worker subiu e está com a configuração certa de origem?".
+Se qualquer uma falhar, **pare** — alguma coisa mudou na fronteira de segurança.
 
-## O que verifica com token
-
-Passe um ID token do Firebase para testar o que importa de verdade:
+### Com token
 
 ```bash
-npm run smoke -- --url https://<worker>.workers.dev --token-file /tmp/token.txt
+npm run smoke:prod -- --token-file /tmp/token.txt
 ```
 
-| Verificação | O que mostra |
+| Verificação | O que prova |
 |---|---|
-| Cofre OAuth | Agenda / Drive conectados, ou "precisa reconectar" |
-| Chat | **provedor em uso**, tempo de resposta, tamanho da resposta |
-| Integração agenda | leitura real **sem** token de sessão — prova que o cofre funciona |
+| `capabilities` | o Worker autenticou e o catálogo responde |
+| escrita externa desligada | `writesEnabled === false` — ações continuam bloqueadas |
+| `histórico` | leitura do Firestore do usuário |
+| `agenda e Drive` | só com `--google-token-file`; sem ele, é **pulada** e não conta como falha |
 
-Saída típica:
+### O chat é opt-in, e o motivo importa
 
-```
-Teste de fumaça — https://sigma-jarvis-cerebro-lab...
-Origem usada: https://sigma-61328--jarvis-lab-pw5dmfbc.web.app
-Token: eyJh…k9Qz
+`POST /api/chat` **grava o par pergunta/resposta no seu Firestore**. Por isso ele **não roda por padrão**:
 
-  ok  origem não autorizada é recusada      HTTP 403
-  ok  preflight CORS responde 204          HTTP 204
-  ok  chamada sem token é recusada         HTTP 401 Faça login com Google no laboratório.
-  ok  rota desconhecida responde 404       HTTP 404
-  ok  cofre OAuth responde                 calendar: conectado | drive_metadata: conectado
-  ok  chat responde                        deepseek · 1840 ms · 412 caracteres
-  ok  integração calendar (via cofre)      7 itens · 620 ms
-
-Provedor em uso: deepseek | resposta em 1840 ms
-
-todas as verificações passaram
+```bash
+npm run smoke:prod -- --token-file /tmp/token.txt --chat
 ```
 
-## Como obter o token
+O teste envia **uma** mensagem e reporta latência e tamanho da resposta. O turno fica registrado no seu histórico — é o único efeito colateral de todo o script.
 
-1. Abra a interface do laboratório e faça login com Google.
-2. DevTools → **Network** → clique em qualquer requisição `/api/lab/...`.
-3. Em **Request Headers**, copie o valor depois de `Authorization: Bearer `.
-4. Cole num arquivo:
+---
+
+## Laboratório — `npm run smoke`
+
+Ver `docs/ROTEIRO-OAUTH-GOOGLE.md` e `docs/CHECKLIST-ANTES-DO-GCP.md` para o contexto. Diferenças em relação à produção:
+
+- inclui **cofre OAuth** (`/api/lab/oauth/status`)
+- inclui **chat por padrão** (o laboratório não persiste conversa)
+- inclui leitura de agenda **sem** token de sessão, que é a prova de que o cofre funciona
+
+---
+
+## Opções comuns
+
+| Opção | Para quê |
+|---|---|
+| `--url` | sobrepor o endereço deduzido |
+| `--origin` | origem autorizada (padrão: lida do `wrangler*.toml`) |
+| `--token-file` | arquivo com o ID token do Firebase (ou `SIGMA_ID_TOKEN`) |
+| `--json` | saída para automação |
+| `--timeout` | ms por requisição (padrão 30000) |
+
+Só `smoke-prod` aceita `--chat`, `--google-token-file` e `--message`.
+
+## Como obter os tokens
+
+**ID token do Firebase**: abra o site, faça login, DevTools → Network → requisição para o Worker → `Authorization: Bearer …`.
 
 ```bash
 printf '%s' 'COLE_AQUI' > /tmp/token.txt
 ```
 
-O token do Firebase vale cerca de 1 hora. Se o teste disser `HTTP 401 — token inválido ou expirado`, copie outro.
+**Token do Google** (produção, para testar agenda): o mesmo caminho, mas no cabeçalho `X-Google-Token`. Vale ~1 hora.
+
+## Códigos de saída
+
+| Código | Significado |
+|---|---|
+| 0 | tudo passou (pulados não contam como falha) |
+| 1 | alguma verificação falhou |
+| 2 | erro de uso ou de rede (URL inválida, Worker inalcançável) |
 
 ## Garantias
 
-- **O token nunca é impresso.** A saída mostra `eyJh…k9Qz`.
-- **Não grava nada.** Só lê.
-- **Não altera estado.** O chat usa uma pergunta inofensiva (`Responda apenas: teste ok.`) e o laboratório não persiste conversa.
-- **Só aceita https**, exceto `127.0.0.1`/`localhost` para testes locais.
-- **Código de saída 1** se qualquer verificação falhar — dá para usar em script.
-
-## Opções
-
-| Opção | Para quê |
-|---|---|
-| `--url` | obrigatória; apenas a origem, sem caminho |
-| `--origin` | origem autorizada a usar (padrão: a do laboratório) |
-| `--token-file` | arquivo com o ID token (ou `SIGMA_ID_TOKEN` no ambiente) |
-| `--chat "..."` | trocar a pergunta (evite algo que grave tarefa) |
-| `--json` | saída em JSON, para automação |
-| `--timeout` | milissegundos por requisição (padrão 30000) |
-
-## Se falhar
-
-| Sintoma | Causa |
-|---|---|
-| `origem não autorizada` → HTTP 200/401 | `ALLOWED_ORIGIN` no `.toml` não bate com `--origin` |
-| `chamada sem token` → HTTP 200 | configuração perigosa: o Worker está aceitando anônimo |
-| `cofre OAuth` → 503 | `GOOGLE_OAUTH_ENABLED=false` ou segredos ausentes |
-| `chat` → 503 | `LAB_CHAT_ENABLED=false` |
-| `chat` → 502 | provedor de modelo indisponível ou chave inválida |
-| `integração calendar` → 401 | conexão Google expirada: reconecte no painel |
+- Nenhum token é impresso — a saída mostra `eyJh…k9Qz`.
+- Só `https`, exceto `127.0.0.1` para testes locais.
+- Nada é gravado em disco.
+- Única escrita possível: o chat, e só com `--chat` explícito.

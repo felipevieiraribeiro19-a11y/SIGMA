@@ -11,7 +11,8 @@
     "build:lab": "tsc --noEmit && vite build --config vite.lab.config.ts --mode lab",
     "build:beta": "tsc --noEmit && vite build --config vite.beta.config.ts --mode lab",
     "smoke": "node scripts/smoke-lab.mjs",
-    "check:lab": "node scripts/check-lab-config.mjs"
+    "check:lab": "node scripts/check-lab-config.mjs",
+    "smoke:prod": "node scripts/smoke-prod.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

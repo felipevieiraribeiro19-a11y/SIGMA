@@ -151,3 +151,17 @@ test('recusa URL sem https fora do localhost', async () => {
  assert.equal(result.code, 2);
  assert.match(String(result.stderr), /https/);
 });
+
+test('sem --url, deduz o endereço do wrangler.chat-lab.toml', async () => {
+ // Sem rede alcançável: o que importa é que a URL foi deduzida e o erro é limpo.
+ const result = await smoke('', ['--json']);
+ assert.equal(result.code, 2);
+ assert.match(String(result.stderr ?? ''), /workers\.dev|não foi possível conectar/);
+});
+
+test('falha de rede não gera stack trace', async () => {
+ const result = await smoke('http://127.0.0.1:1');
+ assert.equal(result.code, 2);
+ assert.match(String(result.stderr), /não foi possível conectar/);
+ assert.ok(!/at .*\.mjs:\d+/.test(String(result.stderr)), 'sem stack trace cru');
+});

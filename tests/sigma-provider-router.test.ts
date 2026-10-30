@@ -180,3 +180,30 @@ test('sem LAB_PROVIDER o chat continua chamando o Gemini',async()=>{
  assert.equal(body.provider,'gemini');
  assert.equal(body.toolProposalsDisabled,undefined);
 });
+
+test('resposta avisa quando o provedor pedido caiu para o Gemini', async () => {
+ const worker = makeLabChatWorker({
+  verify: async () => labEnv.ALLOWED_UID,
+  fetch: (async (input: RequestInfo | URL) => {
+   assert.match(String(input), /generativelanguage\.googleapis\.com/,
+    'sem chave do DeepSeek, a chamada sai para o Gemini');
+   return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Olá (mock).' }] } }] }), { status: 200 });
+  }) as typeof fetch
+ });
+ // LAB_PROVIDER pede deepseek, mas DEEPSEEK_API_KEY não existe.
+ const response = await worker.fetch(chatRequest(), { ...labEnv, LAB_PROVIDER: 'deepseek' });
+ const body = await response.json() as any;
+ assert.equal(body.provider, 'gemini');
+ assert.deepEqual(body.modelFallback, { requested: 'deepseek', used: 'gemini' });
+});
+
+test('sem queda, a resposta não menciona fallback', async () => {
+ const worker = makeLabChatWorker({
+  verify: async () => labEnv.ALLOWED_UID,
+  fetch: (async () => new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 })) as typeof fetch
+ });
+ const response = await worker.fetch(chatRequest(), { ...labEnv, LAB_PROVIDER: 'deepseek', DEEPSEEK_API_KEY: 'd-key' });
+ const body = await response.json() as any;
+ assert.equal(body.provider, 'deepseek');
+ assert.equal(body.modelFallback, undefined);
+});

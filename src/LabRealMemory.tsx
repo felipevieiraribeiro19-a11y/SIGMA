@@ -104,7 +104,7 @@ export function LabRealMemory({user}:{user:User|null}){
  }
  return <section className="lab-real-memory" aria-label="Memória pessoal">
   <h3>Memória pessoal</h3>
-  <p>As informações são guardadas somente após você aprovar o registro. Quando habilitada, esta memória permanece entre visitas e pode ser editada ou apagada. Não é histórico de conversas. Se você ativar a consulta contextual no chat, as notas relevantes poderão ser enviadas ao Gemini nas próximas perguntas.</p>
+  <p>As informações são guardadas somente após você aprovar o registro. Quando habilitada, esta memória permanece entre visitas e pode ser editada ou apagada. Não é histórico de conversas. Se você ativar a consulta contextual no chat, as notas relevantes poderão ser enviadas ao provedor de IA nas próximas perguntas.</p>
   <p className="lab-memory-warning">Use apenas dados fictícios nos primeiros testes. Não registre senhas ou informações sensíveis.</p>
   {!user&&<p>Entre com Google para consultar a memória experimental.</p>}
   {!api&&<p>Integração com o laboratório ainda não preparada.</p>}

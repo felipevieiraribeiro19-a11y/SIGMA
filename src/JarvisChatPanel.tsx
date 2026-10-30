@@ -44,6 +44,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
  const [projectsReceipt,setProjectsReceipt]=useState<{shared:number;available:number;truncated:boolean}|null>(null);
  const [librarySources,setLibrarySources]=useState<{key:string;title:string;source:string;url:string;contentStatus:string}[]|null>(null);
  const [integrationReceipt,setIntegrationReceipt]=useState<Record<string,number>|null>(null);
+ const [modelFallback,setModelFallback]=useState<{requested:string;used:string}|null>(null);
  const [proposalText,setProposalText]=useState('');
  const [proposalKind,setProposalKind]=useState<'fato'|'preferencia'|'correcao'|'rotina'>('fato');
  const [proposalApproved,setProposalApproved]=useState(false);
@@ -182,7 +183,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
   try{payload=approvedChatRequest(messages,selectedMemoryIds,autoMemory,selectedSources,useLibrary,useProjects,searchWeb);}
   catch(e){setError(e instanceof Error?e.message:'Seleção de memórias inválida.');return;}
   const controller=new AbortController();pending.current=controller;
-  sendLock.current=true;setExternal(null);setExternalNotice('');setConfirmSignal(0);setPrepareSignal(0);setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);
+  sendLock.current=true;setExternal(null);setExternalNotice('');setConfirmSignal(0);setPrepareSignal(0);setBusy(true);setError('');setWebSources([]);setConsultedMemoryCount(0);setAutoMemoryResult(null);setIntegrationReceipt(null);setLibrarySources(null);setProjectsReceipt(null);setProposalNotice('');setProjectProposal(null);setProjectConfirmed(false);setProjectNotice('');setTaskProposal(null);setTaskProjects([]);setTaskProjectId('');setTaskApproved(false);setTaskNotice('');completionLoadVersion.current++;setCompletionLoading(false);setTaskCompletion(null);setPendingTasks([]);setCompletionId('');setCompletionApproved(false);setCompletionNotice('');setTasksReceipt(null);setModelFallback(null);
   try{
    const token=await user.getIdToken();
    if(controller.signal.aborted)return;
@@ -218,6 +219,9 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
       truncated:safeProjectReceipt.truncated}:null;
    const rawReceipt=structured?.integrations;
    const newReceipt=rawReceipt&&typeof rawReceipt==='object'&&!Array.isArray(rawReceipt)?rawReceipt as Record<string,number>:null;
+   const rawFallback=(result as {modelFallback?:{requested?:unknown;used?:unknown}}|null)?.modelFallback;
+   const nextFallback=typeof rawFallback?.requested==='string'&&typeof rawFallback?.used==='string'
+    ?{requested:rawFallback.requested,used:rawFallback.used}:null;
    const rawSuggestion=(structured?.learningProposal as {text?:unknown;kind?:unknown;requiresApproval?:unknown}|null);
    const nextSuggestion=rawSuggestion?.requiresApproval===true&&typeof rawSuggestion.text==='string'
     ?rawSuggestion.text.slice(0,500):'';
@@ -248,7 +252,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
     setHistory([...messages,{role:'assistant',text:answer}]);
     setExternal((result as {externalAction?:ActionData}).externalAction||null);
     setProjectsReceipt(nextProjects);
-    setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalKind(nextKind);setProposalApproved(false);
+    setWebSources(sources);setConsultedMemoryCount(consulted);setIntegrationReceipt(newReceipt);setLibrarySources(docRefs);setProposalText(nextSuggestion);setProposalKind(nextKind);setProposalApproved(false);setModelFallback(nextFallback);
     setAutoMemoryResult(autoResult);
     setDraft('');setSearchWeb(false);setUseProjects(false);setSelectedMemoryIds([]);setMemoryPickerOpen(false);setMemoryChoices([]);
    }
@@ -423,17 +427,17 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
     <LabFormattedText text={m.text}/>
    </div>)}
   </div>}
-  {autoMemoryResult==='none'&&<p className="lab-memory-used" role="status">Nenhuma memória relevante foi encontrada nesta pergunta. Nada foi compartilhado da sua base com o Gemini.</p>}
+  {autoMemoryResult==='none'&&<p className="lab-memory-used" role="status">Nenhuma memória relevante foi encontrada nesta pergunta. Nada foi compartilhado da sua base com o provedor de IA.</p>}
   {consultedMemoryCount>0&&<p className="lab-memory-used" role="status">
    <strong>Memória:</strong> {consultedMemoryCount} registro(s) {autoMemoryResult==='found'?'relevante(s) encontrado(s) com sua autorização':'escolhido(s) por você'} foram usados nesta resposta.
   </p>}
   {tasksReceipt&&<p className="lab-memory-used" role="status">
    <strong>Tarefas pendentes consultadas:</strong> {tasksReceipt.shared} de {tasksReceipt.available}.
-   {tasksReceipt.truncated?' Existem outras tarefas não compartilhadas com o Gemini.':''}
+   {tasksReceipt.truncated?' Existem outras tarefas não compartilhadas com o provedor de IA.':''}
   </p>}
   {projectsReceipt&&<p className="lab-memory-used" role="status">
    <strong>Projetos consultados com sua autorização:</strong> {projectsReceipt.shared} de {projectsReceipt.available} projeto(s).
-   {projectsReceipt.truncated?' Para manter o contexto enxuto, alguns projetos não foram enviados ao Gemini.':''}
+   {projectsReceipt.truncated?' Para manter o contexto enxuto, alguns projetos não foram enviados ao provedor de IA.':''}
    {' '}Notas privadas, clientes, finanças e registros detalhados não foram compartilhados.
   </p>}
   {librarySources&&<div className="lab-learning-proposal" role="status">
@@ -445,9 +449,9 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
     </li>)}</ul>}
   </div>}
   {integrationReceipt&&<p className="lab-memory-used" role="status">Integrações consultadas nesta resposta: {Object.entries(integrationReceipt).map(([key,n])=>key+': '+n+' item(ns)').join(' · ')}.</p>}
-  {projectProposal&&<div className="lab-learning-proposal" aria-label="Proposta de projeto criada pelo Gemini">
+  {projectProposal&&<div className="lab-learning-proposal" aria-label="Proposta de projeto criada pelo provedor de IA">
    <strong>Proposta de projeto — nada salvo ainda</strong>
-   <p>O Gemini preparou um rascunho. Você pode corrigir os dados. Apenas sua confirmação criará este projeto no SIGMA.</p>
+   <p>O provedor de IA preparou um rascunho. Você pode corrigir os dados. Apenas sua confirmação criará este projeto no SIGMA.</p>
    <label>Nome do projeto<input maxLength={120} value={projectProposal.title}
     onChange={e=>{setProjectProposal({...projectProposal,title:e.target.value});setProjectConfirmed(false);}}/></label>
    <label>Objetivo<textarea rows={3} maxLength={1000} value={projectProposal.goal}
@@ -500,7 +504,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
   {taskNotice&&<p role="status">{taskNotice}</p>}
   {taskCompletion&&<div className="lab-learning-proposal" aria-label="Proposta de conclusão, nada alterado">
    <strong>Concluir tarefa — aguardando sua confirmação</strong>
-   <p>O Gemini sugeriu concluir: <strong>{taskCompletion.titleHint}</strong>. Selecione a tarefa real da sua conta. Nada foi alterado ainda.</p>
+   <p>O provedor de IA sugeriu concluir: <strong>{taskCompletion.titleHint}</strong>. Selecione a tarefa real da sua conta. Nada foi alterado ainda.</p>
    <label>Tarefa pendente
     <select disabled={busy||completionSaving||completionLoading} value={completionId} onChange={e=>{setCompletionId(e.target.value);setCompletionApproved(false);}}>
      <option value="">Selecione uma tarefa específica</option>
@@ -537,6 +541,9 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
    <button type="button" disabled={!proposalApproved||savingProposal||proposalText.trim().length<3} onClick={()=>void saveApprovedProposal()}>Confirmar e salvar</button>
    <button type="button" onClick={()=>{setProposalText('');setProposalKind('fato');setProposalApproved(false);}}>Descartar</button>
   </div>}
+  {modelFallback&&<p className="lab-chat-notice" role="status">
+    O provedor <strong>{modelFallback.requested}</strong> não está configurado neste ambiente. A resposta veio do <strong>{modelFallback.used}</strong>.
+  </p>}
   {proposalNotice&&<p role="status">{proposalNotice}</p>}
   {webSources.length>0&&<div className="lab-chat-sources" aria-label="Links encontrados na última pesquisa">
     <strong>Fontes encontradas na pesquisa</strong>
@@ -550,7 +557,7 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
    </div>}
   {api&&user&&<div className="lab-chat-memory" aria-label="Compartilhar memórias escolhidas somente nesta pergunta">
    <strong>Memória na conversa (opcional)</strong>
-   <p>Você pode autorizar uma única vez a consulta automática às memórias aprovadas. A preferência fica salva na sua conta, continua após reabrir o SIGMA e pode ser desligada aqui. O Gemini recebe até três notas relacionadas à pergunta; a Tavily não recebe essas notas. Nenhum registro novo é criado automaticamente.</p>
+   <p>Você pode autorizar uma única vez a consulta automática às memórias aprovadas. A preferência fica salva na sua conta, continua após reabrir o SIGMA e pode ser desligada aqui. O provedor de IA recebe até três notas relacionadas à pergunta; a Tavily não recebe essas notas. Nenhum registro novo é criado automaticamente.</p>
    <label className="lab-auto-memory-consent">
     <input type="checkbox" checked={autoMemory} disabled={busy||loadingMemory||memoryPreferenceBusy||!memoryPreferenceReady}
      onChange={event=>{void setPersistentMemory(event.target.checked);}}/>
@@ -581,14 +588,14 @@ export function JarvisChatPanel({user,googleToken,incomingText,onIncomingConsume
    <label className="lab-source-option">
     <input type="checkbox" checked={useProjects} disabled={busy}
      onChange={e=>setUseProjects(e.target.checked)}/>
-    Compartilhar apenas nomes, objetivos e estados dos meus projetos com o Gemini nesta pergunta
+    Compartilhar apenas nomes, objetivos e estados dos meus projetos com o provedor de IA nesta pergunta
    </label>
    <small>Desligado por padrão. Não envia observações, registros de clientes ou valores financeiros. Você pode desmarcar quando quiser.</small>
    <label className="lab-source-option">
     <input type="checkbox" checked={useLibrary} disabled={busy} onChange={e=>setUseLibrary(e.target.checked)}/>
     Consultar minha biblioteca de documentos (com fontes)
    </label>
-   <p>Você decide quando compartilhar resultados de Agenda, Drive ou Notion com o Gemini. Os tokens nunca entram no texto enviado ao modelo.</p>
+   <p>Você decide quando compartilhar resultados de Agenda, Drive ou Notion com o provedor de IA. Os tokens nunca entram no texto enviado ao modelo.</p>
    {(['calendar','drive','notion','tasks'] as const).map(provider=><label key={provider} className="lab-source-option">
     <input type="checkbox" checked={selectedSources.includes(provider)} disabled={busy}
      onChange={()=>toggleSource(provider)}/>

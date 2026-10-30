@@ -12,7 +12,9 @@
  * O token é o valor depois de "Bearer " no cabeçalho Authorization de qualquer
  * requisição /api/lab/* (DevTools > Network > Request Headers).
  */
-import {readFileSync} from 'node:fs';
+import {readFileSync, existsSync} from 'node:fs';
+import {join, dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 const LOCAL=/^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
 
@@ -42,12 +44,26 @@ function fail(message){
  process.exit(2);
 }
 
+/** Deduz o endereço do Worker a partir do wrangler.chat-lab.toml, quando --url é omitido. */
+function urlFromWrangler(){
+ const root=join(dirname(fileURLToPath(import.meta.url)),'..');
+ const path=join(root,'worker','wrangler.chat-lab.toml');
+ if(!existsSync(path))return '';
+ const toml=readFileSync(path,'utf8');
+ const name=/^name\s*=\s*"([^"]+)"/m.exec(toml)?.[1];
+ const account=/^\s*account_id\s*=\s*"([^"]+)"/m.exec(toml)?.[1];
+ if(!name)return '';
+ // Sem account_id no arquivo, o subdomínio workers.dev padrão é o do titular da conta.
+ return account?`https://${name}.${account}.workers.dev`:`https://${name}.felipevieiraribeiro19.workers.dev`;
+}
+
 const args=parseArgs(process.argv.slice(2));
+if(!args.url)args.url=urlFromWrangler();
 if(args.help){
  console.log(readFileSync(new URL(import.meta.url),'utf8').split('*/')[0]);
  process.exit(0);
 }
-if(!args.url)fail('informe --url com o endereço do Worker de laboratório.');
+if(!args.url)fail('informe --url com o endereço do Worker de laboratório (não encontrei worker/wrangler.chat-lab.toml).');
 
 let base;
 try{base=new URL(args.url);}catch{fail('--url inválida.');}
@@ -62,6 +78,7 @@ if(args.tokenFile&&!token)fail('arquivo de token vazio.');
 const results=[];
 const record=(name,ok,detail)=>{results.push({name,ok,detail});};
 
+class NetworkFailure extends Error{}
 async function call(path,init={}){
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),args.timeout);
@@ -73,6 +90,10 @@ async function call(path,init={}){
   let body=null;
   try{body=text?JSON.parse(text):null;}catch{body=null;}
   return {status:response.status,ms,body,headers:response.headers,raw:text};
+ }catch(error){
+  if(controller.signal.aborted)
+   throw new NetworkFailure('sem resposta em '+args.timeout+' ms');
+  throw new NetworkFailure('não foi possível conectar');
  }finally{clearTimeout(timer);}
 }
 
@@ -184,12 +205,29 @@ function report(summary){
  process.exit(failures.length?1:0);
 }
 
-await boundaryChecks();
+try{
+ await boundaryChecks();
+}catch(error){
+ if(error instanceof NetworkFailure){
+  console.error('ERRO: '+base.origin+' — '+error.message+'.');
+  console.error('Confira se o Worker está publicado e se o endereço está correto.');
+  process.exit(2);
+ }
+ throw error;
+}
 let summary=null;
 if(token){
- const calendarConnected=await oauthStatus();
- summary=await chatCheck();
- if(calendarConnected)await integrationsCheck();
+ try{
+  const calendarConnected=await oauthStatus();
+  summary=await chatCheck();
+  if(calendarConnected)await integrationsCheck();
+ }catch(error){
+  if(error instanceof NetworkFailure){
+   console.error('ERRO: conexão interrompida com '+base.origin+' — '+error.message+'.');
+   process.exit(2);
+  }
+  throw error;
+ }
 }else if(!args.json){
  console.log('Sem token: apenas as barreiras foram verificadas. Para checar provedor e cofre,');
  console.log('passe --token-file com um ID token copiado do navegador.');

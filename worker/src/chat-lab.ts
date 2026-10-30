@@ -731,6 +731,8 @@ export function makeLabChatWorker(deps:Dependencies={}){
    if(answer.length>12000)throw new HttpError(502,'Resposta grande demais.');
    return reply({text:answer,persisted:false,executed:false,provider:routedProvider,
     ...(useRouter?{toolProposalsDisabled:true}:{}),
+    // Provedor pedido sem chave cai no Gemini; a interface avisa em vez de esconder.
+    ...(modelRoute.fellBack?{modelFallback:{requested:modelRoute.requested,used:routedProvider}}:{}),
     ...(externalAction?{externalAction}:{}),
     ...(projectProposal?{projectProposal}:{}),
     ...(manualTaskProposal?{taskProposal:manualTaskProposal}:{}),
